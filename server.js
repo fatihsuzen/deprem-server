@@ -14,6 +14,10 @@ const NotificationService = require('./services/notificationService');
 const ValidationService = require('./services/validationService');
 const databaseService = require('./services/databaseService');
 
+// Models
+const User = require('./models/User');
+const FriendRequest = require('./models/FriendRequest');
+
 // Routes
 const friendsRoutes = require('./routes/friends');
 
@@ -180,6 +184,208 @@ app.get('/api/health', (req, res) => {
     connectedDevices: deviceManager.getDeviceCount(),
     uptime: process.uptime()
   });
+});
+
+// Arkadaş ekleme API'si
+app.post('/api/friends/send-request', async (req, res) => {
+  try {
+    const { fromUserId, toUserShareCode, message } = req.body;
+    
+    if (!fromUserId || !toUserShareCode) {
+      return res.status(400).json({ error: 'fromUserId ve toUserShareCode gerekli' });
+    }
+
+    // Share code ile kullanıcıyı bul
+    const toUser = await User.findOne({ shareCode: toUserShareCode });
+    if (!toUser) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    // Kendi kendine arkadaş eklemeyi engelle
+    if (fromUserId === toUser._id.toString()) {
+      return res.status(400).json({ error: 'Kendi kendinize arkadaş olamazsınız' });
+    }
+
+    // Zaten arkadaş mı kontrol et
+    const fromUser = await User.findById(fromUserId);
+    if (fromUser.friends && fromUser.friends.includes(toUser._id)) {
+      return res.status(400).json({ error: 'Zaten arkadaşsınız' });
+    }
+
+    // Zaten istek gönderilmiş mi kontrol et
+    const existingRequest = await FriendRequest.findOne({
+      fromUser: fromUserId,
+      toUser: toUser._id,
+      status: 'pending'
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({ error: 'Zaten arkadaşlık isteği gönderilmiş' });
+    }
+
+    // Yeni arkadaş isteği oluştur
+    const friendRequest = new FriendRequest({
+      fromUser: fromUserId,
+      toUser: toUser._id,
+      message: message || 'Arkadaş olmak istiyor',
+      status: 'pending',
+      createdAt: new Date()
+    });
+
+    await friendRequest.save();
+    
+    console.log(`✅ Arkadaşlık isteği gönderildi: ${fromUserId} -> ${toUser._id}`);
+    res.json({ 
+      success: true, 
+      message: 'Arkadaşlık isteği gönderildi',
+      requestId: friendRequest._id
+    });
+    
+  } catch (error) {
+    console.error('❌ Arkadaş ekleme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Arkadaş isteklerini kabul/reddet
+app.post('/api/friends/respond-request', async (req, res) => {
+  try {
+    const { requestId, response, userId } = req.body; // response: 'accept' or 'reject'
+    
+    const friendRequest = await FriendRequest.findById(requestId);
+    if (!friendRequest) {
+      return res.status(404).json({ error: 'İstek bulunamadı' });
+    }
+
+    if (friendRequest.toUser.toString() !== userId) {
+      return res.status(403).json({ error: 'Bu isteği cevaplayamazsınız' });
+    }
+
+    friendRequest.status = response === 'accept' ? 'accepted' : 'rejected';
+    friendRequest.respondedAt = new Date();
+    await friendRequest.save();
+
+    // Eğer kabul edildiyse her iki kullanıcının arkadaş listesine ekle
+    if (response === 'accept') {
+      await User.findByIdAndUpdate(friendRequest.fromUser, {
+        $addToSet: { friends: friendRequest.toUser }
+      });
+      
+      await User.findByIdAndUpdate(friendRequest.toUser, {
+        $addToSet: { friends: friendRequest.fromUser }
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      message: response === 'accept' ? 'Arkadaşlık kabul edildi' : 'Arkadaşlık reddedildi'
+    });
+    
+  } catch (error) {
+    console.error('❌ Arkadaşlık yanıtı hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Bekleyen arkadaş isteklerini getir
+app.get('/api/friends/pending-requests/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const requests = await FriendRequest.find({
+      toUser: userId,
+      status: 'pending'
+    }).populate('fromUser', 'name email shareCode').sort({ createdAt: -1 });
+    
+    res.json(requests);
+  } catch (error) {
+    console.error('❌ Bekleyen istekler hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Konum güncelleme API'si
+app.post('/api/users/update-location', async (req, res) => {
+  try {
+    const { userId, latitude, longitude, address } = req.body;
+    
+    if (!userId || !latitude || !longitude) {
+      return res.status(400).json({ error: 'userId, latitude ve longitude gerekli' });
+    }
+
+    const user = await User.findOne({ uid: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    // Konumu güncelle
+    await user.updateLocation(latitude, longitude, address || '');
+    
+    console.log(`📍 Konum güncellendi: ${user.displayName} (${latitude}, ${longitude})`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Konum güncellendi',
+      location: {
+        latitude,
+        longitude,
+        address,
+        lastUpdate: new Date()
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Konum güncelleme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Arkadaş konumlarını getir
+app.get('/api/friends/locations/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const user = await User.findOne({ uid: userId }).populate({
+      path: 'friends',
+      select: 'uid displayName photoURL location'
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    // Arkadaşların konum bilgilerini filtrele (son 24 saat içindeki)
+    const friendsWithLocations = user.friends
+      .filter(friend => {
+        if (!friend.location || !friend.location.lastUpdate) return false;
+        
+        const lastUpdate = new Date(friend.location.lastUpdate);
+        const now = new Date();
+        const diffHours = (now - lastUpdate) / (1000 * 60 * 60);
+        
+        return diffHours <= 24; // Son 24 saat içindeki konumlar
+      })
+      .map(friend => ({
+        uid: friend.uid,
+        displayName: friend.displayName,
+        photoURL: friend.photoURL,
+        location: {
+          latitude: friend.location.latitude,
+          longitude: friend.location.longitude,
+          address: friend.location.address,
+          lastUpdate: friend.location.lastUpdate
+        }
+      }));
+
+    res.json({
+      success: true,
+      friendsLocations: friendsWithLocations
+    });
+    
+  } catch (error) {
+    console.error('❌ Arkadaş konumları hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 app.get('/api/earthquakes/recent', async (req, res) => {
