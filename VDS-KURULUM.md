@@ -59,6 +59,42 @@ pm2 save
 ## Test
 http://188.132.202.24:3000/health
 
+## 🔄 Otomatik Update Scriptleri
+
+### Tam Güncelleme (Önerilen)
+```cmd
+cd C:\deprem-server
+update-server.bat
+```
+- Git pull yapar
+- NPM install çalıştırır
+- Server'ı restart eder
+- Health check yapar
+
+### Hızlı Güncelleme
+```cmd
+cd C:\deprem-server
+quick-update.bat
+```
+- Sadece git pull + restart
+
+### Status Kontrolü
+```cmd
+cd C:\deprem-server
+check-status.bat
+```
+- Git status, PM2 status, health check
+- Logları gösterir
+
+## Manuel Güncelleme (Alternatif)
+```cmd
+cd C:\deprem-server
+pm2 stop deprem-server
+git pull origin main
+npm install
+pm2 start ecosystem.config.json
+```
+
 ## VDS Bilgileri
 - IP: 188.132.202.24
 - Port: 3000
