@@ -42,6 +42,87 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Routes
 app.use('/api/friends', friendsRoutes);
 
+// User routes for location updates
+app.post('/api/users/update-location', async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const uid = req.headers['x-firebase-uid'];
+
+    if (!uid) {
+      return res.status(401).json({ error: 'Firebase UID gerekli' });
+    }
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ error: 'Latitude ve longitude gerekli' });
+    }
+
+    const User = require('./models/User');
+    const user = await User.findOne({ uid });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    await user.updateLocation(latitude, longitude);
+    
+    console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
+
+    res.json({
+      success: true,
+      location: user.location
+    });
+
+  } catch (error) {
+    console.error('❌ Location update hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Register user endpoint
+app.post('/api/register', async (req, res) => {
+  try {
+    const { firebaseUid, email, displayName, shareCode } = req.body;
+
+    if (!firebaseUid || !email || !displayName || !shareCode) {
+      return res.status(400).json({ error: 'Tüm alanlar gerekli' });
+    }
+
+    const User = require('./models/User');
+    let user = await User.findOne({ uid: firebaseUid });
+    
+    if (!user) {
+      user = new User({
+        uid: firebaseUid,
+        email,
+        displayName,
+        shareCode
+      });
+      await user.save();
+      console.log(`✅ Yeni kullanıcı oluşturuldu: ${displayName} (${shareCode})`);
+    } else {
+      user.displayName = displayName;
+      user.shareCode = shareCode;
+      user.updatedAt = new Date();
+      await user.save();
+      console.log(`✅ Kullanıcı güncellendi: ${displayName} (${shareCode})`);
+    }
+
+    res.json({
+      success: true,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        shareCode: user.shareCode
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Register hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({

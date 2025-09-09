@@ -117,7 +117,7 @@ router.put('/location', validateFirebaseUID, [
 });
 
 // Get friends list with locations
-router.get('/friends', validateFirebaseUID, async (req, res) => {
+router.get('/', validateFirebaseUID, async (req, res) => {
   try {
     const uid = req.userUID;
 
