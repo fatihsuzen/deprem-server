@@ -601,4 +601,27 @@ router.post('/add-by-code', validateFirebaseUID, [
   }
 });
 
+// Debug: Tüm friend requests'i listele (test için)
+router.get('/debug/friend-requests', async (req, res) => {
+  try {
+    const FriendRequest = require('../models/FriendRequest');
+    const allRequests = await FriendRequest.find().lean();
+    
+    console.log(`🔍 Toplam ${allRequests.length} friend request bulundu:`);
+    allRequests.forEach(req => {
+      console.log(`   From: ${req.fromUser} → To: ${req.toUser} (${req.status})`);
+    });
+    
+    res.json({
+      success: true,
+      totalRequests: allRequests.length,
+      requests: allRequests
+    });
+
+  } catch (error) {
+    console.error('❌ Debug friend requests hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 module.exports = router;
