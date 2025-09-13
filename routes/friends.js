@@ -499,4 +499,78 @@ router.post('/add-test-friend', validateFirebaseUID, async (req, res) => {
   }
 });
 
+// Add friend by share code
+router.post('/add-by-code', validateFirebaseUID, [
+  body('shareCode').trim().isLength({ min: 6, max: 6 }).isAlphanumeric()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Geçersiz share code formatı' });
+    }
+
+    const { shareCode } = req.body;
+    const currentUserUID = req.userUID;
+
+    console.log(`📤 Arkadaş ekleme isteği: Share Code = ${shareCode}, User = ${currentUserUID}`);
+
+    // Kendi share code'u ile eklemeye çalışıyor mu?
+    const currentUser = await User.findOne({ uid: currentUserUID });
+    if (!currentUser) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    if (currentUser.shareCode === shareCode) {
+      return res.status(400).json({ error: 'Kendi share code\'unuzu ekleyemezsiniz' });
+    }
+
+    // Share code'a sahip kullanıcıyı bul
+    const targetUser = await User.findOne({ shareCode });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Bu share code\'a sahip kullanıcı bulunamadı' });
+    }
+
+    // Zaten arkadaş olup olmadığını kontrol et
+    const isAlreadyFriend = currentUser.friends.some(f => f.uid === targetUser.uid);
+    if (isAlreadyFriend) {
+      return res.status(400).json({ error: 'Bu kullanıcı zaten arkadaşınız' });
+    }
+
+    // Bekleyen istek var mı kontrol et
+    const existingRequest = await FriendRequest.findOne({
+      fromUser: currentUser._id,
+      toUser: targetUser._id,
+      status: 'pending'
+    });
+
+    if (existingRequest) {
+      return res.status(400).json({ error: 'Bu kullanıcıya zaten arkadaşlık isteği gönderilmiş' });
+    }
+
+    // Arkadaşlık isteği oluştur
+    const friendRequest = new FriendRequest({
+      fromUser: currentUser._id,
+      toUser: targetUser._id,
+      message: `${currentUser.displayName} arkadaş olmak istiyor`
+    });
+
+    await friendRequest.save();
+
+    console.log(`✅ Arkadaşlık isteği oluşturuldu: ${currentUser.displayName} -> ${targetUser.displayName}`);
+
+    res.json({
+      success: true,
+      message: `${targetUser.displayName} kullanıcısına arkadaşlık isteği gönderildi`,
+      targetUser: {
+        displayName: targetUser.displayName,
+        shareCode: targetUser.shareCode
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Share code ile arkadaş ekleme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 module.exports = router;
