@@ -121,18 +121,17 @@ router.get('/', validateFirebaseUID, async (req, res) => {
   try {
     const uid = req.userUID;
 
-    const user = await User.findOne({ uid }).populate({
-      path: 'friends',
-      select: 'uid displayName email photoURL location deviceInfo.lastSeen',
-      model: 'User'
-    });
-
+    const user = await User.findOne({ uid });
     if (!user) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
+    // Friends field'i UID string'leri içeriyor, manuel olarak user'ları alalım
+    const friendUIDs = user.friends || [];
+    const friendUsers = await User.find({ uid: { $in: friendUIDs } });
+
     // Format friends data
-    const friends = user.friends.map(friend => ({
+    const friends = friendUsers.map(friend => ({
       uid: friend.uid,
       displayName: friend.displayName,
       email: friend.email,
@@ -142,6 +141,11 @@ router.get('/', validateFirebaseUID, async (req, res) => {
       isOnline: friend.deviceInfo?.lastSeen && 
                 (new Date() - friend.deviceInfo.lastSeen) < 5 * 60 * 1000 // 5 minutes
     }));
+
+    console.log(`👥 ${uid} kullanıcısının ${friends.length} arkadaşı yüklendi`);
+    friends.forEach(friend => {
+      console.log(`   👤 ${friend.displayName} (${friend.uid})`);
+    });
 
     res.json({
       success: true,
