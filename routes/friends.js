@@ -624,4 +624,24 @@ router.get('/debug/friend-requests', async (req, res) => {
   }
 });
 
+// Debug: Tüm friend requests'i temizle (test için)
+router.delete('/debug/clear-friend-requests', async (req, res) => {
+  try {
+    const FriendRequest = require('../models/FriendRequest');
+    const result = await FriendRequest.deleteMany({});
+    
+    console.log(`🗑️ ${result.deletedCount} friend request silindi`);
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} friend request temizlendi`,
+      deletedCount: result.deletedCount
+    });
+
+  } catch (error) {
+    console.error('❌ Clear friend requests hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 module.exports = router;
