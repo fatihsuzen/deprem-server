@@ -230,22 +230,50 @@ router.get('/friend-requests', validateFirebaseUID, async (req, res) => {
       FriendRequest.getSentRequests(uid)
     ]);
 
+    // Manuel olarak kullanıcı bilgilerini al
+    const pendingWithUserInfo = await Promise.all(
+      pendingRequests.map(async (request) => {
+        const fromUser = await User.findOne({ uid: request.fromUser });
+        return {
+          _id: request._id,
+          fromUser: {
+            uid: fromUser.uid,
+            displayName: fromUser.displayName,
+            email: fromUser.email,
+            photoURL: fromUser.photoURL
+          },
+          message: request.message,
+          sentAt: request.sentAt,
+          status: request.status
+        };
+      })
+    );
+
+    const sentWithUserInfo = await Promise.all(
+      sentRequests.map(async (request) => {
+        const toUser = await User.findOne({ uid: request.toUser });
+        return {
+          _id: request._id,
+          toUser: {
+            uid: toUser.uid,
+            displayName: toUser.displayName,
+            email: toUser.email,
+            photoURL: toUser.photoURL,
+            shareCode: toUser.shareCode
+          },
+          message: request.message,
+          sentAt: request.sentAt,
+          status: request.status
+        };
+      })
+    );
+
     res.json({
       success: true,
-      pendingRequests: pendingRequests.map(req => ({
-        id: req._id,
-        fromUser: req.fromUser,
-        message: req.message,
-        sentAt: req.sentAt
-      })),
-      sentRequests: sentRequests.map(req => ({
-        id: req._id,
-        toUser: req.toUser,
-        message: req.message,
-        sentAt: req.sentAt
-      })),
-      pendingCount: pendingRequests.length,
-      sentCount: sentRequests.length
+      pendingRequests: pendingWithUserInfo,
+      sentRequests: sentWithUserInfo,
+      pendingCount: pendingWithUserInfo.length,
+      sentCount: sentWithUserInfo.length
     });
 
   } catch (error) {
@@ -538,8 +566,8 @@ router.post('/add-by-code', validateFirebaseUID, [
 
     // Bekleyen istek var mı kontrol et
     const existingRequest = await FriendRequest.findOne({
-      fromUser: currentUser._id,
-      toUser: targetUser._id,
+      fromUser: currentUser.uid,
+      toUser: targetUser.uid,
       status: 'pending'
     });
 
@@ -549,8 +577,8 @@ router.post('/add-by-code', validateFirebaseUID, [
 
     // Arkadaşlık isteği oluştur
     const friendRequest = new FriendRequest({
-      fromUser: currentUser._id,
-      toUser: targetUser._id,
+      fromUser: currentUser.uid,
+      toUser: targetUser.uid,
       message: `${currentUser.displayName} arkadaş olmak istiyor`
     });
 

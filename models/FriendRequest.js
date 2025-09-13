@@ -55,7 +55,7 @@ friendRequestSchema.statics.getPendingRequests = function(userId) {
     toUser: userId, 
     status: 'pending' 
   })
-  .populate('fromUser', 'displayName email photoURL')
+  .lean() // ObjectId populate yapmak yerine lean() kullan
   .sort({ sentAt: -1 });
 };
 
@@ -64,7 +64,7 @@ friendRequestSchema.statics.getSentRequests = function(userId) {
     fromUser: userId, 
     status: 'pending' 
   })
-  .populate('toUser', 'displayName email photoURL shareCode')
+  .lean() // ObjectId populate yapmak yerine lean() kullan
   .sort({ sentAt: -1 });
 };
 
