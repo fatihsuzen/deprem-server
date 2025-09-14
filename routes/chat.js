@@ -1,4 +1,19 @@
-const express =  req.userUID = uid;
+const express = require('express');
+const { body, validationResult } = require('express-validator');
+
+const router = express.Router();
+
+// User activity tracking - timeout için
+const USER_ACTIVITY = new Map(); // uid -> lastActivity timestamp
+
+// Basit middleware - Firebase gerekmez
+const validateUser = (req, res, next) => {
+  // HTTP headers lowercase olur - düzgün şekilde oku
+  // Flutter'dan x-firebase-uid geliyor, onu kullan
+  const uid = req.headers['user-id'] || req.headers['x-firebase-uid'] || req.body.userId || req.query.userId || 'anonymous-' + Date.now();
+  const displayName = req.headers['display-name'] || req.body.displayName || req.query.displayName || 'Anonim Kullanıcı';
+  
+  req.userUID = uid;
   req.displayName = displayName;
   
   // User activity'yi güncelle
@@ -9,16 +24,8 @@ const express =  req.userUID = uid;
   console.log(`📦 Body: userId=${req.body.userId}, displayName=${req.body.displayName}`);
   console.log(`🔥 Firebase UID: ${req.headers['x-firebase-uid']}`);
   
-  next();'express');
-const { body, validationResult } = require('express-validator');
-
-const router = express.Router();
-
-// User activity tracking - timeout için
-const USER_ACTIVITY = new Map(); // uid -> lastActivity timestamp
-
-// Basit middleware - Firebase gerekmez
-const validateUser = (req, res, next) => {
+  next();
+};
   // HTTP headers lowercase olur - düzgün şekilde oku
   // Flutter'dan x-firebase-uid geliyor, onu kullan
   const uid = req.headers['user-id'] || req.headers['x-firebase-uid'] || req.body.userId || req.query.userId || 'anonymous-' + Date.now();
