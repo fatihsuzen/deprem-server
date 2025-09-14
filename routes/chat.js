@@ -1,4 +1,15 @@
-const express = require('express');
+const express =  req.userUID = uid;
+  req.displayName = displayName;
+  
+  // User activity'yi güncelle
+  USER_ACTIVITY.set(uid, Date.now());
+  
+  console.log(`👤 User: ${displayName} (${uid})`);
+  console.log(`📋 Headers: user-id=${req.headers['user-id']}, display-name=${req.headers['display-name']}`);
+  console.log(`📦 Body: userId=${req.body.userId}, displayName=${req.body.displayName}`);
+  console.log(`🔥 Firebase UID: ${req.headers['x-firebase-uid']}`);
+  
+  next();'express');
 const { body, validationResult } = require('express-validator');
 
 const router = express.Router();

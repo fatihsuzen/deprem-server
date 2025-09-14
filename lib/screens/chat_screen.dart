@@ -29,8 +29,8 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _initializeChat();
 
-    // Her 5 saniyede bir mesajları yenile
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // Her 2 saniyede bir mesajları yenile (real-time hissi)
+    _refreshTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _refreshMessages();
     });
   }
@@ -72,7 +72,7 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          0,  // reverse ListView'de en son mesaj 0 position'da
+          0, // reverse ListView'de en son mesaj 0 position'da
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -92,19 +92,19 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       // Önceki mesaj sayısını kaydet
       final oldMessageCount = _chatService.messages.length;
-      
+
       await _chatService.fetchMessages(widget.roomId);
-      
+
       if (mounted) {
         final newMessageCount = _chatService.messages.length;
         setState(() {});
-        
+
         // Yeni mesaj varsa scroll'u en alta kaydır
         if (newMessageCount > oldMessageCount) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_scrollController.hasClients) {
               _scrollController.animateTo(
-                0,  // reverse ListView'de en son mesaj 0 position'da
+                0, // reverse ListView'de en son mesaj 0 position'da
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut,
               );
@@ -121,26 +121,34 @@ class _ChatScreenState extends State<ChatScreen> {
     final message = _messageController.text.trim();
     if (message.isEmpty) return;
 
+    print('📤 MESAJ GÖNDERİLİYOR: $message');
+
     // UI'da mesajı hemen göster (optimistic update)
     _messageController.clear();
 
     try {
       final success = await _chatService.sendMessage(widget.roomId, message);
+      print('📡 MESAJ GÖNDERİM SONUCU: $success');
 
       if (success) {
         setState(() {});
+        print('🎯 STATE UPDATED - SCROLL BAŞLIYOR');
 
         // Scroll'u en alta kaydır (reverse=true olduğu için 0 position)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
+            print('📜 SCROLL YAPILIYOR - position: 0');
             _scrollController.animateTo(
-              0,  // reverse ListView'de en son mesaj 0 position'da
+              0, // reverse ListView'de en son mesaj 0 position'da
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
             );
+          } else {
+            print('❌ SCROLL CONTROLLER HAS NO CLIENTS');
           }
         });
       } else {
+        print('❌ MESAJ GÖNDERİLEMEDİ - UI\'a geri koyuluyor');
         // Hata durumunda mesajı geri koy
         _messageController.text = message;
         if (mounted) {
@@ -238,7 +246,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessagesList() {
-    final messages = _chatService.messages;
+    final messages =
+        _chatService.messages.reversed.toList(); // Mesajları ters çevir
 
     if (messages.isEmpty) {
       return Center(
@@ -275,7 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return ListView.builder(
       controller: _scrollController,
-      reverse: true,  // En son mesaj en altta görünsün
+      reverse: true, // En son mesaj en altta görünsün
       padding: const EdgeInsets.all(16),
       itemCount: messages.length,
       itemBuilder: (context, index) {
@@ -295,40 +304,21 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2), // Mesajlar arası boşluk azaltıldı
       child: Row(
         mainAxisAlignment:
             isMyMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (!isMyMessage) ...[
-            CircleAvatar(
-              radius: 16,
-              backgroundColor:
-                  Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              child: Text(
-                (message['displayName'] as String?)
-                        ?.substring(0, 1)
-                        .toUpperCase() ??
-                    '?',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültülmüş padding
               decoration: BoxDecoration(
                 color: isMyMessage
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(20).copyWith(
-                  bottomLeft: Radius.circular(isMyMessage ? 20 : 4),
+                borderRadius: BorderRadius.circular(16).copyWith( // Küçültülmüş radius
+                  bottomLeft: Radius.circular(isMyMessage ? 16 : 4),
                   bottomRight: Radius.circular(isMyMessage ? 4 : 20),
                 ),
               ),
@@ -337,16 +327,16 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   if (!isMyMessage)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.only(bottom: 2), // Küçültülmüş padding
                       child: Text(
                         message['displayName'] ?? 'Anonim',
                         style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 10, // Küçültülmüş font
+                          fontWeight: FontWeight.w500, // Daha az kalın
                           color: Theme.of(context)
                               .colorScheme
                               .onSurfaceVariant
-                              .withOpacity(0.7),
+                              .withOpacity(0.6), // Daha soluk
                         ),
                       ),
                     ),
@@ -382,25 +372,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          if (isMyMessage) ...[
-            const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 16,
-              backgroundColor:
-                  Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              child: Text(
-                (message['displayName'] as String?)
-                        ?.substring(0, 1)
-                        .toUpperCase() ??
-                    '?',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
