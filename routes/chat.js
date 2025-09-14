@@ -3,6 +3,9 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
+// User activity tracking - timeout için
+const USER_ACTIVITY = new Map(); // uid -> lastActivity timestamp
+
 // Basit middleware - Firebase gerekmez
 const validateUser = (req, res, next) => {
   // HTTP headers lowercase olur - düzgün şekilde oku
@@ -12,6 +15,9 @@ const validateUser = (req, res, next) => {
   
   req.userUID = uid;
   req.displayName = displayName;
+  
+  // User activity'yi güncelle
+  USER_ACTIVITY.set(uid, Date.now());
   
   console.log(`👤 User: ${displayName} (${uid})`);
   console.log(`📋 Headers: user-id=${req.headers['user-id']}, display-name=${req.headers['display-name']}`);
@@ -472,17 +478,42 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// Cleanup inactive users (call periodically)
+// Timeout-based user cleanup - inactive kullanıcıları otomatik kaldır
 setInterval(() => {
-  console.log('🧹 Inactive user cleanup başlatıldı...');
+  const now = Date.now();
+  const TIMEOUT = 5 * 60 * 1000; // 5 dakika timeout
+  let cleanedUsers = 0;
+
+  console.log('🧹 Timeout-based user cleanup başlatıldı...');
   
-  // Bu gerçek uygulamada daha sofistike olmalı (heartbeat vs.)
-  // Şimdilik basit cleanup
+  // Tüm odalarda timeout olan kullanıcıları temizle
+  Object.values(CHAT_ROOMS).forEach(room => {
+    const usersToRemove = [];
+    
+    room.activeUsers.forEach(uid => {
+      const lastActivity = USER_ACTIVITY.get(uid);
+      if (!lastActivity || (now - lastActivity) > TIMEOUT) {
+        usersToRemove.push(uid);
+        cleanedUsers++;
+      }
+    });
+
+    // Timeout olan kullanıcıları kaldır
+    usersToRemove.forEach(uid => {
+      room.activeUsers.delete(uid);
+      USER_ACTIVITY.delete(uid);
+      console.log(`⏰ ${uid} timeout nedeniyle ${room.name} odasından kaldırıldı`);
+    });
+  });
+
+  console.log(`🧹 Cleanup tamamlandı: ${cleanedUsers} kullanıcı kaldırıldı`);
+  
+  // Güncel durumu göster
   Object.values(CHAT_ROOMS).forEach(room => {
     if (room.activeUsers.size > 0) {
       console.log(`   ${room.name}: ${room.activeUsers.size} aktif kullanıcı`);
     }
   });
-}, 5 * 60 * 1000); // Her 5 dakikada bir
+}, 2 * 60 * 1000); // Her 2 dakikada bir cleanup
 
 module.exports = router;
