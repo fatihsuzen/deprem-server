@@ -11,7 +11,11 @@ const validateUser = (req, res, next) => {
   
   req.userUID = uid;
   req.displayName = displayName;
+  
   console.log(`👤 User: ${displayName} (${uid})`);
+  console.log(`📋 Headers: user-id=${req.headers['user-id']}, display-name=${req.headers['display-name']}`);
+  console.log(`📦 Body: userId=${req.body.userId}, displayName=${req.body.displayName}`);
+  
   next();
 };
 

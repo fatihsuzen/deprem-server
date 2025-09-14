@@ -4,56 +4,67 @@ import 'auth_service.dart';
 
 class ChatService {
   static final ChatService _instance = ChatService._internal();
-  factory ChatService() => _instance;
+  
   ChatService._internal();
+  
+  factory ChatService() => _instance;
 
   final AuthService _authService = AuthService();
+
+  // Server URL
   static const String baseUrl = 'http://188.132.202.24:3000/api/chat';
 
+  // Chat state
   List<Map<String, dynamic>> _chatRooms = [];
   List<Map<String, dynamic>> _messages = [];
   String? _currentRoomId;
 
+  // Getters
   List<Map<String, dynamic>> get chatRooms => _chatRooms;
   List<Map<String, dynamic>> get messages => _messages;
   String? get currentRoomId => _currentRoomId;
 
-  // Get all chat rooms with active user counts - Firebase gerekmez
+  // Get user data for consistent session
+  Future<Map<String, String>> _getUserHeaders() async {
+    await _authService.loadUserData();
+    final userId = _authService.currentUserId ?? 'anonymous-${DateTime.now().millisecondsSinceEpoch}';
+    final displayName = _authService.currentUserName ?? 'Kullanıcı';
+    
+    return {
+      'Content-Type': 'application/json',
+      'user-id': userId,
+      'display-name': displayName,
+    };
+  }
+
+  // Fetch all chat rooms
   Future<void> fetchChatRooms() async {
-    print('🏠 Chat odaları yükleniyor...');
+    print('🏠 Chat rooms yükleniyor...');
 
     try {
-      // Basit kullanıcı bilgileri
-      final userId = 'user-${DateTime.now().millisecondsSinceEpoch}';
-      final displayName = 'Kullanıcı';
+      final headers = await _getUserHeaders();
 
       final response = await http.get(
         Uri.parse('$baseUrl/rooms'),
-        headers: {
-          'Content-Type': 'application/json',
-          'user-id': userId,
-          'display-name': displayName,
-        },
+        headers: headers,
       );
 
       print('📡 Chat rooms API Response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        print('📄 Response Body: ${response.body}');
 
         if (data['success']) {
           _chatRooms = List<Map<String, dynamic>>.from(data['rooms'] ?? []);
-          print('✅ ${_chatRooms.length} chat odası yüklendi');
+          print('✅ ${_chatRooms.length} oda yüklendi');
 
+          // Print loaded rooms
           _chatRooms.forEach((room) {
-            print(
-                '   🏠 ${room['flag']} ${room['name']} (${room['activeUserCount']} aktif)');
+            print('   🏠 ${room['flag']} ${room['name']} (${room['activeUserCount']} aktif)');
           });
         }
       } else {
-        print(
-            '❌ Chat rooms API hatası: ${response.statusCode} - ${response.body}');
+        print('❌ Chat rooms API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Chat rooms yükleme hatası: $e');
@@ -65,25 +76,15 @@ class ChatService {
     print('🚪 $roomId odasına katılınıyor...');
 
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-      final displayName = _authService.currentUserName;
-      // final photoURL = _authService.currentUserPhotoURL; // Bu property yok şimdilik null gönderelim
-
-      if (userId == null || displayName == null) {
-        print('❌ Kullanıcı bilgileri eksik');
-        return false;
-      }
+      final headers = await _getUserHeaders();
+      final displayName = headers['display-name'] ?? 'Kullanıcı';
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/join'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        headers: headers,
         body: json.encode({
           'displayName': displayName,
-          'photoURL': null, // Şimdilik null
+          'photoURL': null,
         }),
       );
 
@@ -95,8 +96,7 @@ class ChatService {
         _currentRoomId = roomId;
         return true;
       } else {
-        print(
-            '❌ Odaya katılma hatası: ${response.statusCode} - ${response.body}');
+        print('❌ Odaya katılma hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -110,20 +110,11 @@ class ChatService {
     print('👋 $roomId odasından ayrılınıyor...');
 
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-
-      if (userId == null) {
-        print('❌ Kullanıcı girişi yapılmamış');
-        return false;
-      }
+      final headers = await _getUserHeaders();
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/leave'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        headers: headers,
       );
 
       print('📡 Leave room API Response: ${response.statusCode}');
@@ -136,8 +127,7 @@ class ChatService {
         }
         return true;
       } else {
-        print(
-            '❌ Odadan ayrılma hatası: ${response.statusCode} - ${response.body}');
+        print('❌ Odadan ayrılma hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -147,26 +137,15 @@ class ChatService {
   }
 
   // Get messages from a chat room
-  Future<void> fetchMessages(String roomId,
-      {int limit = 50, int offset = 0}) async {
+  Future<void> fetchMessages(String roomId, {int limit = 50, int offset = 0}) async {
     print('💬 $roomId odası mesajları yükleniyor...');
 
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-
-      if (userId == null) {
-        print('❌ Kullanıcı girişi yapılmamış');
-        return;
-      }
+      final headers = await _getUserHeaders();
 
       final response = await http.get(
-        Uri.parse(
-            '$baseUrl/rooms/$roomId/messages?limit=$limit&offset=$offset'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        Uri.parse('$baseUrl/rooms/$roomId/messages?limit=$limit&offset=$offset'),
+        headers: headers,
       );
 
       print('📡 Messages API Response: ${response.statusCode}');
@@ -179,8 +158,7 @@ class ChatService {
           print('✅ ${_messages.length} mesaj yüklendi');
         }
       } else {
-        print(
-            '❌ Messages API hatası: ${response.statusCode} - ${response.body}');
+        print('❌ Messages API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Messages yükleme hatası: $e');
@@ -192,21 +170,12 @@ class ChatService {
     print('📤 Mesaj gönderiliyor: $message');
 
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-      final displayName = _authService.currentUserName;
-
-      if (userId == null || displayName == null) {
-        print('❌ Kullanıcı bilgileri eksik');
-        return false;
-      }
+      final headers = await _getUserHeaders();
+      final displayName = headers['display-name'] ?? 'Kullanıcı';
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/messages'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        headers: headers,
         body: json.encode({
           'message': message,
           'displayName': displayName,
@@ -215,19 +184,15 @@ class ChatService {
 
       print('📡 Send message API Response: ${response.statusCode}');
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         final data = json.decode(response.body);
         print('✅ Mesaj gönderildi: ${data['message']}');
 
-        // Mesaj listesini güncelle
-        if (data['messageObj'] != null) {
-          _messages.add(data['messageObj']);
-        }
-
+        // Refresh messages after sending
+        await fetchMessages(roomId);
         return true;
       } else {
-        print(
-            '❌ Mesaj gönderme hatası: ${response.statusCode} - ${response.body}');
+        print('❌ Mesaj gönderme hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -236,91 +201,74 @@ class ChatService {
     }
   }
 
-  // Get active users in a room
-  Future<List<Map<String, dynamic>>> getRoomUsers(String roomId) async {
+  // Get room users (for debugging)
+  Future<void> fetchRoomUsers(String roomId) async {
     print('👥 $roomId odası kullanıcıları yükleniyor...');
-
+    
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-
-      if (userId == null) {
-        print('❌ Kullanıcı girişi yapılmamış');
-        return [];
-      }
-
+      final headers = await _getUserHeaders();
+      
       final response = await http.get(
         Uri.parse('$baseUrl/rooms/$roomId/users'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        headers: headers,
       );
-
+      
       print('📡 Room users API Response: ${response.statusCode}');
-
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-
         if (data['success']) {
-          final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+          final users = data['users'] ?? [];
           print('✅ ${users.length} aktif kullanıcı yüklendi');
-          return users;
         }
-      } else {
-        print(
-            '❌ Room users API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Room users yükleme hatası: $e');
     }
-
-    return [];
   }
 
-  // Get global chat statistics
-  Future<Map<String, dynamic>?> getChatStats() async {
-    print('📊 Chat istatistikleri yükleniyor...');
-
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/stats'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      );
-
-      print('📡 Stats API Response: ${response.statusCode}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-
-        if (data['success']) {
-          print('✅ Chat istatistikleri yüklendi');
-          return data['stats'];
-        }
-      } else {
-        print('❌ Stats API hatası: ${response.statusCode} - ${response.body}');
-      }
-    } catch (e) {
-      print('❌ Stats yükleme hatası: $e');
-    }
-
-    return null;
-  }
-
-  // Clear messages (for UI refresh)
-  void clearMessages() {
-    _messages.clear();
-    _currentRoomId = null;
-  }
-
-  // Get room by ID
+  // Get room by ID (needed by ChatScreen)
   Map<String, dynamic>? getRoomById(String roomId) {
     try {
       return _chatRooms.firstWhere((room) => room['id'] == roomId);
     } catch (e) {
+      print('⚠️ Room bulunamadı: $roomId');
       return null;
     }
+  }
+
+  // Get room users (needed by ChatScreen)
+  Future<List<Map<String, dynamic>>> getRoomUsers(String roomId) async {
+    print('👥 $roomId odası kullanıcıları alınıyor...');
+    
+    try {
+      final headers = await _getUserHeaders();
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/rooms/$roomId/users'),
+        headers: headers,
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success']) {
+          final users = List<Map<String, dynamic>>.from(data['users'] ?? []);
+          print('✅ ${users.length} kullanıcı alındı');
+          return users;
+        }
+      }
+      
+      print('❌ Room users API hatası: ${response.statusCode}');
+      return [];
+    } catch (e) {
+      print('❌ Room users hatası: $e');
+      return [];
+    }
+  }
+
+  // Clean up when leaving chat
+  void dispose() {
+    _messages.clear();
+    _currentRoomId = null;
   }
 }
