@@ -90,9 +90,27 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _refreshMessages() async {
     try {
+      // Önceki mesaj sayısını kaydet
+      final oldMessageCount = _chatService.messages.length;
+      
       await _chatService.fetchMessages(widget.roomId);
+      
       if (mounted) {
+        final newMessageCount = _chatService.messages.length;
         setState(() {});
+        
+        // Yeni mesaj varsa scroll'u en alta kaydır
+        if (newMessageCount > oldMessageCount) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.animateTo(
+                0,  // reverse ListView'de en son mesaj 0 position'da
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
       }
     } catch (e) {
       print('Mesaj yenileme hatası: $e');
