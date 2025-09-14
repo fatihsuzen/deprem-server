@@ -516,4 +516,5 @@ setInterval(() => {
   });
 }, 2 * 60 * 1000); // Her 2 dakikada bir cleanup
 
+}
 module.exports = router;
