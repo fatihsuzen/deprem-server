@@ -219,7 +219,13 @@ router.get('/rooms', validateUser, async (req, res) => {
 // Join a chat room
 router.post('/rooms/:roomId/join', validateUser, [
   body('displayName').trim().isLength({ min: 1, max: 50 }),
-  body('photoURL').optional().isURL()
+  body('photoURL').optional({ nullable: true }).custom((value) => {
+    // Eğer değer varsa ve boş string değilse URL kontrolü yap
+    if (value && value.trim() !== '') {
+      return /^https?:\/\/.+/.test(value);
+    }
+    return true;
+  })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
