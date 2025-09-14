@@ -322,10 +322,9 @@ router.get('/rooms/:roomId/messages', validateUser, async (req, res) => {
       return res.status(404).json({ error: 'Chat room bulunamadı' });
     }
 
-    // Son 50 mesajı al (pagination için)
+    // Son mesajları al - reverse yapma, Flutter tarafında hallederiz
     const messages = room.messages
-      .slice(-limit - offset, room.messages.length - offset)
-      .reverse();
+      .slice(-limit - offset, room.messages.length - offset);
 
     res.json({
       success: true,

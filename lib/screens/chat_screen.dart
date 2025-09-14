@@ -68,11 +68,11 @@ class _ChatScreenState extends State<ChatScreen> {
       _loadActiveUsers(),
     ]);
 
-    // Scroll'u en alta kaydır
+    // Scroll'u en alta kaydır (reverse=true olduğu için 0 position)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          0,  // reverse ListView'de en son mesaj 0 position'da
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOut,
         );
@@ -112,11 +112,11 @@ class _ChatScreenState extends State<ChatScreen> {
       if (success) {
         setState(() {});
 
-        // Scroll'u en alta kaydır
+        // Scroll'u en alta kaydır (reverse=true olduğu için 0 position)
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
             _scrollController.animateTo(
-              _scrollController.position.maxScrollExtent,
+              0,  // reverse ListView'de en son mesaj 0 position'da
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOut,
             );
@@ -257,6 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return ListView.builder(
       controller: _scrollController,
+      reverse: true,  // En son mesaj en altta görünsün
       padding: const EdgeInsets.all(16),
       itemCount: messages.length,
       itemBuilder: (context, index) {
