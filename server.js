@@ -20,6 +20,7 @@ const FriendRequest = require('./models/FriendRequest');
 
 // Routes
 const friendsRoutes = require('./routes/friends');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +42,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Routes
 app.use('/api/friends', friendsRoutes);
+app.use('/api/chat', chatRoutes);
 
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
