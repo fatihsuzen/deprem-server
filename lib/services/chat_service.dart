@@ -30,9 +30,9 @@ class ChatService {
     final userId = _authService.currentUserId ??
         'anonymous-${DateTime.now().millisecondsSinceEpoch}';
     final displayName = (_authService.currentUserName ?? 'Kullanıcı')
-        .replaceAll(' ', '_')  // HTTP header'larda boşluk olamaz
-        .replaceAll('ş', 's')  // Türkçe karakter sorunları için
-        .replaceAll('ü', 'u')  
+        .replaceAll(' ', '_') // HTTP header'larda boşluk olamaz
+        .replaceAll('ş', 's') // Türkçe karakter sorunları için
+        .replaceAll('ü', 'u')
         .replaceAll('ç', 'c')
         .replaceAll('ğ', 'g')
         .replaceAll('ı', 'i')
