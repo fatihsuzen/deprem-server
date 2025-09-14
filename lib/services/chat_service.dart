@@ -18,24 +18,21 @@ class ChatService {
   List<Map<String, dynamic>> get messages => _messages;
   String? get currentRoomId => _currentRoomId;
 
-  // Get all chat rooms with active user counts
+  // Get all chat rooms with active user counts - Firebase gerekmez
   Future<void> fetchChatRooms() async {
     print('🏠 Chat odaları yükleniyor...');
 
     try {
-      await _authService.loadUserData();
-      final userId = _authService.currentUserId;
-
-      if (userId == null) {
-        print('❌ Kullanıcı girişi yapılmamış');
-        return;
-      }
+      // Basit kullanıcı bilgileri
+      final userId = 'user-${DateTime.now().millisecondsSinceEpoch}';
+      final displayName = 'Kullanıcı';
 
       final response = await http.get(
         Uri.parse('$baseUrl/rooms'),
         headers: {
           'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
+          'user-id': userId,
+          'display-name': displayName,
         },
       );
 

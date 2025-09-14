@@ -3,13 +3,15 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// Middleware to validate Firebase UID in header
-const validateFirebaseUID = (req, res, next) => {
-  const uid = req.headers['x-firebase-uid'];
-  if (!uid) {
-    return res.status(401).json({ error: 'Firebase UID gerekli' });
-  }
+// Basit middleware - Firebase gerekmez
+const validateUser = (req, res, next) => {
+  // Body'den veya query'den kullanıcı bilgisi al
+  const uid = req.headers['user-id'] || req.body.userId || req.query.userId || 'anonymous-' + Date.now();
+  const displayName = req.headers['display-name'] || req.body.displayName || req.query.displayName || 'Anonim Kullanıcı';
+  
   req.userUID = uid;
+  req.displayName = displayName;
+  console.log(`👤 User: ${displayName} (${uid})`);
   next();
 };
 
@@ -188,8 +190,8 @@ const CHAT_ROOMS = {
 // Kullanıcı bilgileri cache (gerçek production'da Redis kullanılabilir)
 const userCache = new Map();
 
-// Get all chat rooms with active user counts
-router.get('/rooms', validateFirebaseUID, async (req, res) => {
+// Get all chat rooms with active user counts - Firebase gerekmez
+router.get('/rooms', validateUser, async (req, res) => {
   try {
     const roomsData = Object.values(CHAT_ROOMS).map(room => ({
       id: room.id,
@@ -215,7 +217,7 @@ router.get('/rooms', validateFirebaseUID, async (req, res) => {
 });
 
 // Join a chat room
-router.post('/rooms/:roomId/join', validateFirebaseUID, [
+router.post('/rooms/:roomId/join', validateUser, [
   body('displayName').trim().isLength({ min: 1, max: 50 }),
   body('photoURL').optional().isURL()
 ], async (req, res) => {
@@ -266,7 +268,7 @@ router.post('/rooms/:roomId/join', validateFirebaseUID, [
 });
 
 // Leave a chat room
-router.post('/rooms/:roomId/leave', validateFirebaseUID, async (req, res) => {
+router.post('/rooms/:roomId/leave', validateUser, async (req, res) => {
   try {
     const { roomId } = req.params;
     const uid = req.userUID;
@@ -297,7 +299,7 @@ router.post('/rooms/:roomId/leave', validateFirebaseUID, async (req, res) => {
 });
 
 // Get messages from a chat room
-router.get('/rooms/:roomId/messages', validateFirebaseUID, async (req, res) => {
+router.get('/rooms/:roomId/messages', validateUser, async (req, res) => {
   try {
     const { roomId } = req.params;
     const limit = parseInt(req.query.limit) || 50;
@@ -332,7 +334,7 @@ router.get('/rooms/:roomId/messages', validateFirebaseUID, async (req, res) => {
 });
 
 // Send a message to a chat room
-router.post('/rooms/:roomId/messages', validateFirebaseUID, [
+router.post('/rooms/:roomId/messages', validateUser, [
   body('message').trim().isLength({ min: 1, max: 500 }),
   body('displayName').trim().isLength({ min: 1, max: 50 })
 ], async (req, res) => {
@@ -389,7 +391,7 @@ router.post('/rooms/:roomId/messages', validateFirebaseUID, [
 });
 
 // Get active users in a room
-router.get('/rooms/:roomId/users', validateFirebaseUID, async (req, res) => {
+router.get('/rooms/:roomId/users', validateUser, async (req, res) => {
   try {
     const { roomId } = req.params;
 
