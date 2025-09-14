@@ -25,25 +25,7 @@ const validateUser = (req, res, next) => {
   console.log(`🔥 Firebase UID: ${req.headers['x-firebase-uid']}`);
   
   next();
-};
-  // HTTP headers lowercase olur - düzgün şekilde oku
-  // Flutter'dan x-firebase-uid geliyor, onu kullan
-  const uid = req.headers['user-id'] || req.headers['x-firebase-uid'] || req.body.userId || req.query.userId || 'anonymous-' + Date.now();
-  const displayName = req.headers['display-name'] || req.body.displayName || req.query.displayName || 'Anonim Kullanıcı';
-  
-  req.userUID = uid;
-  req.displayName = displayName;
-  
-  // User activity'yi güncelle
-  USER_ACTIVITY.set(uid, Date.now());
-  
-  console.log(`👤 User: ${displayName} (${uid})`);
-  console.log(`📋 Headers: user-id=${req.headers['user-id']}, display-name=${req.headers['display-name']}`);
-  console.log(`📦 Body: userId=${req.body.userId}, displayName=${req.body.displayName}`);
-  console.log(`� Firebase UID: ${req.headers['x-firebase-uid']}`);
-  
-  next();
-};
+
 
 // Chat room'ları - Global + ülke odaları
 const CHAT_ROOMS = {
