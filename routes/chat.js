@@ -5,7 +5,7 @@ const router = express.Router();
 
 // Basit middleware - Firebase gerekmez
 const validateUser = (req, res, next) => {
-  // Body'den veya query'den kullanıcı bilgisi al
+  // HTTP headers lowercase olur - düzgün şekilde oku
   const uid = req.headers['user-id'] || req.body.userId || req.query.userId || 'anonymous-' + Date.now();
   const displayName = req.headers['display-name'] || req.body.displayName || req.query.displayName || 'Anonim Kullanıcı';
   
@@ -15,6 +15,7 @@ const validateUser = (req, res, next) => {
   console.log(`👤 User: ${displayName} (${uid})`);
   console.log(`📋 Headers: user-id=${req.headers['user-id']}, display-name=${req.headers['display-name']}`);
   console.log(`📦 Body: userId=${req.body.userId}, displayName=${req.body.displayName}`);
+  console.log(`🔍 All headers:`, JSON.stringify(req.headers, null, 2));
   
   next();
 };
