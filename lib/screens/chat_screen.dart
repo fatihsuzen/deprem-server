@@ -17,7 +17,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final AuthService _authService = AuthService();
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  
+
   Timer? _refreshTimer;
   bool _isLoading = true;
   Map<String, dynamic>? _roomInfo;
@@ -28,7 +28,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _initializeChat();
-    
+
     // Her 5 saniyede bir mesajları yenile
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _refreshMessages();
@@ -52,10 +52,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
       // Room bilgilerini al
       _roomInfo = _chatService.getRoomById(widget.roomId);
-      
+
       // Mesajları ve aktif kullanıcıları yükle
       await _loadChatData();
-
     } catch (e) {
       print('Chat ekran başlatma hatası: $e');
     }
@@ -106,13 +105,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // UI'da mesajı hemen göster (optimistic update)
     _messageController.clear();
-    
+
     try {
       final success = await _chatService.sendMessage(widget.roomId, message);
-      
+
       if (success) {
         setState(() {});
-        
+
         // Scroll'u en alta kaydır
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_scrollController.hasClients) {
@@ -144,7 +143,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDarkTheme ? Theme.of(context).colorScheme.primary : Colors.deepPurple[600];
+    final primaryColor = isDarkTheme
+        ? Theme.of(context).colorScheme.primary
+        : Colors.deepPurple[600];
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
@@ -172,7 +173,10 @@ class _ChatScreenState extends State<ChatScreen> {
                     '${_activeUsers.length} aktif kullanıcı',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.8),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onPrimary
+                          .withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -207,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 Expanded(
                   child: _buildMessagesList(),
                 ),
-                
+
                 // Message input
                 _buildMessageInput(),
               ],
@@ -233,7 +237,8 @@ class _ChatScreenState extends State<ChatScreen> {
               'Henüz mesaj yok',
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
+                color:
+                    Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
               ),
             ),
             const SizedBox(height: 8),
@@ -241,7 +246,8 @@ class _ChatScreenState extends State<ChatScreen> {
               'İlk mesajı siz gönderin! 👋',
               style: TextStyle(
                 fontSize: 14,
-                color: Theme.of(context).colorScheme.onBackground.withOpacity(0.4),
+                color:
+                    Theme.of(context).colorScheme.onBackground.withOpacity(0.4),
               ),
             ),
           ],
@@ -264,7 +270,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageBubble(Map<String, dynamic> message, bool isMyMessage) {
     final timestamp = message['timestamp'] as String?;
     DateTime? messageTime;
-    
+
     if (timestamp != null) {
       messageTime = DateTime.tryParse(timestamp);
     }
@@ -272,15 +278,20 @@ class _ChatScreenState extends State<ChatScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: isMyMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMyMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isMyMessage) ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              backgroundColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.2),
               child: Text(
-                (message['displayName'] as String?)?.substring(0, 1).toUpperCase() ?? '?',
+                (message['displayName'] as String?)
+                        ?.substring(0, 1)
+                        .toUpperCase() ??
+                    '?',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -290,7 +301,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(width: 8),
           ],
-          
           Flexible(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -314,7 +324,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -335,8 +348,14 @@ class _ChatScreenState extends State<ChatScreen> {
                         style: TextStyle(
                           fontSize: 10,
                           color: isMyMessage
-                              ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
-                              : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .onPrimary
+                                  .withOpacity(0.7)
+                              : Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withOpacity(0.7),
                         ),
                       ),
                     ),
@@ -344,14 +363,17 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          
           if (isMyMessage) ...[
             const SizedBox(width: 8),
             CircleAvatar(
               radius: 16,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+              backgroundColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.2),
               child: Text(
-                (message['displayName'] as String?)?.substring(0, 1).toUpperCase() ?? '?',
+                (message['displayName'] as String?)
+                        ?.substring(0, 1)
+                        .toUpperCase() ??
+                    '?',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
@@ -385,7 +407,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 decoration: InputDecoration(
                   hintText: 'Mesajınızı yazın...',
                   hintStyle: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.5),
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(25),
@@ -455,7 +480,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 Text(
                   'Henüz aktif kullanıcı yok',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withOpacity(0.6),
                   ),
                 )
               else
@@ -463,9 +491,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   final user = _activeUsers[index];
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.2),
                       child: Text(
-                        (user['displayName'] as String?)?.substring(0, 1).toUpperCase() ?? '?',
+                        (user['displayName'] as String?)
+                                ?.substring(0, 1)
+                                .toUpperCase() ??
+                            '?',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.primary,
@@ -482,7 +516,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       user['uid'] == _currentUserId ? 'Siz' : 'Aktif',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
                       ),
                     ),
                   );

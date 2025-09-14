@@ -50,11 +50,13 @@ class ChatService {
           print('✅ ${_chatRooms.length} chat odası yüklendi');
 
           _chatRooms.forEach((room) {
-            print('   🏠 ${room['flag']} ${room['name']} (${room['activeUserCount']} aktif)');
+            print(
+                '   🏠 ${room['flag']} ${room['name']} (${room['activeUserCount']} aktif)');
           });
         }
       } else {
-        print('❌ Chat rooms API hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Chat rooms API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Chat rooms yükleme hatası: $e');
@@ -96,7 +98,8 @@ class ChatService {
         _currentRoomId = roomId;
         return true;
       } else {
-        print('❌ Odaya katılma hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Odaya katılma hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -136,7 +139,8 @@ class ChatService {
         }
         return true;
       } else {
-        print('❌ Odadan ayrılma hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Odadan ayrılma hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -146,7 +150,8 @@ class ChatService {
   }
 
   // Get messages from a chat room
-  Future<void> fetchMessages(String roomId, {int limit = 50, int offset = 0}) async {
+  Future<void> fetchMessages(String roomId,
+      {int limit = 50, int offset = 0}) async {
     print('💬 $roomId odası mesajları yükleniyor...');
 
     try {
@@ -159,7 +164,8 @@ class ChatService {
       }
 
       final response = await http.get(
-        Uri.parse('$baseUrl/rooms/$roomId/messages?limit=$limit&offset=$offset'),
+        Uri.parse(
+            '$baseUrl/rooms/$roomId/messages?limit=$limit&offset=$offset'),
         headers: {
           'Content-Type': 'application/json',
           'x-firebase-uid': userId,
@@ -176,7 +182,8 @@ class ChatService {
           print('✅ ${_messages.length} mesaj yüklendi');
         }
       } else {
-        print('❌ Messages API hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Messages API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Messages yükleme hatası: $e');
@@ -214,15 +221,16 @@ class ChatService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         print('✅ Mesaj gönderildi: ${data['message']}');
-        
+
         // Mesaj listesini güncelle
         if (data['messageObj'] != null) {
           _messages.add(data['messageObj']);
         }
-        
+
         return true;
       } else {
-        print('❌ Mesaj gönderme hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Mesaj gönderme hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
     } catch (e) {
@@ -263,7 +271,8 @@ class ChatService {
           return users;
         }
       } else {
-        print('❌ Room users API hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Room users API hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Room users yükleme hatası: $e');

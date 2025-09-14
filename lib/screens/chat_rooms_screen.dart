@@ -25,7 +25,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
 
   Future<void> _initializeScreen() async {
     setState(() => _isLoading = true);
-    
+
     try {
       await _authService.loadUserData();
       setState(() {
@@ -39,7 +39,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     } catch (e) {
       print('Chat rooms ekran başlatma hatası: $e');
     }
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -53,7 +53,9 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDarkTheme ? Theme.of(context).colorScheme.primary : Colors.deepPurple[600];
+    final primaryColor = isDarkTheme
+        ? Theme.of(context).colorScheme.primary
+        : Colors.deepPurple[600];
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
@@ -114,7 +116,8 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
               'Chat odalarını kullanmak için giriş yapmanız gerekiyor.',
               style: TextStyle(
                 fontSize: 16,
-                color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                color:
+                    Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
               ),
               textAlign: TextAlign.center,
             ),
@@ -126,7 +129,8 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
               ),
               icon: const Icon(Icons.arrow_back),
               label: const Text(
@@ -158,7 +162,8 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
               'Chat Odaları Yükleniyor...',
               style: TextStyle(
                 fontSize: 18,
-                color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                color:
+                    Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
               ),
             ),
           ],
@@ -199,7 +204,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                   'Sohbet etmek için bir oda seçin',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onBackground
+                        .withOpacity(0.7),
                   ),
                 ),
               ],
@@ -270,16 +278,23 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                       room['description'] ?? '',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
                       ),
                     ),
                     if (lastMessage != null) ...[
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: isDarkTheme
-                              ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer
+                                  .withOpacity(0.3)
                               : Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -287,7 +302,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                           '${lastMessage['displayName']}: ${lastMessage['message']}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withOpacity(0.8),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -297,13 +315,14 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                   ],
                 ),
               ),
-              
+
               // User count and join button
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: activeUserCount > 0
                           ? Colors.green.withOpacity(0.2)
@@ -380,10 +399,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
 
     try {
       final success = await _chatService.joinRoom(roomId);
-      
+
       if (mounted) {
         Navigator.pop(context); // Loading dialog'unu kapat
-        
+
         if (success) {
           // Chat screen'e git
           Navigator.push(
@@ -409,7 +428,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Loading dialog'unu kapat
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Hata: $e'),

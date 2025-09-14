@@ -493,8 +493,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isDarkTheme 
-                          ? Colors.deepPurple.shade700 
+                      backgroundColor: isDarkTheme
+                          ? Colors.deepPurple.shade700
                           : Colors.deepPurple.shade600,
                       foregroundColor: Colors.white,
                       elevation: 3,
