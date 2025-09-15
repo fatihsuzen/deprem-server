@@ -178,7 +178,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
           // Header with user info
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -194,16 +194,16 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                 Text(
                   'Merhaba, $_userName! 👋',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onBackground,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Text(
                   'Sohbet etmek için bir oda seçin',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 13,
                     color: Theme.of(context)
                         .colorScheme
                         .onBackground
@@ -217,9 +217,9 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
           // Rooms list
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               itemCount: rooms.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
                 final room = rooms[index];
                 return _buildRoomCard(room);
@@ -246,7 +246,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
         borderRadius: BorderRadius.circular(16),
         onTap: () => _joinRoom(room),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Row(
             children: [
               // Flag and name
@@ -258,14 +258,14 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                       children: [
                         Text(
                           room['flag'] ?? '🌍',
-                          style: const TextStyle(fontSize: 24),
+                          style: const TextStyle(fontSize: 20),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             room['name'] ?? 'Adsız Oda',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: Theme.of(context).colorScheme.onSurface,
                             ),
@@ -273,11 +273,11 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       room['description'] ?? '',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: Theme.of(context)
                             .colorScheme
                             .onSurface
@@ -285,10 +285,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                       ),
                     ),
                     if (lastMessage != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: isDarkTheme
                               ? Theme.of(context)
@@ -296,12 +296,12 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                                   .primaryContainer
                                   .withOpacity(0.3)
                               : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           '${lastMessage['displayName']}: ${lastMessage['message']}',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
@@ -322,28 +322,28 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                 children: [
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: activeUserCount > 0
                           ? Colors.green.withOpacity(0.2)
                           : Colors.grey.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.people,
-                          size: 16,
+                          size: 14,
                           color: activeUserCount > 0
                               ? Colors.green.shade700
                               : Colors.grey.shade600,
                         ),
-                        const SizedBox(width: 4),
+                        const SizedBox(width: 3),
                         Text(
                           '$activeUserCount',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
                             fontWeight: FontWeight.bold,
                             color: activeUserCount > 0
                                 ? Colors.green.shade700
@@ -353,10 +353,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Icon(
                     Icons.arrow_forward_ios,
-                    size: 16,
+                    size: 14,
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ],
