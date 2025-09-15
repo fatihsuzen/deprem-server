@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/chat_service.dart';
 import '../services/auth_service.dart';
 import 'chat_screen.dart';
@@ -16,6 +17,8 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
   String? _userName;
+  Set<String> _favoriteRooms = {}; // Favori oda ID'leri
+  late SharedPreferences _prefs;
 
   @override
   void initState() {
@@ -27,6 +30,12 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // SharedPreferences'i başlat
+      _prefs = await SharedPreferences.getInstance();
+
+      // Favori odaları yükle
+      await _loadFavoriteRooms();
+
       await _authService.loadUserData();
       setState(() {
         _isLoggedIn = _authService.isLoggedIn;
@@ -41,6 +50,30 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     }
 
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadFavoriteRooms() async {
+    final favorites = _prefs.getStringList('favorite_rooms') ?? [];
+    setState(() {
+      _favoriteRooms = Set.from(favorites);
+    });
+  }
+
+  Future<void> _toggleFavorite(String roomId) async {
+    setState(() {
+      if (_favoriteRooms.contains(roomId)) {
+        _favoriteRooms.remove(roomId);
+      } else {
+        _favoriteRooms.add(roomId);
+      }
+    });
+
+    // SharedPreferences'e kaydet
+    await _prefs.setStringList('favorite_rooms', _favoriteRooms.toList());
+  }
+
+  bool _isFavorite(String roomId) {
+    return _favoriteRooms.contains(roomId);
   }
 
   Future<void> _refreshRooms() async {
@@ -171,6 +204,9 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
       );
     }
 
+    // Odaları favorilere göre sırala
+    final sortedRooms = _sortRoomsByFavorites(rooms);
+
     return RefreshIndicator(
       onRefresh: _refreshRooms,
       child: Column(
@@ -218,10 +254,10 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.all(12),
-              itemCount: rooms.length,
+              itemCount: sortedRooms.length,
               separatorBuilder: (context, index) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final room = rooms[index];
+                final room = sortedRooms[index];
                 return _buildRoomCard(room);
               },
             ),
@@ -231,10 +267,19 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     );
   }
 
+  List<Map<String, dynamic>> _sortRoomsByFavorites(List<Map<String, dynamic>> rooms) {
+    // Favori odaları öne çıkar
+    final favoriteRooms = rooms.where((room) => _isFavorite(room['id'])).toList();
+    final nonFavoriteRooms = rooms.where((room) => !_isFavorite(room['id'])).toList();
+
+    return [...favoriteRooms, ...nonFavoriteRooms];
+  }
+
   Widget _buildRoomCard(Map<String, dynamic> room) {
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final activeUserCount = room['activeUserCount'] ?? 0;
     final lastMessage = room['lastMessage'];
+    final isFavorite = _isFavorite(room['id']);
 
     return Card(
       elevation: 4,
@@ -316,10 +361,25 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                 ),
               ),
 
-              // User count and join button
+              // User count, favorite star and join button
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Favorite star
+                  IconButton(
+                    onPressed: () => _toggleFavorite(room['id']),
+                    icon: Icon(
+                      isFavorite ? Icons.star : Icons.star_border,
+                      color: isFavorite ? Colors.amber : Colors.grey.shade400,
+                      size: 20,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle',
+                  ),
+                  const SizedBox(height: 4),
+
+                  // User count
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
