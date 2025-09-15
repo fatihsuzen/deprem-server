@@ -304,7 +304,8 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2), // Mesajlar arası boşluk azaltıldı
+      padding: const EdgeInsets.symmetric(
+          vertical: 2), // Mesajlar arası boşluk azaltıldı
       child: Row(
         mainAxisAlignment:
             isMyMessage ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -312,12 +313,14 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // Küçültülmüş padding
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 8), // Küçültülmüş padding
               decoration: BoxDecoration(
                 color: isMyMessage
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.surfaceVariant,
-                borderRadius: BorderRadius.circular(16).copyWith( // Küçültülmüş radius
+                borderRadius: BorderRadius.circular(16).copyWith(
+                  // Küçültülmüş radius
                   bottomLeft: Radius.circular(isMyMessage ? 16 : 4),
                   bottomRight: Radius.circular(isMyMessage ? 4 : 20),
                 ),
@@ -327,7 +330,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   if (!isMyMessage)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 2), // Küçültülmüş padding
+                      padding: const EdgeInsets.only(
+                          bottom: 2), // Küçültülmüş padding
                       child: Text(
                         message['displayName'] ?? 'Anonim',
                         style: TextStyle(

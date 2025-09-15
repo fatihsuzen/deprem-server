@@ -26,6 +26,7 @@ const validateUser = (req, res, next) => {
   
   next();
 
+};
 
 // Chat room'ları - Global + ülke odaları
 const CHAT_ROOMS = {
@@ -516,5 +517,4 @@ setInterval(() => {
   });
 }, 2 * 60 * 1000); // Her 2 dakikada bir cleanup
 
-}
 module.exports = router;

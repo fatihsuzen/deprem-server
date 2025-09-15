@@ -237,7 +237,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Sohbet etmek için bir oda seçin',
+                  'Sohbet etmek icin bir oda secin',
                   style: TextStyle(
                     fontSize: 13,
                     color: Theme.of(context)
@@ -267,10 +267,13 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     );
   }
 
-  List<Map<String, dynamic>> _sortRoomsByFavorites(List<Map<String, dynamic>> rooms) {
+  List<Map<String, dynamic>> _sortRoomsByFavorites(
+      List<Map<String, dynamic>> rooms) {
     // Favori odaları öne çıkar
-    final favoriteRooms = rooms.where((room) => _isFavorite(room['id'])).toList();
-    final nonFavoriteRooms = rooms.where((room) => !_isFavorite(room['id'])).toList();
+    final favoriteRooms =
+        rooms.where((room) => _isFavorite(room['id'])).toList();
+    final nonFavoriteRooms =
+        rooms.where((room) => !_isFavorite(room['id'])).toList();
 
     return [...favoriteRooms, ...nonFavoriteRooms];
   }
@@ -308,7 +311,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            room['name'] ?? 'Adsız Oda',
+                            room['name'] ?? 'Adsiz Oda',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -375,7 +378,8 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    tooltip: isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle',
+                    tooltip:
+                        isFavorite ? 'Favorilerden cikar' : 'Favorilere ekle',
                   ),
                   const SizedBox(height: 4),
 
@@ -432,7 +436,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     final roomId = room['id'];
     final roomName = room['name'];
 
-    print('🚪 $roomName odasına katılmaya çalışıyor...');
+    print('🚪 $roomName odasina katilmaya calisiyor...');
 
     // Loading dialog göster
     showDialog(
@@ -447,7 +451,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              '$roomName odasına katılınıyor...',
+              '$roomName odasina katiliniyor...',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -471,7 +475,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
               builder: (context) => ChatScreen(roomId: roomId),
             ),
           ).then((_) {
-            // Chat screen'den dönünce odalardan ayrıl
+            // Chat screen'den donunce odalardan ayril
             _chatService.leaveRoom(roomId);
             _refreshRooms();
           });
@@ -479,7 +483,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
           // Hata mesajı göster
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Odaya katılma hatası. Lütfen tekrar deneyin.'),
+              content: Text('Odaya katilma hatasi. Lutfen tekrar deneyin.'),
               backgroundColor: Colors.red,
             ),
           );

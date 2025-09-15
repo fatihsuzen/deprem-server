@@ -23,13 +23,13 @@ class SimpleAuthService {
   String? get currentUserEmail => _currentUserEmail;
   String? get currentUserShareCode => _currentUserShareCode;
 
-  // Basit giriş - email/isim ile
+  // Basit giris - email/isim ile
   Future<Map<String, dynamic>?> signInWithEmail(
       String email, String name) async {
     try {
-      print('📧 Email ile giriş başlatılıyor: $email');
+      print('📧 Email ile giris baslatiliyor: $email');
 
-      // Kullanıcı ID'si oluştur (email'den)
+      // Kullanici ID'si olustur (email'den)
       final userId = 'user_${email.replaceAll('@', '_').replaceAll('.', '_')}';
       final shareCode = _generateShareCodeFromEmail(email);
 
@@ -41,7 +41,7 @@ class SimpleAuthService {
         'shareCode': shareCode,
       };
 
-      // VDS'ye kullanıcı kaydet
+      // VDS'ye kullanici kaydet
       await _registerUserToVDS(userData);
 
       // Local'de kaydet
