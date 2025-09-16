@@ -68,6 +68,20 @@ class EarthquakeMonitor {
             await this.triggerEarthquakeNotification(earthquake);
           }
         }
+        // Persist earthquakes to DB if model available
+        try {
+          const EarthquakeModel = require('../models/Earthquake');
+          for (const eq of processedEarthquakes) {
+            // Upsert by eventId or generated unique id
+            await EarthquakeModel.updateOne(
+              { eventId: eq.eventId || eq.id },
+              { $setOnInsert: eq },
+              { upsert: true }
+            );
+          }
+        } catch (err) {
+          console.warn('DB persist skipped (no DB available or error):', err.message);
+        }
       }
 
       this.lastChecked = new Date();
