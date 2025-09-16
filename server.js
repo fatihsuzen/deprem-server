@@ -332,6 +332,40 @@ app.post('/api/friends/send-request', async (req, res) => {
   }
 });
 
+// User notification preferences
+app.get('/api/users/:userId/notification-preferences', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findOne({ uid: userId }).lean();
+    if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    res.json({ success: true, preferences: user.notificationPreferences || {} });
+  } catch (error) {
+    console.error('❌ Get notification prefs error:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+app.post('/api/users/:userId/notification-preferences', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { enabled, radiusKm, minMagnitude } = req.body;
+
+    const user = await User.findOne({ uid: userId });
+    if (!user) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+
+    user.notificationPreferences = user.notificationPreferences || {};
+    if (typeof enabled === 'boolean') user.notificationPreferences.enabled = enabled;
+    if (typeof radiusKm === 'number') user.notificationPreferences.radiusKm = radiusKm;
+    if (typeof minMagnitude === 'number') user.notificationPreferences.minMagnitude = minMagnitude;
+
+    await user.save();
+    res.json({ success: true, preferences: user.notificationPreferences });
+  } catch (error) {
+    console.error('❌ Update notification prefs error:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 // Arkadaş isteklerini kabul/reddet
 app.post('/api/friends/respond-request', async (req, res) => {
   try {

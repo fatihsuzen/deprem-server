@@ -66,6 +66,11 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   },
+  notificationPreferences: {
+    enabled: { type: Boolean, default: true, index: true },
+    radiusKm: { type: Number, default: 50 },
+    minMagnitude: { type: Number, default: 4.0 }
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -241,23 +241,72 @@ class EarthquakeMonitor {
     try {
       console.log(`🚨 Triggering notification for earthquake: M${earthquake.magnitude} at ${earthquake.place}`);
       
-      // This would integrate with NotificationService
-      // For now, just log the earthquake
       console.log(`📍 Location: ${earthquake.location.latitude}, ${earthquake.location.longitude}`);
       console.log(`⏰ Time: ${earthquake.timestamp}`);
       console.log(`🌊 Depth: ${earthquake.depth} km`);
-      
+
       // Calculate affected radius
       const affectedRadius = this.calculateAffectedRadius(earthquake.magnitude);
-      
-      // This is where you'd call NotificationService.broadcastEarlyWarning()
-      // const notificationService = require('./notificationService');
-      // await notificationService.broadcastEarlyWarning({
-      //   epicenter: earthquake.location,
-      //   magnitude: earthquake.magnitude,
-      //   estimatedArrival: new Date(Date.now() + 30000),
-      //   affectedRadius
-      // });
+
+      // Server-side matching: find users whose preferences indicate they want notifications
+      try {
+        const User = require('../models/User');
+        const NotificationService = require('./notificationService');
+        const server = require('../server'); // to access deviceManager & notificationService via server module exports
+
+        // Query users with notifications enabled and minMagnitude <= earthquake.magnitude
+        const interestedUsers = await User.find({
+          'notificationPreferences.enabled': true,
+          $or: [
+            { 'notificationPreferences.minMagnitude': { $lte: earthquake.magnitude } },
+            { 'notificationPreferences.minMagnitude': { $exists: false } }
+          ]
+        }).lean();
+
+        // For each interested user, check devices in radius and notify
+        if (interestedUsers && interestedUsers.length > 0 && server && server.deviceManager) {
+          for (const u of interestedUsers) {
+            const prefs = u.notificationPreferences || { radiusKm: 50, minMagnitude: 4.0 };
+            const radius = prefs.radiusKm || 50;
+
+            // If user's minMagnitude is higher than quake mag, skip
+            if ((prefs.minMagnitude || 0) > earthquake.magnitude) continue;
+
+            const devices = server.deviceManager.getDevicesInRadius(
+              earthquake.location.latitude, earthquake.location.longitude, radius
+            );
+
+            if (devices && devices.length > 0) {
+              // Send a targeted broadcast to those device socketIds via notificationService
+              const notificationSvc = server.notificationService;
+              if (notificationSvc) {
+                // prepare payload
+                const payload = {
+                  epicenter: earthquake.location,
+                  magnitude: earthquake.magnitude,
+                  estimatedArrival: new Date(Date.now() + 30000),
+                  affectedRadius
+                };
+
+                // send to each device socket
+                devices.forEach(d => {
+                  try {
+                    notificationSvc.sendUserAlert(d.socketId, {
+                      type: 'earthquake_warning',
+                      message: `Deprem uyarısı: M${earthquake.magnitude} yakında`,
+                      data: payload
+                    });
+                  } catch (err) {
+                    console.warn('Failed to send user alert to device:', d.socketId, err.message);
+                  }
+                });
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Server-side notification matching failed:', err.message);
+      }
 
     } catch (error) {
       console.error('Failed to trigger earthquake notification:', error);
