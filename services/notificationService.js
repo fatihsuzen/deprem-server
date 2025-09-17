@@ -1,3 +1,21 @@
+const fs = require('fs');
+let admin = null;
+
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH && fs.existsSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)) {
+    admin = require('firebase-admin');
+    const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    console.log('✅ Firebase Admin initialized for push notifications');
+  } else if (process.env.FIREBASE_LEGACY_SERVER_KEY) {
+    // We can still use HTTP legacy key path later if needed
+    console.log('⚠️ Using legacy server key (set FIREBASE_SERVICE_ACCOUNT_PATH for recommended setup)');
+  }
+} catch (err) {
+  console.error('Firebase admin init error:', err);
+  admin = null;
+}
+
 class NotificationService {
   constructor(io) {
     this.io = io;
@@ -142,6 +160,55 @@ class NotificationService {
       console.log(`📢 User alert sent to ${socketId}: ${alertData.message}`);
     } catch (error) {
       console.error('User alert error:', error);
+    }
+  }
+
+  // Send FCM push (if admin initialized)
+  async sendPush(token, payload) {
+    try {
+      if (!admin) {
+        // fallback: log
+        console.log('Push skipped (firebase-admin not initialized). Token:', token);
+        return null;
+      }
+
+      const message = {
+        token,
+        notification: {
+          title: payload.title || payload.notification?.title || 'Deprem Uyarısı',
+          body: payload.body || payload.notification?.body || (payload.warning || 'Deprem uyarısı')
+        },
+        data: payload.data || {},
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'earthquake_alerts',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK'
+          }
+        },
+        apns: {
+          headers: {
+            'apns-priority': '10'
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: payload.title || payload.notification?.title || 'Deprem Uyarısı',
+                body: payload.body || payload.notification?.body || (payload.warning || 'Deprem uyarısı')
+              },
+              sound: 'default',
+              badge: 1
+            }
+          }
+        }
+      };
+
+      const res = await admin.messaging().send(message);
+      console.log('FCM send result:', res);
+      return res;
+    } catch (error) {
+      console.error('FCM send error:', error);
+      return null;
     }
   }
 

@@ -300,6 +300,37 @@ class EarthquakeMonitor {
                     console.warn('Failed to send user alert to device:', d.socketId, err.message);
                   }
                 });
+                // Additionally, fetch registered push tokens for these users/devices and send FCM pushes
+                try {
+                  const DeviceModel = require('../models/Device');
+                  for (const d of devices) {
+                    // Find device entries by deviceId or by proximity (if deviceId missing)
+                    const deviceEntries = await DeviceModel.find({
+                      $or: [ { deviceId: d.deviceId }, { 'location.latitude': d.location.latitude, 'location.longitude': d.location.longitude } ]
+                    }).lean();
+
+                    for (const devEntry of deviceEntries) {
+                      if (devEntry.token) {
+                        try {
+                          await notificationSvc.sendPush(devEntry.token, {
+                            title: 'Deprem Uyarısı',
+                            body: `Bölgenizde M${earthquake.magnitude} büyüklüğünde deprem tespit edildi`,
+                            warning: notificationSvc.generateWarningMessage ? notificationSvc.generateWarningMessage(earthquake.magnitude) : undefined,
+                            data: {
+                              epicenter: earthquake.location,
+                              magnitude: earthquake.magnitude,
+                              id: earthquake.id || earthquake.eventId
+                            }
+                          });
+                        } catch (err) {
+                          console.warn('Push send failed for token', devEntry.token, err.message);
+                        }
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.warn('Push token lookup/send failed:', err.message);
+                }
               }
             }
           }

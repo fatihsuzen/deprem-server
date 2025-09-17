@@ -17,6 +17,7 @@ const databaseService = require('./services/databaseService');
 // Models
 const User = require('./models/User');
 const FriendRequest = require('./models/FriendRequest');
+const Device = require('./models/Device');
 
 // Routes
 const friendsRoutes = require('./routes/friends');
@@ -543,6 +544,43 @@ app.post('/api/test/earthquake', async (req, res) => {
   }
 });
 
+// Device registration for push tokens
+app.post('/api/devices/register', async (req, res) => {
+  try {
+    const { userId, deviceId, token, platform, latitude, longitude, deviceInfo } = req.body;
+
+    if (!token) return res.status(400).json({ error: 'token gerekli' });
+
+    // Upsert device
+    const existing = await Device.findOne({ token });
+    if (existing) {
+      existing.userId = userId || existing.userId;
+      existing.deviceId = deviceId || existing.deviceId;
+      existing.platform = platform || existing.platform;
+      existing.lastSeen = new Date();
+      if (latitude && longitude) existing.location = { latitude, longitude };
+      if (deviceInfo) existing.deviceInfo = deviceInfo;
+      await existing.save();
+      return res.json({ success: true, device: existing });
+    }
+
+    const device = new Device({
+      userId,
+      deviceId,
+      token,
+      platform: platform || 'android',
+      location: latitude && longitude ? { latitude, longitude } : undefined,
+      deviceInfo
+    });
+
+    await device.save();
+    res.json({ success: true, device });
+  } catch (error) {
+    console.error('Device register error:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 // AFAD/Kandilli Monitoring (Every 10 seconds)
 cron.schedule('*/10 * * * * *', async () => {
   try {
@@ -598,4 +636,10 @@ async function startServer() {
 
 startServer();
 
-module.exports = app;
+// Export app and key services so other modules (like earthquakeMonitor) can access deviceManager and notificationService
+module.exports = {
+  app,
+  server,
+  deviceManager,
+  notificationService
+};
