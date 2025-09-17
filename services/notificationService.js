@@ -81,6 +81,90 @@ class NotificationService {
       // Also send to all connected devices within radius
       this.io.emit('earthquake_check_location', notification);
 
+      // Additionally: P2P / immediate dispatch path
+      try {
+        // require server at runtime to avoid circular init issues
+        const server = require('../server');
+        const DeviceModel = require('../models/Device');
+        const User = require('../models/User');
+        const pushDispatcher = require('./pushDispatcher');
+
+        if (server && server.deviceManager) {
+          // Get connected devices in radius from deviceManager
+          const devices = server.deviceManager.getDevicesInRadius(
+            epicenter.latitude, epicenter.longitude, affectedRadius
+          );
+
+          if (devices && devices.length > 0) {
+            // Map devices to Device DB entries to obtain tokens and userIds
+            const allDeviceEntries = [];
+            for (const d of devices) {
+              try {
+                const deviceEntries = await DeviceModel.find({
+                  $or: [ { deviceId: d.deviceId }, { 'location.latitude': d.location.latitude, 'location.longitude': d.location.longitude } ]
+                }).lean();
+                if (deviceEntries && deviceEntries.length > 0) allDeviceEntries.push(...deviceEntries);
+              } catch (err) {
+                console.warn('Device DB lookup failed for device', d.deviceId, err.message);
+              }
+            }
+
+            // Bulk fetch user preferences for unique userIds
+            const userIds = Array.from(new Set(allDeviceEntries.map(e => e.userId).filter(Boolean)));
+            const users = userIds.length > 0 ? await User.find({ uid: { $in: userIds } }).lean() : [];
+            const userMap = new Map(users.map(u => [u.uid, u]));
+
+            // Filter device entries by user preferences
+            const finalDeviceEntries = allDeviceEntries.filter(dev => {
+              if (!dev.userId) return true; // no user associated, notify by default
+              const u = userMap.get(dev.userId);
+              if (!u) return true;
+              const prefs = u.notificationPreferences || {};
+              if (prefs.enabled === false) return false;
+              if (typeof prefs.minMagnitude === 'number' && prefs.minMagnitude > (notification.earthquake && notification.earthquake.magnitude ? notification.earthquake.magnitude : 0)) return false;
+              return true;
+            });
+
+            // Send socket per-device alerts (for connected sockets)
+            for (const d of devices) {
+              try {
+                this.io.to(d.socketId).emit('earthquake_warning', {
+                  ...notification,
+                  localInfo: {
+                    distance: this.calculateDistance(epicenter, d.location),
+                    estimatedIntensity: this.estimateLocalIntensity(notification.earthquake.magnitude, d.distance || 0)
+                  }
+                });
+              } catch (err) {
+                console.warn('Failed socket emit to', d.socketId, err.message);
+              }
+            }
+
+            // Send pushes via dispatcher
+            if (finalDeviceEntries.length > 0) {
+              const payload = {
+                title: notification.warning || 'Deprem Uyarısı',
+                body: `Bölgenizde M${notification.earthquake.magnitude} depremi tespit edildi`,
+                data: {
+                  epicenter: JSON.stringify(epicenter),
+                  magnitude: String(notification.earthquake.magnitude),
+                  id: notification.id
+                }
+              };
+
+              try {
+                const dispatchResult = await pushDispatcher.sendPushToDeviceEntries(finalDeviceEntries, payload, this, { concurrency: 50 });
+                console.log('P2P push dispatch result:', dispatchResult);
+              } catch (err) {
+                console.warn('P2P push dispatch failed:', err.message);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('P2P notification path failed:', err.message);
+      }
+
       // Mark as sent to prevent duplicates
       this.duplicatePrevention.set(
         this.getEarthquakeKey(epicenter, magnitude), 
