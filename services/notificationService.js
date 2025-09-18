@@ -1,19 +1,44 @@
 const fs = require('fs');
-let admin = null;
-
+// APNs setup (node-apn)
+let apnProvider = null;
 try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH && fs.existsSync(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)) {
-    admin = require('firebase-admin');
-    const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-    console.log('✅ Firebase Admin initialized for push notifications');
-  } else if (process.env.FIREBASE_LEGACY_SERVER_KEY) {
-    // We can still use HTTP legacy key path later if needed
-    console.log('⚠️ Using legacy server key (set FIREBASE_SERVICE_ACCOUNT_PATH for recommended setup)');
+  if (process.env.APNS_KEY_PATH && fs.existsSync(process.env.APNS_KEY_PATH)) {
+    const apn = require('apn');
+    const apnOptions = {
+      token: {
+        key: process.env.APNS_KEY_PATH,
+        keyId: process.env.APNS_KEY_ID,
+        teamId: process.env.APNS_TEAM_ID
+      },
+      production: process.env.NODE_ENV === 'production'
+    };
+    apnProvider = new apn.Provider(apnOptions);
+    console.log('✅ APNs provider initialized');
+  } else {
+    console.log('⚠️ APNs not initialized (APNS_KEY_PATH not set)');
   }
 } catch (err) {
-  console.error('Firebase admin init error:', err);
-  admin = null;
+  console.error('APNs init error:', err);
+  apnProvider = null;
+}
+
+// MQTT setup (for Android persistent connections)
+let mqttClient = null;
+try {
+  if (process.env.MQTT_BROKER_URL) {
+    const mqtt = require('mqtt');
+    const mqttOptions = {};
+    if (process.env.MQTT_USERNAME) mqttOptions.username = process.env.MQTT_USERNAME;
+    if (process.env.MQTT_PASSWORD) mqttOptions.password = process.env.MQTT_PASSWORD;
+    mqttClient = mqtt.connect(process.env.MQTT_BROKER_URL, mqttOptions);
+    mqttClient.on('connect', () => console.log('✅ Connected to MQTT broker'));
+    mqttClient.on('error', (e) => console.error('MQTT error:', e));
+  } else {
+    console.log('⚠️ MQTT broker not configured (MQTT_BROKER_URL not set)');
+  }
+} catch (err) {
+  console.error('MQTT init error:', err);
+  mqttClient = null;
 }
 
 class NotificationService {
@@ -247,51 +272,45 @@ class NotificationService {
     }
   }
 
-  // Send FCM push (if admin initialized)
-  async sendPush(token, payload) {
+  // Send push: route to APNs for iOS tokens, or to MQTT topic for Android mqttClientId
+  async sendPush(target, payload) {
     try {
-      if (!admin) {
-        // fallback: log
-        console.log('Push skipped (firebase-admin not initialized). Token:', token);
-        return null;
+      // If target is an APNs token (iOS)
+      if (target && typeof target === 'string' && target.startsWith('apn_')) {
+        const token = target.replace('apn_', '');
+        if (!apnProvider) {
+          console.log('APNs provider not initialized. Skipping APNs push for token', token);
+          return null;
+        }
+        const note = new (require('apn')).Notification();
+        note.alert = { title: payload.title || 'Deprem Uyarısı', body: payload.body || '' };
+        note.payload = payload.data || {};
+        note.sound = 'default';
+        note.topic = process.env.APNS_BUNDLE_ID;
+        const res = await apnProvider.send(note, token);
+        console.log('APNs send result:', res);
+        return res;
       }
 
-      const message = {
-        token,
-        notification: {
-          title: payload.title || payload.notification?.title || 'Deprem Uyarısı',
-          body: payload.body || payload.notification?.body || (payload.warning || 'Deprem uyarısı')
-        },
-        data: payload.data || {},
-        android: {
-          priority: 'high',
-          notification: {
-            channelId: 'earthquake_alerts',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK'
-          }
-        },
-        apns: {
-          headers: {
-            'apns-priority': '10'
-          },
-          payload: {
-            aps: {
-              alert: {
-                title: payload.title || payload.notification?.title || 'Deprem Uyarısı',
-                body: payload.body || payload.notification?.body || (payload.warning || 'Deprem uyarısı')
-              },
-              sound: 'default',
-              badge: 1
-            }
-          }
+      // If target looks like an MQTT client id
+      if (target && typeof target === 'string' && target.startsWith('mqtt_')) {
+        const clientId = target.replace('mqtt_', '');
+        if (!mqttClient) {
+          console.log('MQTT client not initialized. Skipping MQTT publish for clientId', clientId);
+          return null;
         }
-      };
+        const topic = `devices/${clientId}/notifications`;
+        mqttClient.publish(topic, JSON.stringify(payload), { qos: 1 }, (err) => {
+          if (err) console.error('MQTT publish error:', err);
+        });
+        return { ok: true };
+      }
 
-      const res = await admin.messaging().send(message);
-      console.log('FCM send result:', res);
-      return res;
+      // If target is a FCM token string (legacy) — not used per requirement
+      console.log('Unknown push target type, skipping', target);
+      return null;
     } catch (error) {
-      console.error('FCM send error:', error);
+      console.error('Push send error:', error);
       return null;
     }
   }

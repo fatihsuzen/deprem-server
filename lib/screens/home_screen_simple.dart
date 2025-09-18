@@ -9,6 +9,7 @@ import 'login_screen.dart';
 import 'friends_screen_simple.dart';
 import 'settings_screen.dart';
 import 'chat_rooms_screen.dart';
+import 'past_earthquakes_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(bool)? onThemeChanged;
@@ -453,11 +454,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 60,
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      // Geçmiş depremler sayfası (şimdilik boş)
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                              'Geçmiş depremler özelliği yakında eklenecek'),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PastEarthquakesScreen(),
                         ),
                       );
                     },

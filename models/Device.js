@@ -4,6 +4,8 @@ const DeviceSchema = new mongoose.Schema({
   userId: { type: String, index: true },
   deviceId: { type: String, index: true },
   token: { type: String, required: true, index: true },
+  // For Android MQTT approach we may store mqtt client id here or in mqttClientId
+  mqttClientId: { type: String, index: true },
   platform: { type: String, enum: ['android','ios','web'], default: 'android' },
   lastSeen: { type: Date, default: Date.now },
   location: {

@@ -8,18 +8,24 @@ const os = require('os');
 module.exports = {
   async sendPushToDeviceEntries(deviceEntries = [], payload = {}, notificationService, opts = {}) {
     const concurrency = opts.concurrency || Math.max(10, Math.floor(os.cpus().length * 5));
-    const tokens = [];
+    const targets = [];
 
     for (const d of deviceEntries) {
-      if (d && d.token) tokens.push(d.token);
+      if (!d) continue;
+      // Prefer MQTT client id for Android persistent path
+      if (d.mqttClientId) targets.push(`mqtt_${d.mqttClientId}`);
+      // For iOS, prefix with apn_
+      else if (d.platform === 'ios' && d.token) targets.push(`apn_${d.token}`);
+      // Fallback: raw token (legacy) — still send but without prefix
+      else if (d.token) targets.push(d.token);
     }
 
-    if (tokens.length === 0) {
-      console.log('pushDispatcher: no tokens to send');
+    if (targets.length === 0) {
+      console.log('pushDispatcher: no targets to send');
       return { sent: 0 };
     }
 
-    console.log(`pushDispatcher: sending to ${tokens.length} tokens with concurrency ${concurrency}`);
+    console.log(`pushDispatcher: sending to ${targets.length} targets with concurrency ${concurrency}`);
 
     // Chunk tokens to respect concurrency
     function chunkArray(arr, size) {
@@ -28,17 +34,17 @@ module.exports = {
       return chunks;
     }
 
-    const chunks = chunkArray(tokens, concurrency);
-    let totalSent = 0;
+  const chunks = chunkArray(targets, concurrency);
+  let totalSent = 0;
     const start = Date.now();
 
     for (const chunk of chunks) {
       // send this chunk in parallel
-      const promises = chunk.map(token => {
+      const promises = chunk.map(target => {
         const tStart = Date.now();
-        return notificationService.sendPush(token, payload)
-          .then(res => ({ token, ok: !!res, latency: Date.now() - tStart }))
-          .catch(err => ({ token, ok: false, err: String(err), latency: Date.now() - tStart }));
+        return notificationService.sendPush(target, payload)
+          .then(res => ({ target, ok: !!res, latency: Date.now() - tStart }))
+          .catch(err => ({ target, ok: false, err: String(err), latency: Date.now() - tStart }));
       });
 
       const results = await Promise.allSettled(promises);
