@@ -5,6 +5,8 @@ import 'package:mqtt_client/mqtt_client.dart' as mqtt;
 import 'package:mqtt_client/mqtt_server_client.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'foreground_task_handler.dart';
 
 // Simple MQTT service for Android (persistent connection in foreground)
 class MqttService with ChangeNotifier {
@@ -160,5 +162,36 @@ class MqttService with ChangeNotifier {
     try {
       _client?.disconnect();
     } catch (e) {}
+  }
+
+  // Start Android foreground task which will keep the service alive
+  Future<void> startForegroundTask() async {
+    // Request to start foreground task with a notification
+    await FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'foreground_channel',
+        channelName: 'Foreground Service',
+        channelDescription: 'Keeps MQTT connection alive',
+        channelImportance: NotificationChannelImportance.HIGH,
+        priority: NotificationPriority.MAX,
+        iconData: const NotificationIconData(
+          resType: ResourceType.mipmap,
+          resPrefix: ResourcePrefix.ic,
+          name: 'ic_launcher',
+        ),
+      ),
+      iosNotificationOptions: const IOSNotificationOptions(),
+      foregroundTaskOptions: const ForegroundTaskOptions(interval: 5000),
+    );
+    // Register the handler and start the service
+    FlutterForegroundTask.setTaskHandler(MqttForegroundTaskHandler());
+    await FlutterForegroundTask.startService(
+      notificationTitle: 'Deprem App',
+      notificationText: 'Bağlanıyor...',
+    );
+  }
+
+  Future<void> stopForegroundTask() async {
+    await FlutterForegroundTask.stopService();
   }
 }
