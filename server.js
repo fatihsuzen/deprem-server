@@ -544,19 +544,77 @@ app.post('/api/test/earthquake', async (req, res) => {
   }
 });
 
+// Test push endpoint - manually trigger APNs or MQTT publish
+app.post('/api/test/push', async (req, res) => {
+  try {
+    const { target, title, body, userId, latitude, longitude, radiusKm } = req.body;
+    // target: optional string like 'apn_<token>' or 'mqtt_<clientId>'
+    // If target provided, send single push
+    if (target) {
+      const payload = { title: title || 'Test Bildirimi', body: body || 'Test mesajı', data: {} };
+      const result = await notificationService.sendPush(target, payload);
+      return res.json({ success: true, result });
+    }
+
+    // Otherwise, if userId provided, send to that user's devices
+    if (userId) {
+      const DeviceModel = require('./models/Device');
+      const devices = await DeviceModel.find({ userId }).lean();
+      if (!devices || devices.length === 0) return res.status(404).json({ error: 'Cihaz bulunamadı' });
+
+      const pushDispatcher = require('./services/pushDispatcher');
+      const payload = { title: title || 'Test Bildirimi', body: body || 'Test mesajı', data: {} };
+      const dispatchResult = await pushDispatcher.sendPushToDeviceEntries(devices, payload, notificationService, { concurrency: 10 });
+      return res.json({ success: true, dispatchResult });
+    }
+
+    // Otherwise, if lat/lon provided, find nearby device sockets via deviceManager and dispatch
+    if (latitude && longitude) {
+      const serverExports = require('./server');
+      const devicesNear = serverExports.deviceManager.getDevicesInRadius(latitude, longitude, radiusKm || 50);
+      if (!devicesNear || devicesNear.length === 0) return res.status(404).json({ error: 'Yakın cihaz bulunamadı' });
+
+      // Map to Device model entries
+      const DeviceModel = require('./models/Device');
+      const allDeviceEntries = [];
+      for (const d of devicesNear) {
+        const deviceEntries = await DeviceModel.find({ $or: [{ deviceId: d.deviceId }, { 'location.latitude': d.location.latitude, 'location.longitude': d.location.longitude }] }).lean();
+        if (deviceEntries && deviceEntries.length > 0) allDeviceEntries.push(...deviceEntries);
+      }
+
+      if (allDeviceEntries.length === 0) return res.status(404).json({ error: 'Kayıtlı bildirim cihazı bulunamadı' });
+
+      const pushDispatcher = require('./services/pushDispatcher');
+      const payload = { title: title || 'Bölge Testi', body: body || 'Bölgeye test bildirimi', data: {} };
+      const dispatchResult = await pushDispatcher.sendPushToDeviceEntries(allDeviceEntries, payload, notificationService, { concurrency: 20 });
+      return res.json({ success: true, dispatchResult });
+    }
+
+    res.status(400).json({ error: 'target veya userId veya latitude/longitude verin' });
+  } catch (error) {
+    console.error('Test push error:', error);
+    res.status(500).json({ error: 'Test push hata' });
+  }
+});
+
 // Device registration for push tokens
 app.post('/api/devices/register', async (req, res) => {
   try {
-    const { userId, deviceId, token, platform, latitude, longitude, deviceInfo } = req.body;
+    const { userId, deviceId, token, platform, latitude, longitude, deviceInfo, mqttClientId } = req.body;
 
-    if (!token) return res.status(400).json({ error: 'token gerekli' });
+    if (!token && !mqttClientId) return res.status(400).json({ error: 'token veya mqttClientId gerekli' });
 
     // Upsert device
-    const existing = await Device.findOne({ token });
+
+    // Prefer to upsert by token or mqttClientId
+    const query = token ? { token } : { mqttClientId };
+    const existing = await Device.findOne(query);
     if (existing) {
       existing.userId = userId || existing.userId;
       existing.deviceId = deviceId || existing.deviceId;
       existing.platform = platform || existing.platform;
+      existing.mqttClientId = mqttClientId || existing.mqttClientId;
+      existing.token = token || existing.token;
       existing.lastSeen = new Date();
       if (latitude && longitude) existing.location = { latitude, longitude };
       if (deviceInfo) existing.deviceInfo = deviceInfo;
@@ -568,6 +626,7 @@ app.post('/api/devices/register', async (req, res) => {
       userId,
       deviceId,
       token,
+      mqttClientId,
       platform: platform || 'android',
       location: latitude && longitude ? { latitude, longitude } : undefined,
       deviceInfo
