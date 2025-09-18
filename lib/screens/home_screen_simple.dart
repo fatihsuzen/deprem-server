@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../services/notification_service.dart';
 import '../services/location_service.dart';
@@ -273,6 +274,15 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: primaryColor,
         elevation: 0,
         actions: [
+          // Debug-only MQTT test shortcut
+          if (kDebugMode)
+            IconButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/debug/mqtt');
+              },
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'MQTT Test (debug)',
+            ),
           // Settings butonu
           IconButton(
             onPressed: () async {
