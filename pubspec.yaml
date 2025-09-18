@@ -25,6 +25,8 @@ dependencies:
   
   # Sensors & Background
   sensors_plus: ^4.0.2
+  mqtt_client: ^9.0.9
+  flutter_foreground_task: ^3.8.0
   # workmanager: ^0.5.2 # DISABLED - causing build issues
   
   # Storage & State Management
