@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/home_screen_simple.dart';
+import 'screens/mqtt_test_screen.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
 
@@ -54,11 +54,7 @@ class _DepremAppState extends State<DepremApp> {
     });
   }
 
-  void _updateTheme(bool darkTheme) {
-    setState(() {
-      isDarkTheme = darkTheme;
-    });
-  }
+  // theme toggling removed for test screen
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +86,8 @@ class _DepremAppState extends State<DepremApp> {
         useMaterial3: true,
       ),
       themeMode: isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-      home: HomeScreen(onThemeChanged: _updateTheme),
+  // For testing MQTT foreground functionality, open the MQTT test screen.
+  home: const MqttTestScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
