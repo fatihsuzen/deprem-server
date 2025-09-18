@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/mqtt_test_screen.dart';
+import 'screens/home_screen_simple.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
 
@@ -86,8 +87,10 @@ class _DepremAppState extends State<DepremApp> {
         useMaterial3: true,
       ),
       themeMode: isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-  // For testing MQTT foreground functionality, open the MQTT test screen.
-  home: const MqttTestScreen(),
+      home: HomeScreen(onThemeChanged: (v) {}),
+      routes: {
+        '/debug/mqtt': (_) => const MqttTestScreen(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }
