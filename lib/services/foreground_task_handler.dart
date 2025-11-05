@@ -7,7 +7,7 @@ import 'mqtt_service.dart';
 /// Android foreground service is active.
 class MqttForegroundTaskHandler implements TaskHandler {
   @override
-  Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     // Called when foreground task starts
     try {
       await MqttService.instance.connectAndSubscribe();
@@ -15,21 +15,31 @@ class MqttForegroundTaskHandler implements TaskHandler {
   }
 
   @override
-  Future<void> onEvent(DateTime timestamp, SendPort? sendPort) async {
+  Future<void> onRepeatEvent(DateTime timestamp) async {
     // Periodic event — can be used to send heartbeats or reconnect checks
     // no-op
   }
 
   @override
-  Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {
+  Future<void> onDestroy(DateTime timestamp) async {
     try {
       await MqttService.instance.disconnect();
     } catch (_) {}
   }
 
   @override
-  void onButtonPressed(String id) {
+  void onReceiveData(Object data) {
+    // Handle received data
+  }
+
+  @override
+  void onNotificationButtonPressed(String id) {
     // Handle notification button presses if configured
+  }
+
+  @override
+  void onNotificationDismissed() {
+    // Handle notification dismissed
   }
 
   @override

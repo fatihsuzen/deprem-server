@@ -49,9 +49,12 @@ class _MqttTestScreenState extends State<MqttTestScreen> {
     }
     final target = 'mqtt_$_clientId';
     final url = Uri.parse('$_serverBase/api/test/push');
-    final body = jsonEncode({ 'target': target, 'title': 'Test', 'body': 'MQTT test mesajı' });
+    final body = jsonEncode(
+        {'target': target, 'title': 'Test', 'body': 'MQTT test mesajı'});
     try {
-      final r = await http.post(url, body: body, headers: {'Content-Type': 'application/json'}).timeout(const Duration(seconds: 10));
+      final r = await http.post(url, body: body, headers: {
+        'Content-Type': 'application/json'
+      }).timeout(const Duration(seconds: 10));
       setState(() => _status = 'sent ${r.statusCode}');
     } catch (e) {
       setState(() => _status = 'error $e');
@@ -69,11 +72,17 @@ class _MqttTestScreenState extends State<MqttTestScreen> {
           children: [
             Text('ClientId: $_clientId'),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: _startForeground, child: const Text('Start Foreground & Connect')),
+            ElevatedButton(
+                onPressed: _startForeground,
+                child: const Text('Start Foreground & Connect')),
             const SizedBox(height: 8),
-            ElevatedButton(onPressed: _stopForeground, child: const Text('Stop Foreground')),
+            ElevatedButton(
+                onPressed: _stopForeground,
+                child: const Text('Stop Foreground')),
             const SizedBox(height: 12),
-            ElevatedButton(onPressed: _testPush, child: const Text('Send test push via server')),
+            ElevatedButton(
+                onPressed: _testPush,
+                child: const Text('Send test push via server')),
             const SizedBox(height: 12),
             Text('Status: $_status')
           ],

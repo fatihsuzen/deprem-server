@@ -141,12 +141,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  void _openReportScreen() {
+    Navigator.pushNamed(context, '/report');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Harita'),
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
         actions: [
           IconButton(
@@ -191,7 +195,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                             alignment: Alignment.center,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.blue,
+                                color: Theme.of(context).colorScheme.primary,
                                 shape: BoxShape.circle,
                                 border:
                                     Border.all(color: Colors.white, width: 3),
@@ -500,15 +504,40 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
-      floatingActionButton: _userLocation != null
-          ? FloatingActionButton(
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Deprem Bildir butonu
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            width: 200,
+            height: 50,
+            child: FloatingActionButton.extended(
+              onPressed: _openReportScreen,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              elevation: 4,
+              icon: const Icon(Icons.warning, color: Colors.white),
+              label: const Text(
+                'Deprem Bildir',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          // Konumuma git butonu
+          if (_userLocation != null)
+            FloatingActionButton(
               onPressed: () {
                 _mapController.move(_userLocation!, 15.0);
               },
-              backgroundColor: Colors.blue.shade700,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               child: const Icon(Icons.my_location, color: Colors.white),
-            )
-          : null,
+            ),
+        ],
+      ),
     );
   }
 

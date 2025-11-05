@@ -23,10 +23,17 @@ dependencies:
   # WebSocket & Real-time
   socket_io_client: ^2.0.3+1
   
+  # Optional / legacy integrations required by some source files
+  firebase_core: ^2.4.0
+  firebase_auth: ^4.4.0
+  cloud_firestore: ^4.6.0
+  google_maps_flutter: ^2.4.1
+  intl: ^0.18.0
+  
   # Sensors & Background
   sensors_plus: ^4.0.2
   mqtt_client: ^9.0.9
-  flutter_foreground_task: ^3.8.0
+  flutter_foreground_task: ^8.10.0
   # workmanager: ^0.5.2 # DISABLED - causing build issues
   
   # Storage & State Management
@@ -37,6 +44,7 @@ dependencies:
   uuid: ^4.1.0
   cached_network_image: ^3.3.0
   package_info_plus: ^4.2.0
+  flutter_svg: ^2.0.9
 
 dev_dependencies:
   flutter_test:
@@ -47,3 +55,15 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - Icons/Icons/
+  
+  fonts:
+    - family: Gabarito
+      fonts:
+        - asset: fonts/Gabarito-Regular.ttf
+        - asset: fonts/Gabarito-Medium.ttf
+          weight: 500
+        - asset: fonts/Gabarito-SemiBold.ttf
+          weight: 600
+        - asset: fonts/Gabarito-Bold.ttf
+          weight: 700

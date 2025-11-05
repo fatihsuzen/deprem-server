@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/mqtt_test_screen.dart';
-import 'screens/home_screen_simple.dart';
+import 'screens/home_screen_simple.dart' as home_simple;
+import 'screens/demo_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/report_screen.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
 
@@ -73,23 +76,47 @@ class _DepremAppState extends State<DepremApp> {
       title: 'Deprem Bildirim',
       navigatorKey: navigatorKey,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.red,
-          brightness: Brightness.light,
+        colorScheme: ColorScheme.light(
+          primary: const Color(0xFFFF3A3D),
+          secondary: const Color(0xFFFF3A3D),
+          surface: Colors.white,
+          background: Colors.white,
+          error: Colors.red,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: Colors.black,
+          onBackground: Colors.black,
+          onError: Colors.white,
         ),
         useMaterial3: true,
+        fontFamily: 'Gabarito',
+        primaryColor: const Color(0xFFFF3A3D),
+        scaffoldBackgroundColor: Colors.white,
       ),
       darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.orange,
-          brightness: Brightness.dark,
+        colorScheme: ColorScheme.dark(
+          primary: const Color(0xFFFF3A3D),
+          secondary: const Color(0xFFFF3A3D),
+          surface: const Color(0xFF1E1E1E),
+          background: const Color(0xFF121212),
+          error: Colors.red,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onSurface: Colors.white,
+          onBackground: Colors.white,
+          onError: Colors.white,
         ),
         useMaterial3: true,
+        fontFamily: 'Gabarito',
+        primaryColor: const Color(0xFFFF3A3D),
       ),
       themeMode: isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-      home: HomeScreen(onThemeChanged: (v) {}),
+      home: const SplashScreen(), // Splash ekranından başla
       routes: {
         '/debug/mqtt': (_) => const MqttTestScreen(),
+        '/home': (_) => const DemoScreen(), // Ana ekran artık DemoScreen
+        '/old-home': (_) => home_simple.HomeScreen(onThemeChanged: (v) {}),
+        '/report': (_) => const ReportScreen(), // Deprem bildir ekranı
       },
       debugShowCheckedModeBanner: false,
     );

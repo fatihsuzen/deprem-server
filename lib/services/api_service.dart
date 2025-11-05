@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'auth_service.dart';
+import 'package:deprem_app/services/auth_service.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();

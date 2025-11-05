@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/mqtt_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,6 +12,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool isDarkTheme = false;
   bool isDarkMapTheme = false;
+  bool autoStartMqtt = true;
   bool isLoading = true;
 
   @override
@@ -24,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
       isDarkMapTheme = prefs.getBool('isDarkMapTheme') ?? false;
+      autoStartMqtt = prefs.getBool('auto_start_mqtt_service') ?? true;
       isLoading = false;
     });
   }
@@ -62,7 +65,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ayarlar'),
@@ -136,6 +138,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 32),
+
+            // MQTT Auto-start toggle
+            Text(
+              'Bildirim Servisi',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: isDarkTheme ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkTheme ? Colors.grey[800] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.notifications_active_outlined,
+                    color: isDarkTheme ? Colors.orange : Colors.blue,
+                    size: 28,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Otomatik Bildirim Servisi',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: isDarkTheme ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          autoStartMqtt
+                              ? 'Uygulama girişinde servis otomatik başlatılır'
+                              : 'Servis otomatik başlatılmaz',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: isDarkTheme
+                                ? Colors.grey[300]
+                                : Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch.adaptive(
+                    value: autoStartMqtt,
+                    onChanged: (v) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('auto_start_mqtt_service', v);
+                      setState(() {
+                        autoStartMqtt = v;
+                      });
+                      // UX: show feedback
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(v
+                                ? 'Otomatik bildirim servisi etkinleştirildi.'
+                                : 'Otomatik bildirim servisi devre dışı bırakıldı.'),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                      // If user disabled auto-start, stop service if running
+                      if (!v) {
+                        try {
+                          await MqttService.instance.stopForegroundTask();
+                        } catch (_) {}
+                      }
+                    },
+                    activeColor: Colors.orange,
+                    activeTrackColor: Colors.orange.withOpacity(0.3),
+                  ),
+                ],
+              ),
+            ),
 
             // Harita Teması Bölümü
             Text(

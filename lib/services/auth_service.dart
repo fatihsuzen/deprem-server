@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import 'mqtt_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -9,10 +10,7 @@ class AuthService {
   AuthService._internal();
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    // Web Client ID - Google Cloud Console'dan alındı
-    serverClientId:
-        '1001004199238-g0slg9qqlq8g4ijdmhrovanscvevjq04.apps.googleusercontent.com',
-    // Android Client ID için scopes
+    // Android için scopes yeterli, serverClientId olmadan dene
     scopes: ['email', 'profile'],
   );
 
@@ -62,7 +60,13 @@ class AuthService {
       // Eğer mevcut kullanıcı yoksa, yeni giriş yap
       if (googleUser == null) {
         print('🆕 Yeni Google girişi başlatılıyor...');
-        googleUser = await _googleSignIn.signIn();
+        try {
+          googleUser = await _googleSignIn.signIn();
+        } catch (signInError) {
+          print('❌ Google Sign-In hatası: $signInError');
+          print('❌ Hata tipi: ${signInError.runtimeType}');
+          throw Exception('Google Sign-In başarısız: $signInError');
+        }
       }
 
       if (googleUser == null) {
@@ -87,6 +91,27 @@ class AuthService {
       try {
         await _createOrUpdateUserInDatabase(userData);
         print('✅ Kullanıcı server\'a kaydedildi');
+        // After successful server user creation, ensure device mqttClientId is registered
+        try {
+          if (_currentUserId != null)
+            await _registerDeviceWithServer(_currentUserId!);
+          print('✅ Cihaz mqttClientId server\'a kaydedildi (auto)');
+          // Auto-start foreground MQTT service if user preference allows
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final autoStart = prefs.getBool('auto_start_mqtt_service') ?? true;
+            if (autoStart) {
+              final running = await MqttService.instance.isServiceRunning();
+              if (!running) {
+                await MqttService.instance.startForegroundTask();
+              }
+            }
+          } catch (e) {
+            print('⚠️ Auto-start check failed: $e');
+          }
+        } catch (regErr) {
+          print('⚠️ Cihaz kayıt hatası (ignore): $regErr');
+        }
       } catch (dbError) {
         print('⚠️ Server kayıt hatası: $dbError');
         // Server hatası olsa da kullanıcı girişi başarılı sayılsın
@@ -99,6 +124,37 @@ class AuthService {
 
       // Gerçek hatalar için null döndür, demo fallback kaldırıldı
       return null;
+    }
+  }
+
+  // Ensure mqtt client id exists in prefs and register device to server
+  Future<void> _registerDeviceWithServer(String userUid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? mqttClientId = prefs.getString('mqtt_client_id');
+      if (mqttClientId == null) {
+        mqttClientId = 'android_${DateTime.now().millisecondsSinceEpoch}';
+        await prefs.setString('mqtt_client_id', mqttClientId);
+      }
+
+      final url = Uri.parse('${AuthService.baseUrl}/devices/register');
+      final body = jsonEncode({
+        'userId': userUid,
+        'deviceId': mqttClientId,
+        'mqttClientId': mqttClientId,
+        'platform': 'android'
+      });
+
+      final resp = await http
+          .post(url, headers: {'Content-Type': 'application/json'}, body: body)
+          .timeout(const Duration(seconds: 8));
+      if (resp.statusCode == 200) {
+        print('Device register success: ${resp.body}');
+      } else {
+        print('Device register failed: ${resp.statusCode} ${resp.body}');
+      }
+    } catch (e) {
+      print('Device register exception: $e');
     }
   }
 
@@ -182,11 +238,19 @@ class AuthService {
     }
   }
 
-  // Share code oluştur
+  // Share code oluştur (private)
   String _generateShareCodeFromUID(String uid) {
     int hash = uid.hashCode.abs();
     String code = (hash % 999999).toString().padLeft(6, '0');
     return code;
+  }
+
+  // Share code oluştur (public - FriendsScreen için)
+  String generateShareCode() {
+    if (_currentUserId != null) {
+      return _generateShareCodeFromUID(_currentUserId!);
+    }
+    return _currentUserShareCode ?? '000000';
   }
 
   // Konum güncelle

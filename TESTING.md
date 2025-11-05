@@ -31,3 +31,20 @@ Bu dosya, Android cihaz üzerinde MQTT tabanlı test altyapısını nasıl çal�
 - Test tamamlandığında `Stop Foreground` butonu ile servisi durdurabilirsiniz.
 
 Not: iOS için APNs entegrasyonu ileride eklenecektir. Bu rehberi takip ederek önce Android tarafında working PoC oluşturabilirsiniz.
+
+6) Otomatik Servis Başlatma (Auto-start) Testi
+
+- Ayarlar ekranına girin ve "Otomatik Bildirim Servisi" anahtarının açık/kapalı olduğunu kontrol edin. Varsayılan değer: açık.
+- Senaryo A — Otomatik başlatma açık:
+  1. Uygulamadan çıkın (tamamen kapatın veya arka planda değilken). 
+  2. Cihazda Google ile tekrar giriş yapın (veya uygulamayı açıp yeniden giriş tetikleyin).
+  3. Girişten sonra foreground bildirim çubuğunda uygulama bildirimi görünmelidir (servis çalışıyor).
+  4. Sunucu `/api/devices/register` kaydını almış olmalıdır.
+
+- Senaryo B — Otomatik başlatma kapalı:
+  1. Ayarlardan anahtarı kapatın.
+  2. Giriş veya uygulama açma sonrası foreground bildirim görünmemelidir; servis otomatik başlamamalıdır.
+
+- Hızlı kontrol: Cihazda SharedPreferences içindeki `mqtt_client_id` anahtarını kontrol ederek mqtt client id'yi doğrulayabilirsiniz.
+
+Not: Foreground servis durdurma/başlatma anlık olarak cihaz politikasına bağlıdır; Android versiyonuna göre bildirim görünümü değişebilir. Eğer servis hemen durmuyorsa cihaz yeniden başlatma veya uygulamayı tamamen kapatıp tekrar açma ile doğrulayın.

@@ -85,10 +85,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDarkTheme
-        ? Theme.of(context).colorScheme.primary
-        : Colors.deepPurple[600];
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,

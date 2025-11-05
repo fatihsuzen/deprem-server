@@ -19,16 +19,19 @@ class MqttService with ChangeNotifier {
   int brokerPort = 8883;
   bool useTls = true;
 
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
 
   Future<void> initLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iOSInit = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(android: androidInit, iOS: iOSInit);
+    const initSettings =
+        InitializationSettings(android: androidInit, iOS: iOSInit);
     await _localNotifications.initialize(initSettings);
   }
 
-  Future<void> configure({required String brokerUrlWithScheme, int? port, bool? tls}) async {
+  Future<void> configure(
+      {required String brokerUrlWithScheme, int? port, bool? tls}) async {
     brokerUrl = brokerUrlWithScheme;
     if (port != null) brokerPort = port;
     if (tls != null) useTls = tls;
@@ -73,7 +76,8 @@ class MqttService with ChangeNotifier {
       return;
     }
 
-    if (_client!.connectionStatus?.state == mqtt.MqttConnectionState.connected) {
+    if (_client!.connectionStatus?.state ==
+        mqtt.MqttConnectionState.connected) {
       debugPrint('MQTT connected as $clientId');
       // register device with server using mqttClientId
       await _registerWithServer();
@@ -81,13 +85,16 @@ class MqttService with ChangeNotifier {
       final topic = 'devices/$clientId/notifications';
       _client!.subscribe(topic, mqtt.MqttQos.atLeastOnce);
 
-      _client!.updates?.listen((List<mqtt.MqttReceivedMessage<mqtt.MqttMessage?>>? c) {
+      _client!.updates
+          ?.listen((List<mqtt.MqttReceivedMessage<mqtt.MqttMessage?>>? c) {
         final recMess = c![0].payload as mqtt.MqttPublishMessage;
-        final pt = mqtt.MqttPublishPayload.bytesToStringAsString(recMess.payload.message);
+        final pt = mqtt.MqttPublishPayload.bytesToStringAsString(
+            recMess.payload.message);
         _handleIncoming(pt);
       });
     } else {
-      debugPrint('MQTT connection failed - status is ${_client?.connectionStatus}');
+      debugPrint(
+          'MQTT connection failed - status is ${_client?.connectionStatus}');
     }
   }
 
@@ -115,7 +122,9 @@ class MqttService with ChangeNotifier {
         'mqttClientId': clientId,
         'platform': 'android'
       };
-      final r = await http.post(url, body: jsonEncode(body), headers: {'Content-Type': 'application/json'}).timeout(const Duration(seconds: 10));
+      final r = await http.post(url, body: jsonEncode(body), headers: {
+        'Content-Type': 'application/json'
+      }).timeout(const Duration(seconds: 10));
       debugPrint('Device register response: ${r.statusCode} ${r.body}');
     } catch (e) {
       debugPrint('Device register failed: $e');
@@ -144,7 +153,8 @@ class MqttService with ChangeNotifier {
         ticker: 'ticker',
       );
       const iOSDetails = DarwinNotificationDetails();
-      const platform = NotificationDetails(android: androidDetails, iOS: iOSDetails);
+      const platform =
+          NotificationDetails(android: androidDetails, iOS: iOSDetails);
 
       await _localNotifications.show(
         DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -167,21 +177,17 @@ class MqttService with ChangeNotifier {
   // Start Android foreground task which will keep the service alive
   Future<void> startForegroundTask() async {
     // Request to start foreground task with a notification
-    await FlutterForegroundTask.init(
+    FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'foreground_channel',
         channelName: 'Foreground Service',
         channelDescription: 'Keeps MQTT connection alive',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.MAX,
-        iconData: const NotificationIconData(
-          resType: ResourceType.mipmap,
-          resPrefix: ResourcePrefix.ic,
-          name: 'ic_launcher',
-        ),
       ),
       iosNotificationOptions: const IOSNotificationOptions(),
-      foregroundTaskOptions: const ForegroundTaskOptions(interval: 5000),
+      foregroundTaskOptions: ForegroundTaskOptions(
+          eventAction: ForegroundTaskEventAction.repeat(5000)),
     );
     // Register the handler and start the service
     FlutterForegroundTask.setTaskHandler(MqttForegroundTaskHandler());
@@ -189,6 +195,18 @@ class MqttService with ChangeNotifier {
       notificationTitle: 'Deprem App',
       notificationText: 'Bağlanıyor...',
     );
+  }
+
+  // Return whether the foreground service is currently running.
+  Future<bool> isServiceRunning() async {
+    try {
+      // FlutterForegroundTask exposes a boolean future indicating running state
+      final running = await FlutterForegroundTask.isRunningService;
+      return running;
+    } catch (e) {
+      debugPrint('isServiceRunning check failed: $e');
+      return false;
+    }
   }
 
   Future<void> stopForegroundTask() async {

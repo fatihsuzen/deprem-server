@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/auth_service.dart';
-import '../services/friends_service.dart';
+import 'package:deprem_app/services/services.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});

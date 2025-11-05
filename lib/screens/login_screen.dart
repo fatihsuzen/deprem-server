@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
-import 'home_screen_simple.dart';
+import 'demo_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
         print('✅ Login screen: Giriş başarılı, ana sayfaya yönlendiriliyor');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(
+              builder: (context) => const DemoScreen()),
         );
       } else {
         print('❌ Login screen: Kullanıcı null döndü');
@@ -57,7 +58,8 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+          MaterialPageRoute(
+              builder: (context) => const DemoScreen()),
         );
       }
     } catch (error) {
@@ -86,89 +88,119 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Colors.red.shade700,
-              Colors.red.shade900,
+              Color(0xFFFF3A3D),
+              Color(0xFFE63235),
             ],
           ),
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.symmetric(horizontal: 32.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo/Icon
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    size: 80,
-                    color: Colors.white,
-                  ),
+                const Spacer(),
+                
+                // Logo
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Dış halka
+                    Container(
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                    // İç ikon
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        size: 50,
+                        color: Color(0xFFFF3A3D),
+                      ),
+                    ),
+                  ],
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
                 // Başlık
                 const Text(
-                  'Deprem Bildirim',
+                  'Deprem Hattı',
                   style: TextStyle(
-                    fontSize: 32,
+                    fontSize: 36,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    letterSpacing: 1.5,
                   ),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
                 const Text(
-                  'Güvenliğiniz için hızlı bildirim sistemi',
+                  'Deprem anında sevdiklerinize ulaşın',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     color: Colors.white70,
+                    letterSpacing: 0.5,
                   ),
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 48),
-
-                // Özellikler listesi
-                _buildFeatureItem(
-                    Icons.notifications_active, 'Anında deprem bildirimi'),
-                _buildFeatureItem(Icons.people, 'Arkadaş takip sistemi'),
-                _buildFeatureItem(Icons.location_on, 'Konum paylaşımı'),
-                _buildFeatureItem(Icons.map, 'Deprem haritası'),
-
-                const SizedBox(height: 48),
+                const Spacer(),
 
                 // Giriş butonu (Google ile)
-                SizedBox(
+                Container(
                   width: double.infinity,
                   height: 56,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _signInWithGoogle,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
-                      foregroundColor: Colors.grey.shade800,
+                      foregroundColor: const Color(0xFFFF3A3D),
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: _isLoading
-                        ? const CircularProgressIndicator()
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF3A3D)),
+                          )
                         : const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.login, size: 24),
+                              Icon(Icons.login, size: 22),
                               SizedBox(width: 12),
                               Text(
                                 'Google ile Giriş Yap',
@@ -187,14 +219,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Misafir giriş butonu
                 TextButton(
                   onPressed: _isLoading ? null : _continueAsGuest,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  ),
                   child: const Text(
                     'Misafir olarak devam et',
                     style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
+                
+                const SizedBox(height: 40),
               ],
             ),
           ),
@@ -203,22 +241,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildFeatureItem(IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.white, size: 20),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
