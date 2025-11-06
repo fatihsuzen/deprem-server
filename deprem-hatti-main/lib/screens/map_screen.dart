@@ -221,7 +221,7 @@ class _MapScreenState extends State<MapScreen> {
                   point: _userLocation,
                   width: 35,
                   height: 35,
-                  child: Container(
+                  builder: (ctx) => Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.blue,
@@ -232,7 +232,7 @@ class _MapScreenState extends State<MapScreen> {
                         'assets/Icons/user-stroke-rounded.svg',
                         width: 18.0,
                         height: 18.0,
-                        colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -250,7 +250,7 @@ class _MapScreenState extends State<MapScreen> {
                     point: LatLng(lat, lon),
                     width: isLastQuake ? 200 : 40,
                     height: isLastQuake ? 135 : 40,
-                    child: Column(
+                    builder: (ctx) => Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -362,7 +362,7 @@ class _MapScreenState extends State<MapScreen> {
                                 'assets/Icons/Logo.svg',
                                 width: 20,
                                 height: 20,
-                                colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                                color: Colors.white,
                               ),
                             ),
                           ),

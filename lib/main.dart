@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'screens/mqtt_test_screen.dart';
-import 'screens/home_screen_simple.dart' as home_simple;
-import 'screens/demo_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/root.dart';
+import 'screens/mqtt_test_screen.dart';
 import 'screens/report_screen.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
@@ -13,6 +13,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Splash screen sırasında tam ekran moduna geç
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   // Servisleri initialize et
   try {
@@ -58,23 +61,24 @@ class _DepremAppState extends State<DepremApp> {
     });
   }
 
-  // theme toggling removed for test screen
-
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
       return MaterialApp(
         home: Scaffold(
           body: Center(
-            child: CircularProgressIndicator(),
+            child: CircularProgressIndicator(
+              color: Color(0xFFFF3A3D),
+            ),
           ),
         ),
       );
     }
 
     return MaterialApp(
-      title: 'Deprem Bildirim',
+      title: 'Deprem Hattı',
       navigatorKey: navigatorKey,
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.light(
           primary: const Color(0xFFFF3A3D),
@@ -92,6 +96,12 @@ class _DepremAppState extends State<DepremApp> {
         fontFamily: 'Gabarito',
         primaryColor: const Color(0xFFFF3A3D),
         scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFF3A3D),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+        ),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.dark(
@@ -109,16 +119,22 @@ class _DepremAppState extends State<DepremApp> {
         useMaterial3: true,
         fontFamily: 'Gabarito',
         primaryColor: const Color(0xFFFF3A3D),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFFF3A3D),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+        ),
       ),
       themeMode: isDarkTheme ? ThemeMode.dark : ThemeMode.light,
-      home: const SplashScreen(), // Splash ekranından başla
+      initialRoute: '/',
       routes: {
-        '/debug/mqtt': (_) => const MqttTestScreen(),
-        '/home': (_) => const DemoScreen(), // Ana ekran artık DemoScreen
-        '/old-home': (_) => home_simple.HomeScreen(onThemeChanged: (v) {}),
-        '/report': (_) => const ReportScreen(), // Deprem bildir ekranı
+        '/': (ctx) => const SplashScreen(),
+        '/home': (ctx) => const RootScreen(),
+        '/debug/mqtt': (ctx) => const MqttTestScreen(),
+        '/report': (ctx) => const ReportScreen(),
       },
-      debugShowCheckedModeBanner: false,
     );
   }
 }

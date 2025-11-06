@@ -2,32 +2,31 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
+import 'root.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  _SplashScreenState createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Uygulama yüklenene kadar splash screen göster (3 saniye)
-    Timer(const Duration(seconds: 3), () {
+    // Uygulama yüklenene kadar splash screen göster (5 saniye)
+    Timer(Duration(seconds: 5), () {
       // Normal UI mode'a geri dön
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => RootScreen()),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFF3A3D), // Uygulama kırmızısı
+      backgroundColor: Color(0xFFFF3333), // Uygulama kırmızısı
       body: Stack(
         children: [
           // Arka planda büyük, soluk logo - ekran dışına taşan, sağa kaydırılmış
@@ -40,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   'assets/Icons/Logo.svg',
                   width: MediaQuery.of(context).size.width * 2.5,
                   height: MediaQuery.of(context).size.width * 2.5,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  color: Colors.white,
                 ),
               ),
             ),
@@ -55,11 +54,11 @@ class _SplashScreenState extends State<SplashScreen> {
                   'assets/Icons/Logo.svg',
                   width: 180,
                   height: 180,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 30),
+                SizedBox(height: 30),
                 // Deprem Hattı yazısı
-                const Text(
+                Text(
                   'Deprem Hattı',
                   style: TextStyle(
                     fontSize: 36,
