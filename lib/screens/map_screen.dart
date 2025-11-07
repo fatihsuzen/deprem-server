@@ -313,8 +313,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
                   return Marker(
                     point: LatLng(lat, lon),
-                    width: isLastQuake ? 200 : 60,
-                    height: isLastQuake ? 155 : 60,
+                    width: isLastQuake ? 200 : 80,
+                    height: isLastQuake ? 170 : 80,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -412,11 +412,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                             ),
                           ),
                         // Dalga animasyonu + Deprem marker
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // Dalga animasyonu (sadece en son deprem için)
-                            if (isLastQuake)
+                        SizedBox(
+                          width: 70,
+                          height: 70,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Dalga animasyonu (TÜM DEPREMLER için)
                               AnimatedBuilder(
                                 animation: _waveAnimation,
                                 builder: (context, child) {
@@ -433,34 +435,35 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                   );
                                 },
                               ),
-                            // Deprem marker icon
-                            GestureDetector(
-                              onTap: () => _onTapMarker(q),
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: color,
-                                  boxShadow: [
-                                    BoxShadow(color: Colors.black26, blurRadius: 4)
-                                  ],
-                                ),
-                                child: Center(
-                                  child: SvgPicture.asset(
-                                    'assets/Icons/Logo.svg',
-                                    width: 20,
-                                    height: 20,
-                                    colorFilter: ColorFilter.mode(
-                                        Colors.white, BlendMode.srcIn),
+                              // Deprem marker icon (SABİT)
+                              GestureDetector(
+                                onTap: () => _onTapMarker(q),
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: color,
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black26, blurRadius: 4)
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: SvgPicture.asset(
+                                      'assets/Icons/Logo.svg',
+                                      width: 20,
+                                      height: 20,
+                                      colorFilter: ColorFilter.mode(
+                                          Colors.white, BlendMode.srcIn),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                         // Zaman gösterimi (marker'ın altında)
-                        SizedBox(height: 4),
+                        SizedBox(height: 2),
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
