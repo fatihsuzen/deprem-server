@@ -27,8 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
         print('✅ Login screen: Giriş başarılı, ana sayfaya yönlendiriliyor');
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-              builder: (context) => const DemoScreen()),
+          MaterialPageRoute(builder: (context) => const DemoScreen()),
         );
       } else {
         print('❌ Login screen: Kullanıcı null döndü');
@@ -58,8 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-              builder: (context) => const DemoScreen()),
+          MaterialPageRoute(builder: (context) => const DemoScreen()),
         );
       }
     } catch (error) {
@@ -107,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Spacer(),
-                
+
                 // Logo
                 Stack(
                   alignment: Alignment.center,
@@ -195,7 +193,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: _isLoading
                         ? const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF3A3D)),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFFFF3A3D)),
                           )
                         : const Row(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -220,7 +219,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextButton(
                   onPressed: _isLoading ? null : _continueAsGuest,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12),
                   ),
                   child: const Text(
                     'Misafir olarak devam et',
@@ -231,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 40),
               ],
             ),
@@ -240,5 +240,4 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-
 }

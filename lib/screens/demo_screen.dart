@@ -15,7 +15,7 @@ class DemoScreen extends StatefulWidget {
 
 class _DemoScreenState extends State<DemoScreen> {
   int _selectedIndex = 2; // Harita sekmesi başlangıçta seçili
-  
+
   // Tüm ekranlar
   late final List<Widget> _screens;
 
@@ -41,7 +41,7 @@ class _DemoScreenState extends State<DemoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _screens[_selectedIndex],
-      
+
       // Alt navigasyon çubuğu
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -129,5 +129,4 @@ class _DemoScreenState extends State<DemoScreen> {
       ),
     );
   }
-
 }

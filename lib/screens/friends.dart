@@ -48,7 +48,7 @@ class _FriendsPageState extends State<FriendsPage> {
     setState(() {
       _codeCopied = true;
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -64,7 +64,7 @@ class _FriendsPageState extends State<FriendsPage> {
         duration: Duration(seconds: 2),
       ),
     );
-    
+
     Future.delayed(Duration(seconds: 2), () {
       if (mounted) {
         setState(() {
@@ -80,12 +80,12 @@ class _FriendsPageState extends State<FriendsPage> {
       _showMessage('Lütfen bir bağlantı kodu girin', isError: true);
       return;
     }
-    
+
     if (!code.startsWith('DH-') || code.length != 13) {
       _showMessage('Geçersiz kod formatı. Format: DH-XXXX-XXXX', isError: true);
       return;
     }
-    
+
     // Başarılı ekleme simülasyonu
     _showMessage('Bağlantı başarıyla eklendi!', isError: false);
     _codeController.clear();
@@ -132,134 +132,142 @@ class _FriendsPageState extends State<FriendsPage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-              // Kapatma butonu (sağ üst)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(ctx),
-                    child: Container(
-                      padding: EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.close,
-                        size: 20,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              
-              // Avatar
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: Color(0xFFFF3333),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    connection['avatar'],
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 16),
-              
-              Text(
-                connection['name'],
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              SizedBox(height: 8),
-              
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: connection['status'] == 'online' 
-                    ? Colors.green.withOpacity(0.1)
-                    : Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: connection['status'] == 'online' 
-                      ? Colors.green
-                      : Colors.grey,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                // Kapatma butonu (sağ üst)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: connection['status'] == 'online' 
-                          ? Colors.green
-                          : Colors.grey,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Text(
-                      connection['status'] == 'online' ? 'Çevrimiçi' : 'Çevrimdışı',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: connection['status'] == 'online' 
-                          ? Colors.green
-                          : Colors.grey,
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      child: Container(
+                        padding: EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[200],
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 20,
+                          color: Colors.grey[700],
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              SizedBox(height: 24),
-              
-              _buildDetailRow(Icons.badge, 'Bağlantı Kodu', connection['code']),
-              SizedBox(height: 16),
-              _buildDetailRow(Icons.location_on, 'Konum', connection['location']),
-              SizedBox(height: 16),
-              _buildDetailRow(Icons.near_me, 'Mesafe', connection['distance']),
-              SizedBox(height: 16),
-              _buildDetailRow(Icons.calendar_today, 'Bağlantı Tarihi', connection['connectedDate']),
-              SizedBox(height: 32),
-              
-              // Kaldır butonu (tam genişlik)
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showMessage('${connection['name']} bağlantısı kaldırıldı', isError: false);
-                  },
-                  icon: Icon(Icons.person_remove, color: Color(0xFFFF3333)),
-                  label: Text('Bağlantıyı Kaldır'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Color(0xFFFF3333),
-                    side: BorderSide(color: Color(0xFFFF3333)),
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                SizedBox(height: 8),
+
+                // Avatar
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: Color(0xFFFF3333),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      connection['avatar'],
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: 16),
+
+                Text(
+                  connection['name'],
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+                SizedBox(height: 8),
+
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: connection['status'] == 'online'
+                        ? Colors.green.withOpacity(0.1)
+                        : Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: connection['status'] == 'online'
+                          ? Colors.green
+                          : Colors.grey,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: connection['status'] == 'online'
+                              ? Colors.green
+                              : Colors.grey,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Text(
+                        connection['status'] == 'online'
+                            ? 'Çevrimiçi'
+                            : 'Çevrimdışı',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: connection['status'] == 'online'
+                              ? Colors.green
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 24),
+
+                _buildDetailRow(
+                    Icons.badge, 'Bağlantı Kodu', connection['code']),
+                SizedBox(height: 16),
+                _buildDetailRow(
+                    Icons.location_on, 'Konum', connection['location']),
+                SizedBox(height: 16),
+                _buildDetailRow(
+                    Icons.near_me, 'Mesafe', connection['distance']),
+                SizedBox(height: 16),
+                _buildDetailRow(Icons.calendar_today, 'Bağlantı Tarihi',
+                    connection['connectedDate']),
+                SizedBox(height: 32),
+
+                // Kaldır butonu (tam genişlik)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _showMessage(
+                          '${connection['name']} bağlantısı kaldırıldı',
+                          isError: false);
+                    },
+                    icon: Icon(Icons.person_remove, color: Color(0xFFFF3333)),
+                    label: Text('Bağlantıyı Kaldır'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Color(0xFFFF3333),
+                      side: BorderSide(color: Color(0xFFFF3333)),
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
         );
       },
     );
@@ -367,9 +375,9 @@ class _FriendsPageState extends State<FriendsPage> {
                               duration: Duration(milliseconds: 300),
                               padding: EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: _codeCopied 
-                                  ? Colors.green
-                                  : Colors.white.withOpacity(0.3),
+                                color: _codeCopied
+                                    ? Colors.green
+                                    : Colors.white.withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Icon(
@@ -393,9 +401,9 @@ class _FriendsPageState extends State<FriendsPage> {
                   ],
                 ),
               ),
-              
+
               SizedBox(height: 24),
-              
+
               // Bağlantı ekle
               Container(
                 padding: EdgeInsets.all(20),
@@ -416,7 +424,8 @@ class _FriendsPageState extends State<FriendsPage> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.person_add, color: Color(0xFFFF3333), size: 24),
+                        Icon(Icons.person_add,
+                            color: Color(0xFFFF3333), size: 24),
                         SizedBox(width: 8),
                         Text(
                           'Bağlantı Ekle',
@@ -434,7 +443,8 @@ class _FriendsPageState extends State<FriendsPage> {
                       decoration: InputDecoration(
                         hintText: 'DH-XXXX-XXXX',
                         hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: Icon(Icons.vpn_key, color: Color(0xFFFF3333)),
+                        prefixIcon:
+                            Icon(Icons.vpn_key, color: Color(0xFFFF3333)),
                         filled: true,
                         fillColor: Colors.grey[50],
                         border: OutlineInputBorder(
@@ -447,12 +457,16 @@ class _FriendsPageState extends State<FriendsPage> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Color(0xFFFF3333), width: 2),
+                          borderSide:
+                              BorderSide(color: Color(0xFFFF3333), width: 2),
                         ),
                       ),
                       textCapitalization: TextCapitalization.characters,
                       maxLength: 13,
-                      buildCounter: (context, {required currentLength, required isFocused, maxLength}) {
+                      buildCounter: (context,
+                          {required currentLength,
+                          required isFocused,
+                          maxLength}) {
                         return null; // Counter'ı gizle
                       },
                     ),
@@ -490,9 +504,9 @@ class _FriendsPageState extends State<FriendsPage> {
                   ],
                 ),
               ),
-              
+
               SizedBox(height: 24),
-              
+
               // Bağlantılar başlığı
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
@@ -508,7 +522,8 @@ class _FriendsPageState extends State<FriendsPage> {
                       ),
                     ),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: Color(0xFFFF3333).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
@@ -525,11 +540,13 @@ class _FriendsPageState extends State<FriendsPage> {
                   ],
                 ),
               ),
-              
+
               SizedBox(height: 16),
-              
+
               // Bağlantılar listesi
-              ..._connections.map((connection) => _buildConnectionCard(connection)).toList(),
+              ..._connections
+                  .map((connection) => _buildConnectionCard(connection))
+                  .toList(),
             ],
           ),
         ),
@@ -599,7 +616,7 @@ class _FriendsPageState extends State<FriendsPage> {
                   ],
                 ),
                 SizedBox(width: 16),
-                
+
                 // Bilgiler
                 Expanded(
                   child: Column(
@@ -655,7 +672,7 @@ class _FriendsPageState extends State<FriendsPage> {
                     ],
                   ),
                 ),
-                
+
                 // Chevron
                 Icon(
                   Icons.chevron_right,

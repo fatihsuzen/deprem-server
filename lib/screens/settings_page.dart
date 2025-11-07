@@ -15,61 +15,65 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _backgroundRefreshEnabled = true;
 
   void _showMagnitudeDialog() {
+    double tempMagnitude = _minimumMagnitude;
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Minimum Büyüklük'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Bildirim almak istediğiniz minimum deprem büyüklüğünü seçin'),
-            SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('${_minimumMagnitude.toStringAsFixed(1)}+ Mw',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFF3333))),
-              ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Minimum Büyüklük'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Bildirim almak istediğiniz minimum deprem büyüklüğünü seçin'),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${tempMagnitude.toStringAsFixed(1)}+ Mw',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFF3333))),
+                ],
+              ),
+              Slider(
+                value: tempMagnitude,
+                min: 1.0,
+                max: 7.0,
+                divisions: 60,
+                activeColor: Color(0xFFFF3333),
+                label: '${tempMagnitude.toStringAsFixed(1)}+',
+                onChanged: (value) {
+                  setDialogState(() {
+                    tempMagnitude = value;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
             ),
-            Slider(
-              value: _minimumMagnitude,
-              min: 1.0,
-              max: 7.0,
-              divisions: 60,
-              activeColor: Color(0xFFFF3333),
-              label: '${_minimumMagnitude.toStringAsFixed(1)}+',
-              onChanged: (value) {
+            ElevatedButton(
+              onPressed: () {
                 setState(() {
-                  _minimumMagnitude = value;
+                  _minimumMagnitude = tempMagnitude;
                 });
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Minimum büyüklük ${tempMagnitude.toStringAsFixed(1)}+ olarak ayarlandı'),
+                    backgroundColor: Color(0xFF4CAF50),
+                  ),
+                );
               },
+              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
+              child: Text('Kaydet', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Minimum büyüklük ${_minimumMagnitude.toStringAsFixed(1)}+ olarak ayarlandı'),
-                  backgroundColor: Color(0xFF4CAF50),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-            child: Text('Kaydet', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
-  }
-
-  void _showRatingDialog() {
+  }  void _showRatingDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

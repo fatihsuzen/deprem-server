@@ -66,12 +66,12 @@ class _RootScreenState extends State<RootScreen> {
                     child: GestureDetector(
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Harita yenilendi'))
-                        );
+                            const SnackBar(content: Text('Harita yenilendi')));
                       },
                       child: SvgPicture.asset(
                         'assets/Icons/Refresh.svg',
-                        colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        colorFilter: const ColorFilter.mode(
+                            Colors.white, BlendMode.srcIn),
                         width: 22,
                         height: 22,
                       ),

@@ -8,22 +8,66 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMixin {
   late MapController _mapController;
-  final LatLng _userLocation = LatLng(41.0308, 28.5742); // İstanbul Büyükçekmece
+  late AnimationController _waveController;
+  final LatLng _userLocation =
+      LatLng(41.0308, 28.5742); // İstanbul Büyükçekmece
   bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
 
   final List<Map<String, dynamic>> _quakes = [
-    {"lat": 40.90, "lon": 29.20, "mag": 4.2, "place": "Silivri Açıkları (İstanbul)", "date": "11 Ekim Cumartesi 2025", "time": "17:20", "minutesAgo": 10},
-    {"lat": 39.04, "lon": 27.52, "mag": 3.8, "place": "Balıkesir Merkez", "date": "10 Ekim Cuma 2025", "time": "14:35", "minutesAgo": 125},
-    {"lat": 37.07, "lon": 29.34, "mag": 2.6, "place": "Aydın - Söke", "date": "9 Ekim Perşembe 2025", "time": "09:15", "minutesAgo": 450},
-    {"lat": 37.0, "lon": 31.5, "mag": 4.8, "place": "Burdur - Gölhisar", "date": "8 Ekim Çarşamba 2025", "time": "22:45", "minutesAgo": 1200},
+    {
+      "lat": 40.90,
+      "lon": 29.20,
+      "mag": 4.2,
+      "place": "Silivri Açıkları (İstanbul)",
+      "date": "11 Ekim Cumartesi 2025",
+      "time": "17:20",
+      "minutesAgo": 10
+    },
+    {
+      "lat": 39.04,
+      "lon": 27.52,
+      "mag": 3.8,
+      "place": "Balıkesir Merkez",
+      "date": "10 Ekim Cuma 2025",
+      "time": "14:35",
+      "minutesAgo": 125
+    },
+    {
+      "lat": 37.07,
+      "lon": 29.34,
+      "mag": 2.6,
+      "place": "Aydın - Söke",
+      "date": "9 Ekim Perşembe 2025",
+      "time": "09:15",
+      "minutesAgo": 450
+    },
+    {
+      "lat": 37.0,
+      "lon": 31.5,
+      "mag": 4.8,
+      "place": "Burdur - Gölhisar",
+      "date": "8 Ekim Çarşamba 2025",
+      "time": "22:45",
+      "minutesAgo": 1200
+    },
   ];
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _waveController = AnimationController(
+      vsync: this,
+      duration: Duration(seconds: 2),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _waveController.dispose();
+    super.dispose();
   }
 
   Color _colorForMag(double m) {
@@ -33,12 +77,21 @@ class _MapScreenState extends State<MapScreen> {
     return Colors.green;
   }
 
+  String _formatTimeAgo(int minutes) {
+    if (minutes < 1) return '0s';
+    if (minutes < 60) return '${minutes}dk';
+    final hours = minutes ~/ 60;
+    if (hours < 24) return '${hours}s';
+    final days = hours ~/ 24;
+    return '${days}g';
+  }
+
   void _onTapMarker(Map<String, dynamic> q) {
     final mag = (q['mag'] as num).toDouble();
     final place = q['place'] ?? 'Konum';
     final date = q['date'] ?? 'Tarih bilgisi yok';
     final time = q['time'] ?? '--:--';
-    
+
     showModalBottomSheet(
         context: context,
         shape: RoundedRectangleBorder(
@@ -60,7 +113,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
                 SizedBox(height: 24),
-                
+
                 // Büyüklük
                 Row(
                   children: [
@@ -88,7 +141,7 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
                 SizedBox(height: 20),
-                
+
                 // Konum
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,7 +164,7 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
                 SizedBox(height: 20),
-                
+
                 // Tarih
                 Row(
                   children: [
@@ -131,7 +184,7 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
                 SizedBox(height: 20),
-                
+
                 // Saat
                 Row(
                   children: [
@@ -151,7 +204,7 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
                 SizedBox(height: 32),
-                
+
                 // Kapat Butonu
                 SizedBox(
                   width: double.infinity,
@@ -225,14 +278,17 @@ class _MapScreenState extends State<MapScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.blue,
-                      boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                      boxShadow: [
+                        BoxShadow(color: Colors.black26, blurRadius: 4)
+                      ],
                     ),
                     child: Center(
                       child: SvgPicture.asset(
                         'assets/Icons/user-stroke-rounded.svg',
                         width: 18.0,
                         height: 18.0,
-                        colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        colorFilter:
+                            ColorFilter.mode(Colors.white, BlendMode.srcIn),
                       ),
                     ),
                   ),
@@ -245,11 +301,11 @@ class _MapScreenState extends State<MapScreen> {
                   final mag = (q['mag'] as num).toDouble();
                   final color = _colorForMag(mag);
                   final isLastQuake = index == 0;
-                  
+
                   return Marker(
                     point: LatLng(lat, lon),
-                    width: isLastQuake ? 200 : 40,
-                    height: isLastQuake ? 135 : 40,
+                    width: isLastQuake ? 200 : 50,
+                    height: isLastQuake ? 135 : 60,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -349,21 +405,62 @@ class _MapScreenState extends State<MapScreen> {
                         // Deprem marker
                         GestureDetector(
                           onTap: () => _onTapMarker(q),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
-                            ),
-                            child: Center(
-                              child: SvgPicture.asset(
-                                'assets/Icons/Logo.svg',
-                                width: 20,
-                                height: 20,
-                                colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Dalga animasyonu
+                              AnimatedBuilder(
+                                animation: _waveController,
+                                builder: (context, child) {
+                                  final value = _waveController.value;
+                                  return Container(
+                                    width: 40 + (value * 20),
+                                    height: 40 + (value * 20),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: color.withOpacity(0.3 * (1 - value)),
+                                    ),
+                                  );
+                                },
                               ),
+                              // İç marker
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: color,
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black26, blurRadius: 4)
+                                  ],
+                                ),
+                                child: Center(
+                                  child: SvgPicture.asset(
+                                    'assets/Icons/Logo.svg',
+                                    width: 20,
+                                    height: 20,
+                                    colorFilter: ColorFilter.mode(
+                                        Colors.white, BlendMode.srcIn),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Zaman etiketi
+                        SizedBox(height: 2),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            _formatTimeAgo(q['minutesAgo'] as int),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -375,7 +472,6 @@ class _MapScreenState extends State<MapScreen> {
             )
           ],
         ),
-        
         Positioned(
           top: 12,
           right: 12,
@@ -413,9 +509,12 @@ class _MapScreenState extends State<MapScreen> {
               backgroundColor: Color(0xFFFF3333),
               foregroundColor: Colors.white,
               minimumSize: Size(250, 54),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999)),
             ),
-            child: Text('Deprem Bildir', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            child: Text('Deprem Bildir',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600)),
           ),
         )
       ],
@@ -435,16 +534,83 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
   bool _showCityList = false;
 
   final List<String> _cities = [
-    'Adana', 'Adıyaman', 'Afyonkarahisar', 'Ağrı', 'Aksaray', 'Amasya', 'Ankara', 'Antalya',
-    'Ardahan', 'Artvin', 'Aydın', 'Balıkesir', 'Bartın', 'Batman', 'Bayburt', 'Bingöl', 'Bitlis',
-    'Bolu', 'Burdur', 'Bursa', 'Çanakkale', 'Çankırı', 'Çorum', 'Denizli', 'Diyarbakır',
-    'Düzce', 'Edirne', 'Elazığ', 'Erzincan', 'Erzurum', 'Eskişehir', 'Gaziantep', 'Giresun',
-    'Gümüşhane', 'Hakkari', 'Hatay', 'Iğdır', 'Isparta', 'İstanbul', 'İzmir',
-    'Kahraman Maraş', 'Karabük', 'Karaman', 'Kars', 'Kastamonu', 'Kayseri', 'Kırıkkale',
-    'Kırklareli', 'Kırşehir', 'Kilis', 'Kocaeli', 'Konya', 'Kütahya', 'Malatya', 'Manisa',
-    'Mardin', 'Muğla', 'Muş', 'Nevşehir', 'Niğde', 'Ordu', 'Rize', 'Sakarya',
-    'Samsun', 'Şanlıurfa', 'Şırnak', 'Siirt', 'Sinop', 'Sivas', 'Tekirdağ', 'Tokat',
-    'Trabzon', 'Uşak', 'Van', 'Yalova', 'Yozgat', 'Zonguldak',
+    'Adana',
+    'Adıyaman',
+    'Afyonkarahisar',
+    'Ağrı',
+    'Aksaray',
+    'Amasya',
+    'Ankara',
+    'Antalya',
+    'Ardahan',
+    'Artvin',
+    'Aydın',
+    'Balıkesir',
+    'Bartın',
+    'Batman',
+    'Bayburt',
+    'Bingöl',
+    'Bitlis',
+    'Bolu',
+    'Burdur',
+    'Bursa',
+    'Çanakkale',
+    'Çankırı',
+    'Çorum',
+    'Denizli',
+    'Diyarbakır',
+    'Düzce',
+    'Edirne',
+    'Elazığ',
+    'Erzincan',
+    'Erzurum',
+    'Eskişehir',
+    'Gaziantep',
+    'Giresun',
+    'Gümüşhane',
+    'Hakkari',
+    'Hatay',
+    'Iğdır',
+    'Isparta',
+    'İstanbul',
+    'İzmir',
+    'Kahraman Maraş',
+    'Karabük',
+    'Karaman',
+    'Kars',
+    'Kastamonu',
+    'Kayseri',
+    'Kırıkkale',
+    'Kırklareli',
+    'Kırşehir',
+    'Kilis',
+    'Kocaeli',
+    'Konya',
+    'Kütahya',
+    'Malatya',
+    'Manisa',
+    'Mardin',
+    'Muğla',
+    'Muş',
+    'Nevşehir',
+    'Niğde',
+    'Ordu',
+    'Rize',
+    'Sakarya',
+    'Samsun',
+    'Şanlıurfa',
+    'Şırnak',
+    'Siirt',
+    'Sinop',
+    'Sivas',
+    'Tekirdağ',
+    'Tokat',
+    'Trabzon',
+    'Uşak',
+    'Van',
+    'Yalova',
+    'Yozgat',
+    'Zonguldak',
   ];
 
   final List<Map<String, String>> magnitudes = [
@@ -460,13 +626,15 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
 
   List<String> get _filteredCities {
     if (_searchCity.isEmpty) return _cities;
-    return _cities.where((city) => city.toLowerCase().contains(_searchCity.toLowerCase())).toList();
+    return _cities
+        .where((city) => city.toLowerCase().contains(_searchCity.toLowerCase()))
+        .toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    
+
     return Container(
       height: screenHeight * 0.7,
       decoration: BoxDecoration(
@@ -481,9 +649,15 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Deprem Bildir', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text('Deprem Bildir',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 SizedBox(height: 20),
-                Text('Hangi İldesin', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black)),
+                Text('Hangi İldesin',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black)),
                 SizedBox(height: 8),
                 _buildCitySearchField(),
               ],
@@ -491,7 +665,9 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
           ),
           // Conditional content: City list OR Magnitude options
           Expanded(
-            child: _showCityList ? _buildExpandedCityList() : _buildMagnitudeSection(),
+            child: _showCityList
+                ? _buildExpandedCityList()
+                : _buildMagnitudeSection(),
           ),
           Container(
             padding: EdgeInsets.all(16),
@@ -519,16 +695,23 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                         return;
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$_selectedCity bölgesinde deprem bildirildi!')),
+                        SnackBar(
+                            content: Text(
+                                '$_selectedCity bölgesinde deprem bildirildi!')),
                       );
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFFFF3333),
                       padding: EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text('Bildir', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    child: Text('Bildir',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
                   ),
                 ),
                 SizedBox(height: 12),
@@ -538,9 +721,11 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text('Vazgeç', style: TextStyle(color: Colors.black, fontSize: 16)),
+                    child: Text('Vazgeç',
+                        style: TextStyle(color: Colors.black, fontSize: 16)),
                   ),
                 ),
               ],
@@ -588,7 +773,10 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                 children: [
                   Icon(Icons.check_circle, color: Color(0xFFFF3333), size: 20),
                   SizedBox(width: 8),
-                  Text('Seçili: $_selectedCity', style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFFFF3333))),
+                  Text('Seçili: $_selectedCity',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFFF3333))),
                 ],
               ),
             ),
@@ -602,7 +790,8 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: _filteredCities.isEmpty
           ? Center(
-              child: Text('Sonuç bulunamadı', style: TextStyle(color: Colors.grey)),
+              child: Text('Sonuç bulunamadı',
+                  style: TextStyle(color: Colors.grey)),
             )
           : ListView.builder(
               itemCount: _filteredCities.length,
@@ -630,7 +819,8 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tahmini Büyüklük', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          Text('Tahmini Büyüklük',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           SizedBox(height: 12),
           ..._buildMagnitudeOptions(),
           SizedBox(height: 16),
@@ -671,8 +861,13 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${mag['min']}-${mag['max']} Mw', style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? Color(0xFFFF3333) : Colors.black)),
-                    Text(mag['desc']!, style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text('${mag['min']}-${mag['max']} Mw',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color:
+                                isSelected ? Color(0xFFFF3333) : Colors.black)),
+                    Text(mag['desc']!,
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ),

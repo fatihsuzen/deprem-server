@@ -498,7 +498,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                     });
                                   },
                                   title: Text(
-                                    intensity['title'],
+                                    intensity['description'],
                                     style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       color: intensity['textColor'],
@@ -506,7 +506,7 @@ class _ReportScreenState extends State<ReportScreen> {
                                     ),
                                   ),
                                   subtitle: Text(
-                                    intensity['description'],
+                                    intensity['title'],
                                     style: TextStyle(
                                       color: intensity['textColor']
                                           .withOpacity(0.8),

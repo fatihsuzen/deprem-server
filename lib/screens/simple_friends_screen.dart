@@ -22,7 +22,11 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
       'name': 'Ahmet Yılmaz',
       'email': 'ahmet@example.com',
       'shareCode': 'AHMET123',
-      'location': {'latitude': 41.0082, 'longitude': 28.9784, 'address': 'İstanbul, Türkiye'},
+      'location': {
+        'latitude': 41.0082,
+        'longitude': 28.9784,
+        'address': 'İstanbul, Türkiye'
+      },
       'lastSeen': DateTime.now().subtract(const Duration(minutes: 5)),
       'isOnline': true,
     },
@@ -31,7 +35,11 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
       'name': 'Fatma Demir',
       'email': 'fatma@example.com',
       'shareCode': 'FATMA456',
-      'location': {'latitude': 39.9334, 'longitude': 32.8597, 'address': 'Ankara, Türkiye'},
+      'location': {
+        'latitude': 39.9334,
+        'longitude': 32.8597,
+        'address': 'Ankara, Türkiye'
+      },
       'lastSeen': DateTime.now().subtract(const Duration(hours: 2)),
       'isOnline': false,
     },
@@ -40,7 +48,11 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
       'name': 'Mehmet Özkan',
       'email': 'mehmet@example.com',
       'shareCode': 'MEHMET789',
-      'location': {'latitude': 38.4127, 'longitude': 27.1384, 'address': 'İzmir, Türkiye'},
+      'location': {
+        'latitude': 38.4127,
+        'longitude': 27.1384,
+        'address': 'İzmir, Türkiye'
+      },
       'lastSeen': DateTime.now().subtract(const Duration(minutes: 30)),
       'isOnline': true,
     },
@@ -183,7 +195,9 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
               children: [
                 Text(friend['location']['address']),
                 Text(
-                  isOnline ? 'Çevrimiçi' : 'Son görülme: ${_formatLastUpdate(lastSeen)}',
+                  isOnline
+                      ? 'Çevrimiçi'
+                      : 'Son görülme: ${_formatLastUpdate(lastSeen)}',
                   style: TextStyle(
                     fontSize: 12,
                     color: isOnline ? Colors.green : Colors.grey,
@@ -382,7 +396,9 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(accept ? 'Arkadaş isteği kabul edildi!' : 'Arkadaş isteği reddedildi'),
+        content: Text(accept
+            ? 'Arkadaş isteği kabul edildi!'
+            : 'Arkadaş isteği reddedildi'),
         backgroundColor: accept ? Colors.green : Colors.orange,
       ),
     );
@@ -399,7 +415,8 @@ class _SimpleFriendsScreenState extends State<SimpleFriendsScreen>
           children: [
             Text('📍 ${friend['location']['address']}'),
             const SizedBox(height: 8),
-            Text('Konum: ${friend['location']['latitude']}, ${friend['location']['longitude']}'),
+            Text(
+                'Konum: ${friend['location']['latitude']}, ${friend['location']['longitude']}'),
           ],
         ),
         actions: [

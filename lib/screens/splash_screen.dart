@@ -40,7 +40,8 @@ class _SplashScreenState extends State<SplashScreen> {
                   'assets/Icons/Logo.svg',
                   width: MediaQuery.of(context).size.width * 2.5,
                   height: MediaQuery.of(context).size.width * 2.5,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter:
+                      const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                 ),
               ),
             ),
@@ -55,7 +56,8 @@ class _SplashScreenState extends State<SplashScreen> {
                   'assets/Icons/Logo.svg',
                   width: 180,
                   height: 180,
-                  colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                  colorFilter:
+                      const ColorFilter.mode(Colors.white, BlendMode.srcIn),
                 ),
                 const SizedBox(height: 30),
                 // Deprem Hattı yazısı
