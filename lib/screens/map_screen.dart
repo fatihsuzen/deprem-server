@@ -491,6 +491,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             children: [
               FloatingActionButton(
+                heroTag: 'zoom_in_btn',
                 mini: true,
                 onPressed: _zoomIn,
                 backgroundColor: Colors.white,
@@ -498,6 +499,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
               SizedBox(height: 8),
               FloatingActionButton(
+                heroTag: 'zoom_out_btn',
                 mini: true,
                 onPressed: _zoomOut,
                 backgroundColor: Colors.white,
@@ -505,6 +507,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
               SizedBox(height: 8),
               FloatingActionButton(
+                heroTag: 'my_location_btn',
                 mini: true,
                 onPressed: _focusUserLocation,
                 backgroundColor: Colors.white,
