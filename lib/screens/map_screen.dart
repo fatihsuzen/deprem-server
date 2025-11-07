@@ -8,12 +8,13 @@ class MapScreen extends StatefulWidget {
   _MapScreenState createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMixin {
+class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late MapController _mapController;
-  late AnimationController _waveController;
   final LatLng _userLocation =
       LatLng(41.0308, 28.5742); // İstanbul Büyükçekmece
   bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
+  late AnimationController _waveController;
+  late Animation<double> _waveAnimation;
 
   final List<Map<String, dynamic>> _quakes = [
     {
@@ -58,10 +59,16 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
   void initState() {
     super.initState();
     _mapController = MapController();
+    
+    // Dalga animasyonu için
     _waveController = AnimationController(
+      duration: const Duration(seconds: 2),
       vsync: this,
-      duration: Duration(seconds: 2),
     )..repeat();
+    
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
+    );
   }
 
   @override
@@ -70,20 +77,22 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
     super.dispose();
   }
 
+  String _formatTimeAgo(int minutes) {
+    if (minutes < 1) return '< 1dk';
+    if (minutes < 60) return '${minutes}dk';
+    
+    int hours = minutes ~/ 60;
+    if (hours < 24) return '${hours}s';
+    
+    int days = hours ~/ 24;
+    return '${days}g';
+  }
+
   Color _colorForMag(double m) {
     if (m >= 4.5) return Colors.red;
     if (m >= 4.0) return Colors.deepOrange;
     if (m >= 3.0) return Colors.orange;
     return Colors.green;
-  }
-
-  String _formatTimeAgo(int minutes) {
-    if (minutes < 1) return '0s';
-    if (minutes < 60) return '${minutes}dk';
-    final hours = minutes ~/ 60;
-    if (hours < 24) return '${hours}s';
-    final days = hours ~/ 24;
-    return '${days}g';
   }
 
   void _onTapMarker(Map<String, dynamic> q) {
@@ -304,8 +313,8 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
 
                   return Marker(
                     point: LatLng(lat, lon),
-                    width: isLastQuake ? 200 : 50,
-                    height: isLastQuake ? 135 : 60,
+                    width: isLastQuake ? 200 : 60,
+                    height: isLastQuake ? 155 : 60,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -402,29 +411,32 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
                               ],
                             ),
                           ),
-                        // Deprem marker
-                        GestureDetector(
-                          onTap: () => _onTapMarker(q),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Dalga animasyonu
+                        // Dalga animasyonu + Deprem marker
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Dalga animasyonu (sadece en son deprem için)
+                            if (isLastQuake)
                               AnimatedBuilder(
-                                animation: _waveController,
+                                animation: _waveAnimation,
                                 builder: (context, child) {
-                                  final value = _waveController.value;
                                   return Container(
-                                    width: 40 + (value * 20),
-                                    height: 40 + (value * 20),
+                                    width: 40 + (_waveAnimation.value * 30),
+                                    height: 40 + (_waveAnimation.value * 30),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: color.withOpacity(0.3 * (1 - value)),
+                                      border: Border.all(
+                                        color: color.withOpacity(0.6 - (_waveAnimation.value * 0.6)),
+                                        width: 2,
+                                      ),
                                     ),
                                   );
                                 },
                               ),
-                              // İç marker
-                              Container(
+                            // Deprem marker icon
+                            GestureDetector(
+                              onTap: () => _onTapMarker(q),
+                              child: Container(
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
@@ -444,23 +456,23 @@ class _MapScreenState extends State<MapScreen> with SingleTickerProviderStateMix
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        // Zaman etiketi
-                        SizedBox(height: 2),
+                        // Zaman gösterimi (marker'ın altında)
+                        SizedBox(height: 4),
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             _formatTimeAgo(q['minutesAgo'] as int),
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
