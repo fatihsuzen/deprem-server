@@ -314,7 +314,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   return Marker(
                     point: LatLng(lat, lon),
                     width: isLastQuake ? 200 : 80,
-                    height: isLastQuake ? 170 : 80,
+                    height: isLastQuake ? 185 : 80,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -325,7 +325,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                             width: 200,
                             height: 90,
                             padding: EdgeInsets.all(14),
-                            margin: EdgeInsets.only(bottom: 2),
+                            margin: EdgeInsets.only(bottom: 0),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(8),
