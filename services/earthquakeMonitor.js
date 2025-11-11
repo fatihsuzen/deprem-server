@@ -9,7 +9,7 @@ class EarthquakeMonitor {
       afad: {
         url: 'https://deprem.afad.gov.tr/apiv2/event/filter',
         enabled: true,
-        timeout: 5000
+        timeout: 10000 // Increased timeout for AFAD
       },
       kandilli: {
         url: 'http://www.koeri.boun.edu.tr/scripts/lst0.asp',
@@ -104,13 +104,20 @@ class EarthquakeMonitor {
 
   async checkAFAD() {
     try {
-      // AFAD API parameters for recent earthquakes
+      // AFAD API parameters - correct format based on official API
+      const now = new Date();
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      
+      // Format: MM-DD-YYYY HH:MM:SS
+      const formatDate = (date) => {
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+      };
+
       const params = {
-        orderBy: 'event_date_time',
-        orderDirection: 'desc',
-        limit: 50,
-        minMagnitude: 2.0,
-        startDate: this.getDateString(new Date(Date.now() - 24 * 60 * 60 * 1000)) // Last 24 hours
+        start: formatDate(yesterday),
+        end: formatDate(now),
+        format: 'json'
       };
 
       const response = await axios.get(this.sources.afad.url, {
@@ -122,20 +129,24 @@ class EarthquakeMonitor {
         }
       });
 
-      if (response.data && response.data.data) {
-        return response.data.data.map(eq => ({
-          id: `afad_${eq.event_id}`,
+      // AFAD returns array directly or in data property
+      const earthquakes = Array.isArray(response.data) ? response.data : (response.data.data || []);
+      
+      if (earthquakes && earthquakes.length > 0) {
+        console.log(`✅ AFAD API: ${earthquakes.length} earthquakes received`);
+        return earthquakes.map(eq => ({
+          id: `afad_${eq.eventID || eq.event_id || eq._id}`,
           source: 'AFAD',
-          eventId: eq.event_id,
-          magnitude: parseFloat(eq.magnitude),
-          depth: parseFloat(eq.depth),
+          eventId: eq.eventID || eq.event_id || eq._id,
+          magnitude: parseFloat(eq.mag || eq.magnitude),
+          depth: parseFloat(eq.depth || eq.Depth),
           location: {
-            latitude: parseFloat(eq.latitude),
-            longitude: parseFloat(eq.longitude)
+            latitude: parseFloat(eq.geojson?.coordinates?.[1] || eq.latitude || eq.lat),
+            longitude: parseFloat(eq.geojson?.coordinates?.[0] || eq.longitude || eq.lon)
           },
-          place: eq.location || eq.place,
-          timestamp: new Date(eq.event_date_time),
-          url: `https://deprem.afad.gov.tr/event-detail/${eq.event_id}`,
+          place: eq.location || eq.place || eq.title || 'Unknown',
+          timestamp: new Date(eq.date || eq.event_date_time || eq.timestamp),
+          url: `https://deprem.afad.gov.tr/event-detail/${eq.eventID || eq.event_id || eq._id}`,
           type: eq.type || 'earthquake'
         }));
       }
