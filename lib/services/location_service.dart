@@ -38,6 +38,17 @@ class LocationService {
     return await initializeLocation();
   }
 
+  // Mevcut konumu al (WebSocket servisi için)
+  Future<loc.LocationData> getCurrentLocation() async {
+    try {
+      loc.Location location = loc.Location();
+      return await location.getLocation();
+    } catch (e) {
+      print('❌ Konum alınamadı: $e');
+      rethrow;
+    }
+  }
+
   // Konum bilgisini uygulama başlangıcında al
   Future<bool> initializeLocation() async {
     if (_isLocationInitialized || _isLocationLoading) {

@@ -10,7 +10,6 @@ import 'services/location_service.dart';
 import 'services/notification_service.dart';
 import 'services/location_update_service.dart';
 import 'services/user_preferences_service.dart';
-import 'services/p2p_earthquake_detection_service.dart';
 import 'services/earthquake_websocket_service.dart';
 
 // Global navigation key

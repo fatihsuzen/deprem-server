@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -90,13 +91,17 @@ class EarthquakeWebSocketService {
 
       // Konum al
       final position = await _locationService.getCurrentLocation();
+      if (position.latitude == null || position.longitude == null) {
+        print('⚠️ Konum bilgisi eksik');
+        return;
+      }
 
       final deviceData = {
         'userId': userId,
         'deviceId': deviceId,
         'location': {
-          'latitude': position.latitude,
-          'longitude': position.longitude,
+          'latitude': position.latitude!,
+          'longitude': position.longitude!,
         },
         'platform': defaultTargetPlatform.toString(),
         'timestamp': DateTime.now().toIso8601String(),
@@ -117,9 +122,12 @@ class EarthquakeWebSocketService {
   Future<Map<String, double>?> _getUserLocation() async {
     try {
       final position = await _locationService.getCurrentLocation();
+      if (position.latitude == null || position.longitude == null) {
+        return null;
+      }
       return {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
+        'latitude': position.latitude!,
+        'longitude': position.longitude!,
       };
     } catch (e) {
       print('⚠️ Konum alınamadı: $e');
@@ -138,21 +146,16 @@ class EarthquakeWebSocketService {
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
 
-    final a = (sin(dLat / 2) * sin(dLat / 2)) +
-        cos(_toRadians(lat1)) *
-            cos(_toRadians(lat2)) *
-            (sin(dLon / 2) * sin(dLon / 2));
+    final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+        math.cos(_toRadians(lat1)) *
+            math.cos(_toRadians(lat2)) *
+            (math.sin(dLon / 2) * math.sin(dLon / 2));
 
-    final c = 2 * asin(sqrt(a));
+    final c = 2 * math.asin(math.sqrt(a));
     return earthRadius * c;
   }
 
-  double _toRadians(double degrees) => degrees * (pi / 180);
-  double sin(double radians) => radians; // Simplified
-  double cos(double radians) => 1 - (radians * radians) / 2; // Simplified
-  double asin(double value) => value; // Simplified
-  double sqrt(double value) => value; // Simplified
-  double pi = 3.14159265359;
+  double _toRadians(double degrees) => degrees * (math.pi / 180);
 
   // Deprem uyarısı işle
   Future<void> _handleEarthquakeWarning(dynamic data) async {
