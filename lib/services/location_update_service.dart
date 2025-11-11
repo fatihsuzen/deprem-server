@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class LocationUpdateService {
-  static const String baseUrl = 'http://localhost:3000/api'; // VDS IP'nizi buraya yazın
+  static const String baseUrl = 'http://188.132.202.24:3000/api'; // VDS IP
   static const Duration updateInterval = Duration(hours: 2); // 2 saatte bir
   
   final Location _location = Location();
