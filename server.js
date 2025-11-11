@@ -862,6 +862,51 @@ app.post('/api/devices/register', async (req, res) => {
   }
 });
 
+// TEST ENDPOINT - Deprem uyarısı test et
+app.post('/api/test/earthquake', async (req, res) => {
+  try {
+    const {
+      magnitude = 5.5,
+      latitude = 41.0082,
+      longitude = 28.9784,
+      place = 'Istanbul, Turkey (TEST)',
+      source = 'TEST'
+    } = req.body;
+
+    console.log('🧪 TEST EARTHQUAKE ALERT TRIGGERED');
+    console.log(`   Magnitude: M${magnitude}`);
+    console.log(`   Location: ${place} (${latitude}, ${longitude})`);
+
+    const testEarthquake = {
+      magnitude: parseFloat(magnitude),
+      epicenter: {
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude)
+      },
+      place,
+      source,
+      estimatedArrival: new Date(Date.now() + 30000),
+      affectedRadius: Math.pow(10, magnitude * 0.5) * 10,
+      timestamp: new Date().toISOString()
+    };
+
+    // WebSocket üzerinden tüm bağlı cihazlara gönder
+    io.emit('earthquake_warning', testEarthquake);
+    
+    console.log(`✅ Test earthquake broadcast to ${io.engine.clientsCount} connected clients`);
+
+    res.json({
+      success: true,
+      message: 'Test earthquake alert sent',
+      earthquake: testEarthquake,
+      clientsNotified: io.engine.clientsCount
+    });
+  } catch (error) {
+    console.error('❌ Test earthquake error:', error);
+    res.status(500).json({ error: 'Test failed', message: error.message });
+  }
+});
+
 // AFAD/Kandilli Monitoring (Every 10 seconds)
 cron.schedule('*/10 * * * * *', async () => {
   try {
