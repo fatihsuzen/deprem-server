@@ -10,6 +10,8 @@ import 'services/location_service.dart';
 import 'services/notification_service.dart';
 import 'services/location_update_service.dart';
 import 'services/user_preferences_service.dart';
+import 'services/p2p_earthquake_detection_service.dart';
+import 'services/earthquake_websocket_service.dart';
 
 // Global navigation key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -50,6 +52,16 @@ void _initializeServicesInBackground() async {
 
     // Kullanıcı ayarlarını sunucuya gönder
     await _syncUserSettings();
+
+    // WebSocket bağlantısını başlat (Deprem uyarıları için)
+    final websocketService = EarthquakeWebSocketService();
+    await websocketService.connect();
+    print('✅ WebSocket connected for earthquake alerts');
+
+    // P2P Deprem Algılama Sistemini Başlat (opsiyonel - sensör tabanlı)
+    // final p2pService = P2PEarthquakeDetectionService();
+    // await p2pService.startMonitoring();
+    // print('✅ P2P Earthquake Detection started');
 
   } catch (error) {
     print('❌ Service initialization error: $error');

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math';
 import '../main.dart';
 import 'user_preferences_service.dart';
+import '../screens/earthquake_alert_screen.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -81,8 +82,19 @@ class NotificationService {
 
   void _handleNotificationTap(NotificationResponse response) {
     print('Bildirim yanıtı işleniyor: ${response.payload}');
-    // Bu işlem şimdilik basit log olarak kalacak
-    // Navigator işlemleri daha sonra eklenecek
+    
+    // Deprem alert'i ise tam ekran aç
+    if (response.payload != null && response.payload!.startsWith('earthquake_alert|')) {
+      // earthquake_alert|magnitude|location|distance formatı
+      final parts = response.payload!.split('|');
+      if (parts.length >= 4) {
+        final magnitude = double.tryParse(parts[1]) ?? 0.0;
+        final location = parts[2];
+        final distance = double.tryParse(parts[3]) ?? 0.0;
+        
+        _showAlertScreen(magnitude, location, distance, 'AFAD');
+      }
+    }
   }
 
   Future<void> _requestPermissions() async {
@@ -438,6 +450,130 @@ class NotificationService {
 
   double _toRadians(double degrees) {
     return degrees * (pi / 180);
+  }
+
+  // TAM EKRAN DEPREM UYARISI - Ekran kapalıyken bile gösterilir
+  Future<void> showFullScreenEarthquakeAlert({
+    required double magnitude,
+    required String location,
+    required double distance,
+    String source = 'AFAD',
+    double? earthquakeLat,
+    double? earthquakeLon,
+    double? userLat,
+    double? userLon,
+  }) async {
+    print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
+
+    // 1. Önce tam ekran bildirim gönder (ekran kapalıyken uyandırmak için)
+    await _showWakeUpNotification(magnitude, location, distance);
+
+    // 2. Uygulama açıksa veya bildirime tıklandığında tam ekran göster
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    if (navigatorKey.currentContext != null) {
+      // Uygulama açık - direkt tam ekran göster
+      _showAlertScreen(magnitude, location, distance, source);
+    } else {
+      // Uygulama kapalı - bildiri üstünden açılmasını bekle
+      print('Uygulama kapalı - bildirim gönderildi');
+    }
+  }
+
+  // Ekranı uyandıran bildirim
+  Future<void> _showWakeUpNotification(
+    double magnitude,
+    String location,
+    double distance,
+  ) async {
+    final AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'earthquake_alerts',
+      'Deprem Uyarıları',
+      channelDescription: 'Acil deprem bildirimleri',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      enableVibration: true,
+      fullScreenIntent: true, // TAM EKRAN AÇMA
+      autoCancel: false,
+      ongoing: true,
+      category: AndroidNotificationCategory.alarm,
+      visibility: NotificationVisibility.public,
+      color: const Color(0xFFD32F2F),
+      colorized: true,
+      ticker: '🚨 DEPREM UYARISI!',
+      styleInformation: BigTextStyleInformation(
+        'Büyüklük: M${magnitude.toStringAsFixed(1)}\nUzaklık: ${distance.toStringAsFixed(1)} km\nKonum: $location\n\nGÜVENLİ BİR YERE GEÇİN!',
+        htmlFormatBigText: true,
+        contentTitle: '🚨 DEPREM ALGILANDI!',
+        htmlFormatContentTitle: true,
+        summaryText: 'HEMEN ÖNLEM ALIN',
+        htmlFormatSummaryText: true,
+      ),
+      actions: const <AndroidNotificationAction>[
+        AndroidNotificationAction(
+          'open_alert',
+          'DETAY GÖR',
+          showsUserInterface: true,
+          cancelNotification: false,
+        ),
+        AndroidNotificationAction(
+          'dismiss',
+          'KAPAT',
+          cancelNotification: true,
+        ),
+      ],
+    );
+
+    final NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    try {
+      final int notificationId =
+          DateTime.now().millisecondsSinceEpoch.remainder(100000);
+
+      await _flutterLocalNotificationsPlugin.show(
+        notificationId,
+        '🚨 DEPREM ALGILANDI!',
+        'M$magnitude - ${distance.toStringAsFixed(1)} km uzakta',
+        details,
+        payload: 'earthquake_alert|$magnitude|$location|$distance',
+      );
+
+      print('✅ Uyandırma bildirimi gönderildi!');
+    } catch (e) {
+      print('❌ Uyandırma bildirimi hatası: $e');
+    }
+  }
+
+  // Tam ekran alert göster
+  void _showAlertScreen(
+    double magnitude,
+    String location,
+    double distance,
+    String source,
+  ) {
+    if (navigatorKey.currentContext == null) {
+      print('❌ Navigator context yok, tam ekran gösterilemiyor');
+      return;
+    }
+
+    print('✅ Tam ekran alert gösteriliyor');
+
+    Navigator.of(navigatorKey.currentContext!).push(
+      MaterialPageRoute(
+        builder: (context) => EarthquakeAlertScreen(
+          magnitude: magnitude,
+          location: location,
+          distance: distance,
+          timestamp: DateTime.now(),
+          source: source,
+        ),
+        fullscreenDialog: true,
+      ),
+    );
   }
 
   // Basit test bildirimi
