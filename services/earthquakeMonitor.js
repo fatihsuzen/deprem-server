@@ -47,14 +47,23 @@ class EarthquakeMonitor {
       
       let newEarthquakes = [];
       
+      let successfulSources = 0;
       results.forEach((result, index) => {
+        const sources = ['AFAD', 'Kandilli', 'USGS'];
         if (result.status === 'fulfilled' && result.value) {
+          if (result.value.length > 0) {
+            successfulSources++;
+            console.log(`✅ ${sources[index]}: ${result.value.length} earthquakes`);
+          }
           newEarthquakes = newEarthquakes.concat(result.value);
         } else if (result.status === 'rejected') {
-          const sources = ['AFAD', 'Kandilli', 'USGS'];
-          console.error(`❌ ${sources[index]} error:`, result.reason.message);
+          console.error(`❌ ${sources[index]} failed:`, result.reason.message);
         }
       });
+      
+      if (successfulSources === 0) {
+        console.warn('⚠️ No earthquake sources available - relying on P2P detection');
+      }
 
       // Process and deduplicate earthquakes
       const processedEarthquakes = this.processEarthquakes(newEarthquakes);
@@ -134,9 +143,13 @@ class EarthquakeMonitor {
       return [];
 
     } catch (error) {
-      // If official API fails, return mock data for development
-      console.warn('AFAD API failed, using mock data:', error.message);
-      return this.getMockEarthquakeData('AFAD');
+      // AFAD API temporarily unavailable - skip and rely on other sources
+      console.warn('⚠️ AFAD API temporarily unavailable:', error.message);
+      if (error.response) {
+        console.warn(`   Status: ${error.response.status}`);
+      }
+      // Don't use mock data - rely on other sources (Kandilli, USGS)
+      return [];
     }
   }
 
@@ -156,8 +169,9 @@ class EarthquakeMonitor {
       return earthquakes;
 
     } catch (error) {
-      console.warn('Kandilli API failed, using mock data:', error.message);
-      return this.getMockEarthquakeData('Kandilli');
+      console.warn('⚠️ Kandilli API failed:', error.message);
+      // Don't use mock data - rely on other sources
+      return [];
     }
   }
 
@@ -200,8 +214,9 @@ class EarthquakeMonitor {
       return [];
 
     } catch (error) {
-      console.warn('USGS API failed, using mock data:', error.message);
-      return this.getMockEarthquakeData('USGS');
+      console.warn('⚠️ USGS API failed:', error.message);
+      // Don't use mock data - rely on other sources and P2P
+      return [];
     }
   }
 
