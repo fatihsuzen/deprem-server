@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 
 class SplashScreen extends StatefulWidget {
@@ -14,14 +15,39 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // Uygulama yüklenene kadar splash screen göster (3 saniye)
-    Timer(const Duration(seconds: 3), () {
+    // Uygulama yüklenene kadar splash screen göster (1.5 saniye - optimize edildi)
+    Timer(const Duration(milliseconds: 1500), () {
       // Normal UI mode'a geri dön
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      _checkLoginStatus();
     });
+  }
+
+  Future<void> _checkLoginStatus() async {
+    if (!mounted) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      final userName = prefs.getString('user_name');
+      final userEmail = prefs.getString('user_email');
+
+      if (mounted) {
+        // Kullanıcı bilgileri varsa home'a, yoksa login'e git
+        if (userId != null && userId.isNotEmpty) {
+          print('✅ Kullanıcı giriş yapmış: $userName ($userEmail)');
+          Navigator.of(context).pushReplacementNamed('/home');
+        } else {
+          print('ℹ️ Kullanıcı giriş yapmamış, login ekranına yönlendiriliyor');
+          Navigator.of(context).pushReplacementNamed('/login');
+        }
+      }
+    } catch (e) {
+      print('❌ Login kontrolü hatası: $e');
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
+    }
   }
 
   @override

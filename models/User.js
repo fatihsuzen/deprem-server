@@ -32,13 +32,15 @@ const userSchema = new mongoose.Schema({
     index: true
   },
   location: {
-    latitude: {
-      type: Number,
-      required: false
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
     },
-    longitude: {
-      type: Number,
-      required: false
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      default: null,
+      index: '2dsphere' // Geospatial index for location queries
     },
     address: {
       type: String,
@@ -71,6 +73,16 @@ const userSchema = new mongoose.Schema({
     radiusKm: { type: Number, default: 50 },
     minMagnitude: { type: Number, default: 4.0 }
   },
+  notificationSettings: {
+    notificationRadius: { type: Number, default: 100 }, // km
+    minMagnitude: { type: Number, default: 2.5 },
+    maxMagnitude: { type: Number, default: 10.0 }
+  },
+  deviceTokens: [{
+    token: String,
+    platform: String, // 'android', 'ios'
+    addedAt: { type: Date, default: Date.now }
+  }],
   createdAt: {
     type: Date,
     default: Date.now
@@ -113,13 +125,32 @@ userSchema.methods.updateLastSeen = function() {
 };
 
 // Update location
-userSchema.methods.updateLocation = function(latitude, longitude, address) {
+userSchema.methods.updateLocation = function(latitude, longitude, address = '') {
   this.location = {
-    latitude,
-    longitude,
+    type: 'Point',
+    coordinates: [longitude, latitude], // GeoJSON format: [lon, lat]
     address,
     lastUpdate: new Date()
   };
+  this.updatedAt = new Date();
+  return this.save();
+};
+
+// Add device token
+userSchema.methods.addDeviceToken = function(token, platform) {
+  // Token zaten varsa güncelle
+  const existingToken = this.deviceTokens.find(t => t.token === token);
+  if (existingToken) {
+    existingToken.addedAt = new Date();
+  } else {
+    this.deviceTokens.push({ token, platform, addedAt: new Date() });
+  }
+  return this.save();
+};
+
+// Remove device token
+userSchema.methods.removeDeviceToken = function(token) {
+  this.deviceTokens = this.deviceTokens.filter(t => t.token !== token);
   return this.save();
 };
 

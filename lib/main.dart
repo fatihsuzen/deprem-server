@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/splash_screen.dart';
 import 'screens/root.dart';
+import 'screens/login_screen.dart';
 import 'screens/mqtt_test_screen.dart';
 import 'screens/report_screen.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
+import 'services/location_update_service.dart';
+import 'services/user_preferences_service.dart';
 
 // Global navigation key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -17,7 +20,14 @@ void main() async {
   // Splash screen sırasında tam ekran moduna geç
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // Servisleri initialize et
+  // Servis başlatmayı arka plana alıyoruz - uygulama açılırken bekletmeyelim
+  _initializeServicesInBackground();
+
+  runApp(const DepremApp());
+}
+
+// Servisleri arka planda başlat
+void _initializeServicesInBackground() async {
   try {
     await NotificationService().initialize();
     print('✅ Notification service initialized');
@@ -29,11 +39,40 @@ void main() async {
     // Konum tracking'i başlat
     await locationService.startLocationTracking();
     print('✅ Location tracking started');
+
+    // Uygulama açılışında konum gönder (sunucuya)
+    final locationUpdateService = LocationUpdateService();
+    await locationUpdateService.sendLocationOnAppStart();
+    
+    // Periyodik konum güncellemelerini başlat (2 saatte bir)
+    await locationUpdateService.startPeriodicUpdates();
+    print('✅ Location update service started');
+
+    // Kullanıcı ayarlarını sunucuya gönder
+    await _syncUserSettings();
+
   } catch (error) {
     print('❌ Service initialization error: $error');
   }
+}
 
-  runApp(const DepremApp());
+// Kullanıcı ayarlarını sunucuya senkronize et
+Future<void> _syncUserSettings() async {
+  try {
+    final prefsService = UserPreferencesService();
+    final settings = await prefsService.getAllSettings();
+    
+    final locationUpdateService = LocationUpdateService();
+    await locationUpdateService.sendNotificationSettings(
+      notificationRadius: settings['notificationRadius'],
+      minMagnitude: settings['minMagnitude'],
+      maxMagnitude: settings['maxMagnitude'],
+    );
+    
+    print('✅ User settings synced to server');
+  } catch (e) {
+    print('⚠️  User settings sync error: $e');
+  }
 }
 
 class DepremApp extends StatefulWidget {
@@ -131,6 +170,7 @@ class _DepremAppState extends State<DepremApp> {
       initialRoute: '/',
       routes: {
         '/': (ctx) => const SplashScreen(),
+        '/login': (ctx) => const LoginScreen(),
         '/home': (ctx) => const RootScreen(),
         '/debug/mqtt': (ctx) => const MqttTestScreen(),
         '/report': (ctx) => const ReportScreen(),

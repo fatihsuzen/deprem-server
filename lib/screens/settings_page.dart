@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -24,13 +25,17 @@ class _SettingsPageState extends State<SettingsPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Bildirim almak istediğiniz minimum deprem büyüklüğünü seçin'),
+              Text(
+                  'Bildirim almak istediğiniz minimum deprem büyüklüğünü seçin'),
               SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text('${tempMagnitude.toStringAsFixed(1)}+ Mw',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFFFF3333))),
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF3333))),
                 ],
               ),
               Slider(
@@ -61,19 +66,23 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Minimum büyüklük ${tempMagnitude.toStringAsFixed(1)}+ olarak ayarlandı'),
+                    content: Text(
+                        'Minimum büyüklük ${tempMagnitude.toStringAsFixed(1)}+ olarak ayarlandı'),
                     backgroundColor: Color(0xFF4CAF50),
                   ),
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
               child: Text('Kaydet', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
       ),
     );
-  }  void _showRatingDialog() {
+  }
+
+  void _showRatingDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -91,7 +100,8 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Daha Sonra', style: TextStyle(color: Colors.grey[600])),
+            child:
+                Text('Daha Sonra', style: TextStyle(color: Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () {
@@ -222,11 +232,13 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _soundEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: _notificationsEnabled ? (value) {
-              setState(() {
-                _soundEnabled = value;
-              });
-            } : null,
+            onChanged: _notificationsEnabled
+                ? (value) {
+                    setState(() {
+                      _soundEnabled = value;
+                    });
+                  }
+                : null,
           ),
           enabled: _notificationsEnabled,
         ),
@@ -238,11 +250,13 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _vibrationEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: _notificationsEnabled ? (value) {
-              setState(() {
-                _vibrationEnabled = value;
-              });
-            } : null,
+            onChanged: _notificationsEnabled
+                ? (value) {
+                    setState(() {
+                      _vibrationEnabled = value;
+                    });
+                  }
+                : null,
           ),
           enabled: _notificationsEnabled,
         ),
@@ -291,11 +305,13 @@ class _SettingsPageState extends State<SettingsPage> {
               context: context,
               builder: (ctx) => AlertDialog(
                 title: Text('Önbelleği Temizle'),
-                content: Text('Tüm önbelleğe alınmış veriler silinecek. Devam etmek istiyor musunuz?'),
+                content: Text(
+                    'Tüm önbelleğe alınmış veriler silinecek. Devam etmek istiyor musunuz?'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
+                    child: Text('İptal',
+                        style: TextStyle(color: Colors.grey[600])),
                   ),
                   ElevatedButton(
                     onPressed: () {
@@ -307,8 +323,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       );
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-                    child: Text('Temizle', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFFF3333)),
+                    child:
+                        Text('Temizle', style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -366,15 +384,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     Text('Türkiye\'nin en kapsamlı deprem takip uygulaması'),
                     SizedBox(height: 12),
-                    Text('© 2025 Deprem Hattı', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Text('© 2025 Deprem Hattı',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600])),
                     SizedBox(height: 8),
-                    Text('Tüm hakları saklıdır.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Text('Tüm hakları saklıdır.',
+                        style:
+                            TextStyle(fontSize: 12, color: Colors.grey[600])),
                   ],
                 ),
                 actions: [
                   ElevatedButton(
                     onPressed: () => Navigator.pop(ctx),
-                    style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFFF3333)),
                     child: Text('Tamam', style: TextStyle(color: Colors.white)),
                   ),
                 ],
@@ -393,6 +416,65 @@ class _SettingsPageState extends State<SettingsPage> {
               SnackBar(
                 content: Text('Hata bildirimi formu açılıyor...'),
                 backgroundColor: Color(0xFF4CAF50),
+              ),
+            );
+          },
+        ),
+
+        SizedBox(height: 16),
+
+        // Hesap Bölümü
+        _buildSectionHeader('Hesap'),
+        _buildSettingTile(
+          icon: Icons.logout,
+          title: 'Çıkış Yap',
+          subtitle: 'Hesabınızdan çıkış yapın',
+          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: () {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text('Çıkış Yap'),
+                content: Text(
+                    'Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('İptal',
+                        style: TextStyle(color: Colors.grey[600])),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Kullanıcı bilgilerini temizle (use AuthService compatible keys)
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('user_id');
+                      await prefs.remove('user_name');
+                      await prefs.remove('user_email');
+                      await prefs.remove('user_photo_url');
+
+                      if (!mounted) return;
+                      Navigator.pop(ctx);
+
+                      // Login ekranına yönlendir
+                      Navigator.pushNamedAndRemoveUntil(
+                        context,
+                        '/login',
+                        (route) => false,
+                      );
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Çıkış yapıldı'),
+                          backgroundColor: Color(0xFF4CAF50),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFFF3333)),
+                    child: Text('Çıkış Yap',
+                        style: TextStyle(color: Colors.white)),
+                  ),
+                ],
               ),
             );
           },
@@ -455,7 +537,9 @@ class _SettingsPageState extends State<SettingsPage> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: enabled ? Color(0xFFFF3333).withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+            color: enabled
+                ? Color(0xFFFF3333).withOpacity(0.1)
+                : Colors.grey.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(

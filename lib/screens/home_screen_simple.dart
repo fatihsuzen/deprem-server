@@ -204,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const MapScreen(),
+                    builder: (context) => MapScreen(),
                   ),
                 );
               },
@@ -426,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const MapScreen(),
+                          builder: (context) => MapScreen(),
                         ),
                       );
                     },

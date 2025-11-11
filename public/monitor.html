@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deprem Monitoring - Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0f1419;
+            color: #e7e9ea;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: #1e2732;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #2f3640;
+        }
+
+        .stat-label {
+            color: #8899a6;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .stat-icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+
+        .section {
+            background: #1e2732;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid #2f3640;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #2f3640;
+        }
+
+        th {
+            background: #151e28;
+            color: #8899a6;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        tr:hover {
+            background: #151e28;
+        }
+
+        .magnitude {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 14px;
+        }
+
+        .mag-minor { background: #27ae60; color: white; }
+        .mag-light { background: #f39c12; color: white; }
+        .mag-moderate { background: #e67e22; color: white; }
+        .mag-strong { background: #e74c3c; color: white; }
+        .mag-major { background: #c0392b; color: white; }
+
+        .location {
+            font-weight: 500;
+        }
+
+        .time {
+            color: #8899a6;
+            font-size: 13px;
+        }
+
+        .distance {
+            color: #3498db;
+            font-weight: 500;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-success { background: #27ae60; color: white; }
+        .badge-warning { background: #f39c12; color: white; }
+        .badge-danger { background: #e74c3c; color: white; }
+        .badge-info { background: #3498db; color: white; }
+
+        .refresh-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8899a6;
+        }
+
+        .spinner {
+            border: 3px solid #2f3640;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8899a6;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .flex-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .last-update {
+            color: #8899a6;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚨 Deprem Monitoring Sistemi</h1>
+            <p class="subtitle">Gerçek zamanlı deprem izleme ve bildirim yönetimi</p>
+        </header>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">📊 Toplam Deprem</div>
+                <div class="stat-value" id="totalEarthquakes">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">👥 Aktif Kullanıcı</div>
+                <div class="stat-value" id="totalUsers">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">🔔 Gönderilen Bildirim</div>
+                <div class="stat-value" id="totalNotifications">-</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">⚡ Son Deprem</div>
+                <div class="stat-value" id="latestMagnitude">-</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="flex-header">
+                <h2 class="section-title">
+                    🌍 Son Depremler
+                </h2>
+                <div>
+                    <span class="last-update" id="lastUpdate">-</span>
+                    <button class="refresh-btn" onclick="loadData()">🔄 Yenile</button>
+                </div>
+            </div>
+            
+            <div id="earthquakesContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Deprem verileri yükleniyor...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">👥 Kullanıcı Konumları</h2>
+            <div id="usersContent">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Kullanıcı verileri yükleniyor...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let stats = {
+            totalEarthquakes: 0,
+            totalUsers: 0,
+            totalNotifications: 0,
+            latestMagnitude: 0
+        };
+
+        // Sayfa yüklendiğinde verileri getir
+        loadData();
+        
+        // Her 30 saniyede bir otomatik yenile
+        setInterval(loadData, 30000);
+
+        async function loadData() {
+            try {
+                await Promise.all([
+                    loadEarthquakes(),
+                    loadUsers(),
+                    loadStats()
+                ]);
+                
+                updateLastUpdate();
+            } catch (error) {
+                console.error('Veri yükleme hatası:', error);
+            }
+        }
+
+        async function loadEarthquakes() {
+            try {
+                const response = await fetch('/api/earthquakes?limit=50');
+                const data = await response.json();
+                
+                const earthquakes = data.earthquakes || [];
+                stats.totalEarthquakes = earthquakes.length;
+                
+                if (earthquakes.length > 0) {
+                    stats.latestMagnitude = earthquakes[0].mag;
+                }
+                
+                updateStats();
+                renderEarthquakes(earthquakes);
+            } catch (error) {
+                console.error('Deprem verisi yükleme hatası:', error);
+                document.getElementById('earthquakesContent').innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Deprem verileri yüklenemedi</p></div>';
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                const data = await response.json();
+                
+                const users = data.users || [];
+                stats.totalUsers = users.length;
+                
+                updateStats();
+                renderUsers(users);
+            } catch (error) {
+                console.error('Kullanıcı verisi yükleme hatası:', error);
+                document.getElementById('usersContent').innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">❌</div><p>Kullanıcı verileri yüklenemedi</p></div>';
+            }
+        }
+
+        async function loadStats() {
+            // Placeholder for notification stats
+            stats.totalNotifications = Math.floor(Math.random() * 1000);
+            updateStats();
+        }
+
+        function updateStats() {
+            document.getElementById('totalEarthquakes').textContent = stats.totalEarthquakes;
+            document.getElementById('totalUsers').textContent = stats.totalUsers;
+            document.getElementById('totalNotifications').textContent = stats.totalNotifications;
+            document.getElementById('latestMagnitude').textContent = 
+                stats.latestMagnitude > 0 ? `M${stats.latestMagnitude.toFixed(1)}` : '-';
+        }
+
+        function renderEarthquakes(earthquakes) {
+            const container = document.getElementById('earthquakesContent');
+            
+            if (earthquakes.length === 0) {
+                container.innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">🌍</div><p>Henüz deprem verisi yok</p></div>';
+                return;
+            }
+
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Büyüklük</th>
+                            <th>Konum</th>
+                            <th>Derinlik</th>
+                            <th>Bölge</th>
+                            <th>Zaman</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${earthquakes.map(eq => `
+                            <tr>
+                                <td><span class="magnitude ${getMagnitudeClass(eq.mag)}">${eq.mag.toFixed(1)}</span></td>
+                                <td class="location">${eq.location || 'Bilinmiyor'}</td>
+                                <td>${eq.depth ? eq.depth.toFixed(1) + ' km' : '-'}</td>
+                                <td><span class="badge badge-info">${eq.region || 'Global'}</span></td>
+                                <td class="time">${formatTime(eq.time)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+
+        function renderUsers(users) {
+            const container = document.getElementById('usersContent');
+            
+            if (users.length === 0) {
+                container.innerHTML = 
+                    '<div class="empty-state"><div class="empty-state-icon">👥</div><p>Henüz kayıtlı kullanıcı yok</p></div>';
+                return;
+            }
+
+            const tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Kullanıcı</th>
+                            <th>Email</th>
+                            <th>Konum</th>
+                            <th>Bildirim Yarıçapı</th>
+                            <th>Son Güncelleme</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${users.map(user => `
+                            <tr>
+                                <td class="location">${user.displayName || 'Anonim'}</td>
+                                <td>${user.email || '-'}</td>
+                                <td>
+                                    ${user.location && user.location.coordinates ? 
+                                        `<span class="distance">${user.location.coordinates[1].toFixed(4)}, ${user.location.coordinates[0].toFixed(4)}</span>` : 
+                                        '<span class="badge badge-warning">Konum yok</span>'}
+                                </td>
+                                <td>
+                                    ${user.notificationSettings?.notificationRadius ? 
+                                        `<span class="badge badge-success">${user.notificationSettings.notificationRadius} km</span>` : 
+                                        '<span class="badge badge-info">100 km</span>'}
+                                </td>
+                                <td class="time">
+                                    ${user.location?.lastUpdate ? 
+                                        formatTime(user.location.lastUpdate) : 
+                                        '-'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+
+        function getMagnitudeClass(magnitude) {
+            if (magnitude < 3.0) return 'mag-minor';
+            if (magnitude < 4.0) return 'mag-light';
+            if (magnitude < 5.0) return 'mag-moderate';
+            if (magnitude < 6.0) return 'mag-strong';
+            return 'mag-major';
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000);
+            
+            if (diff < 60) return `${diff} saniye önce`;
+            if (diff < 3600) return `${Math.floor(diff / 60)} dakika önce`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)} saat önce`;
+            if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`;
+            
+            return date.toLocaleString('tr-TR');
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = 
+                `Son güncelleme: ${now.toLocaleTimeString('tr-TR')}`;
+        }
+    </script>
+</body>
+</html>

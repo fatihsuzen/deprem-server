@@ -2,6 +2,9 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/friends_service_backend.dart';
+import '../services/earthquake_service.dart';
+import '../services/user_preferences_service.dart';
 
 class MapScreen extends StatefulWidget {
   @override
@@ -13,45 +16,53 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   final LatLng _userLocation =
       LatLng(41.0308, 28.5742); // İstanbul Büyükçekmece
   bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
+  Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
 
-  final List<Map<String, dynamic>> _quakes = [
+  // Toggle states
+  bool _showEarthquakes = true;
+  bool _showFriends = true;
+  bool _showAssemblyAreas = true;
+
+  // Friends data
+  List<Map<String, dynamic>> _friends = [];
+
+  // Earthquake data
+  List<Map<String, dynamic>> _quakes = [];
+  bool _earthquakesLoading = true;
+
+  final FriendsService _friendsService = FriendsService();
+  final EarthquakeService _earthquakeService = EarthquakeService();
+  final UserPreferencesService _prefsService = UserPreferencesService();
+
+  // Kullanıcı filtreleme ayarları
+  double _minMagnitude = UserPreferencesService.defaultMinMagnitude;
+  double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
+  double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
+
+  // Assembly areas (toplanma alanları) - örnek data
+  final List<Map<String, dynamic>> _assemblyAreas = [
     {
-      "lat": 40.90,
-      "lon": 29.20,
-      "mag": 4.2,
-      "place": "Silivri Açıkları (İstanbul)",
-      "date": "11 Ekim Cumartesi 2025",
-      "time": "17:20",
-      "minutesAgo": 10
+      "lat": 41.0350,
+      "lon": 28.5800,
+      "name": "Büyükçekmece Sahil Parkı",
+      "capacity": 5000,
+      "type": "park",
     },
     {
-      "lat": 39.04,
-      "lon": 27.52,
-      "mag": 3.8,
-      "place": "Balıkesir Merkez",
-      "date": "10 Ekim Cuma 2025",
-      "time": "14:35",
-      "minutesAgo": 125
+      "lat": 41.0280,
+      "lon": 28.5650,
+      "name": "Belediye Meydanı",
+      "capacity": 3000,
+      "type": "meydan",
     },
     {
-      "lat": 37.07,
-      "lon": 29.34,
-      "mag": 2.6,
-      "place": "Aydın - Söke",
-      "date": "9 Ekim Perşembe 2025",
-      "time": "09:15",
-      "minutesAgo": 450
-    },
-    {
-      "lat": 37.0,
-      "lon": 31.5,
-      "mag": 4.8,
-      "place": "Burdur - Gölhisar",
-      "date": "8 Ekim Çarşamba 2025",
-      "time": "22:45",
-      "minutesAgo": 1200
+      "lat": 40.9200,
+      "lon": 29.2100,
+      "name": "Silivri Spor Tesisleri",
+      "capacity": 8000,
+      "type": "spor",
     },
   ];
 
@@ -59,16 +70,83 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
-    
+
+    // Kullanıcı ayarlarını yükle ve depremleri getir
+    _loadUserSettingsAndEarthquakes();
+
     // Dalga animasyonu için
     _waveController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat();
-    
+
     _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
     );
+
+    // Arkadaş listesini yükle
+    _loadFriends();
+  }
+
+  Future<void> _loadUserSettingsAndEarthquakes() async {
+    // Kullanıcı ayarlarını yükle
+    final settings = await _prefsService.getAllSettings();
+    setState(() {
+      _minMagnitude = settings['minMagnitude'];
+      _maxMagnitude = settings['maxMagnitude'];
+      _notificationRadius = settings['notificationRadius'];
+    });
+
+    // Ayarlara göre depremleri yükle
+    await _loadEarthquakes();
+  }
+
+  Future<void> _loadEarthquakes() async {
+    setState(() => _earthquakesLoading = true);
+
+    try {
+      final earthquakes = await _earthquakeService.getRecentEarthquakes(
+        limit: 100,
+        minMagnitude: _minMagnitude,
+        period: 'day',
+        userLat: _userLocation.latitude,
+        userLon: _userLocation.longitude,
+        radius: 5000, // 5000 km yarıçap (global)
+      );
+
+      // Kullanıcının max magnitude ayarına göre filtrele
+      final filteredEarthquakes = earthquakes.where((eq) {
+        final magnitude = eq['mag'] as double;
+        return magnitude <= _maxMagnitude;
+      }).toList();
+
+      setState(() {
+        _quakes = filteredEarthquakes;
+        _earthquakesLoading = false;
+
+        // İlk depremi son deprem olarak kaydet (konum bazlı sıralandı)
+        if (_quakes.isNotEmpty) {
+          _latestQuake = _quakes[0];
+        }
+      });
+
+      print(
+          '✅ ${_quakes.length} deprem verisi yüklendi (${_minMagnitude.toStringAsFixed(1)}-${_maxMagnitude.toStringAsFixed(1)} aralığında)');
+    } catch (e) {
+      print('❌ Deprem verisi yükleme hatası: $e');
+      setState(() => _earthquakesLoading = false);
+    }
+  }
+
+  Future<void> _loadFriends() async {
+    try {
+      final friends = await _friendsService.getFriends();
+      setState(() {
+        _friends = friends;
+      });
+    } catch (e) {
+      print('❌ Arkadaş listesi yükleme hatası: $e');
+    }
   }
 
   @override
@@ -80,10 +158,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   String _formatTimeAgo(int minutes) {
     if (minutes < 1) return '< 1dk';
     if (minutes < 60) return '${minutes}dk';
-    
+
     int hours = minutes ~/ 60;
     if (hours < 24) return '${hours}s';
-    
+
     int days = hours ~/ 24;
     return '${days}g';
   }
@@ -93,6 +171,230 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     if (m >= 4.0) return Colors.deepOrange;
     if (m >= 3.0) return Colors.orange;
     return Colors.green;
+  }
+
+  void _showFriendInfo(Map<String, dynamic> friend) {
+    final location = friend['location'];
+    final isOnline = friend['isOnline'] ?? false;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: Colors.purple,
+                child: Text(
+                  (friend['displayName'] ?? 'U')[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                friend['displayName'] ?? 'Bilinmeyen',
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOnline
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isOnline ? Colors.green : Colors.grey,
+                  ),
+                ),
+                child: Text(
+                  isOnline ? 'Çevrimiçi' : 'Çevrimdışı',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isOnline ? Colors.green : Colors.grey,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (location != null && location['address'] != null) ...[
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.location_on, size: 18, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        location['address'],
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF3A3D),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Kapat'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAssemblyAreaInfo(Map<String, dynamic> area) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child:
+                        const Icon(Icons.group, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Toplanma Alanı',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          area['name'] ?? 'Bilinmeyen Alan',
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _buildInfoRow(
+                  Icons.people, 'Kapasite', '${area['capacity']} kişi'),
+              const SizedBox(height: 12),
+              _buildInfoRow(Icons.category, 'Tür',
+                  area['type']?.toString().toUpperCase() ?? 'GENEL'),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Kapat'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.grey[600], size: 20),
+        const SizedBox(width: 12),
+        Text(
+          '$label: ',
+          style: TextStyle(color: Colors.grey[600], fontSize: 14),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckboxItem({
+    required IconData icon,
+    required String label,
+    required bool isChecked,
+    required Color color,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return InkWell(
+      onTap: () => onChanged(!isChecked),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: Checkbox(
+                value: isChecked,
+                onChanged: onChanged,
+                activeColor: color,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              icon,
+              color: color,
+              size: 16,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: Colors.black87,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _onTapMarker(Map<String, dynamic> q) {
@@ -277,12 +579,96 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               subdomains: ['a', 'b', 'c'],
               userAgentPackageName: 'dev.deprem_bildirim',
             ),
+            // Arkadaş marker'ları (en altta)
+            if (_showFriends)
+              MarkerLayer(
+                markers: _friends.where((friend) {
+                  final location = friend['location'];
+                  return location != null &&
+                      location['latitude'] != null &&
+                      location['longitude'] != null;
+                }).map((friend) {
+                  final location = friend['location'];
+                  final lat = location['latitude'] as double;
+                  final lon = location['longitude'] as double;
+                  final isOnline = friend['isOnline'] ?? false;
+
+                  return Marker(
+                    point: LatLng(lat, lon),
+                    width: 45,
+                    height: 45,
+                    alignment: Alignment.center,
+                    child: GestureDetector(
+                      onTap: () => _showFriendInfo(friend),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.purple,
+                          border: Border.all(
+                            color: isOnline ? Colors.green : Colors.grey,
+                            width: 3,
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 4)
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            (friend['displayName'] ?? 'U')[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            // Toplanma alanı marker'ları
+            if (_showAssemblyAreas)
+              MarkerLayer(
+                markers: _assemblyAreas.map((area) {
+                  final lat = area['lat'] as double;
+                  final lon = area['lon'] as double;
+
+                  return Marker(
+                    point: LatLng(lat, lon),
+                    width: 40,
+                    height: 40,
+                    alignment: Alignment.center,
+                    child: GestureDetector(
+                      onTap: () => _showAssemblyAreaInfo(area),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.green,
+                          boxShadow: [
+                            BoxShadow(color: Colors.black26, blurRadius: 4)
+                          ],
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.group,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            // Kullanıcı ve deprem marker'ları (en üstte - popup için)
             MarkerLayer(
               markers: [
                 Marker(
                   point: _userLocation,
                   width: 35,
                   height: 35,
+                  alignment: Alignment.center,
                   child: Container(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
@@ -302,190 +688,255 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                ..._quakes.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final q = entry.value;
-                  final lat = q['lat'] as double;
-                  final lon = q['lon'] as double;
-                  final mag = (q['mag'] as num).toDouble();
-                  final color = _colorForMag(mag);
-                  final isLastQuake = index == 0;
+                // Deprem marker'ları
+                if (_showEarthquakes)
+                  ..._quakes.asMap().entries.map((entry) {
+                    final q = entry.value;
+                    final lat = q['lat'] as double;
+                    final lon = q['lon'] as double;
+                    final mag = (q['mag'] as num).toDouble();
+                    final color = _colorForMag(mag);
 
-                  return Marker(
-                    point: LatLng(lat, lon),
-                    width: isLastQuake ? 200 : 80,
-                    height: isLastQuake ? 185 : 80,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        // Son deprem için popup
-                        if (isLastQuake && _showLatestQuakePopup)
-                          Container(
-                            width: 200,
-                            height: 90,
-                            padding: EdgeInsets.all(14),
-                            margin: EdgeInsets.only(bottom: 0),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Stack(
+                    return Marker(
+                      point: LatLng(lat, lon),
+                      width: 100,
+                      height: 110,
+                      alignment: Alignment.center,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.bottomCenter,
+                        children: [
+                          // Ana marker container (icon + wave + time label)
+                          Positioned(
+                            bottom: 0,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      'Son Deprem',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Text(
-                                          '${q['mag']} Mw',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: color,
-                                          ),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            q['place'],
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Colors.black87,
-                                              fontWeight: FontWeight.w500,
+                                // Dalga animasyonu + Deprem marker
+                                SizedBox(
+                                  width: 70,
+                                  height: 70,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      // Dalga animasyonu (TÜM DEPREMLER için)
+                                      AnimatedBuilder(
+                                        animation: _waveAnimation,
+                                        builder: (context, child) {
+                                          return Container(
+                                            width: 40 +
+                                                (_waveAnimation.value * 30),
+                                            height: 40 +
+                                                (_waveAnimation.value * 30),
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: color.withOpacity(0.6 -
+                                                    (_waveAnimation.value *
+                                                        0.6)),
+                                                width: 2,
+                                              ),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                          );
+                                        },
+                                      ),
+                                      // Deprem marker icon (SABİT)
+                                      GestureDetector(
+                                        onTap: () => _onTapMarker(q),
+                                        child: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: color,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  color: Colors.black26,
+                                                  blurRadius: 4)
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: SvgPicture.asset(
+                                              'assets/Icons/Logo.svg',
+                                              width: 20,
+                                              height: 20,
+                                              colorFilter: ColorFilter.mode(
+                                                  Colors.white,
+                                                  BlendMode.srcIn),
+                                            ),
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 6),
-                                    Text(
-                                      '${q['minutesAgo']} dk önce',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Colors.grey[600],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                // Kapatma butonu
-                                Positioned(
-                                  top: 0,
-                                  right: 0,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        _showLatestQuakePopup = false;
-                                      });
-                                    },
-                                    child: Container(
-                                      padding: EdgeInsets.all(2),
-                                      child: Icon(
-                                        Icons.close,
-                                        size: 16,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        // Dalga animasyonu + Deprem marker
-                        SizedBox(
-                          width: 70,
-                          height: 70,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // Dalga animasyonu (TÜM DEPREMLER için)
-                              AnimatedBuilder(
-                                animation: _waveAnimation,
-                                builder: (context, child) {
-                                  return Container(
-                                    width: 40 + (_waveAnimation.value * 30),
-                                    height: 40 + (_waveAnimation.value * 30),
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: color.withOpacity(0.6 - (_waveAnimation.value * 0.6)),
-                                        width: 2,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              // Deprem marker icon (SABİT)
-                              GestureDetector(
-                                onTap: () => _onTapMarker(q),
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: color,
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black26, blurRadius: 4)
                                     ],
                                   ),
-                                  child: Center(
-                                    child: SvgPicture.asset(
-                                      'assets/Icons/Logo.svg',
-                                      width: 20,
-                                      height: 20,
-                                      colorFilter: ColorFilter.mode(
-                                          Colors.white, BlendMode.srcIn),
+                                ),
+                                // Zaman gösterimi (marker'ın altında)
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.7),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _formatTimeAgo(q['minutesAgo'] as int),
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+              ],
+            )
+          ],
+        ),
+        // Son deprem popup'ı (haritanın üzerinde, merkeze yakın)
+        if (_showLatestQuakePopup && _latestQuake != null)
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.25,
+            left: (MediaQuery.of(context).size.width - 200) / 2,
+            child: GestureDetector(
+              onTap: () {
+                print('🔴 Popup kapatma butonuna tıklandı');
+                setState(() {
+                  _showLatestQuakePopup = false;
+                });
+              },
+              child: Container(
+                width: 200,
+                padding: EdgeInsets.fromLTRB(14, 10, 14, 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Son Deprem',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[600],
                           ),
                         ),
-                        // Zaman gösterimi (marker'ın altında)
-                        SizedBox(height: 2),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(8),
+                        Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.grey[600],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '${_latestQuake!['mag']} Mw',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: _colorForMag(
+                                (_latestQuake!['mag'] as num).toDouble()),
                           ),
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
                           child: Text(
-                            _formatTimeAgo(q['minutesAgo'] as int),
+                            _latestQuake!['place'],
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w500,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
-                  );
-                }).toList(),
+                    SizedBox(height: 6),
+                    Text(
+                      '${_latestQuake!['minutesAgo']} dk önce',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        // Checkbox listesi (sol üst köşe)
+        Positioned(
+          top: 12,
+          left: 12,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
               ],
-            )
-          ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildCheckboxItem(
+                  icon: Icons.warning,
+                  label: 'Depremler',
+                  isChecked: _showEarthquakes,
+                  color: Colors.red,
+                  onChanged: (value) {
+                    setState(() => _showEarthquakes = value ?? false);
+                  },
+                ),
+                _buildCheckboxItem(
+                  icon: Icons.people,
+                  label: 'Arkadaşlar',
+                  isChecked: _showFriends,
+                  color: Colors.purple,
+                  onChanged: (value) {
+                    setState(() => _showFriends = value ?? false);
+                  },
+                ),
+                _buildCheckboxItem(
+                  icon: Icons.group,
+                  label: 'Toplanma',
+                  isChecked: _showAssemblyAreas,
+                  color: Colors.green,
+                  onChanged: (value) {
+                    setState(() => _showAssemblyAreas = value ?? false);
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
         Positioned(
           top: 12,

@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'auth_service.dart';
 import 'api_service.dart';
-import 'friends_service_minimal.dart';
+import 'friends_service_backend.dart';
 import 'dart:math';
 
 class LocationService {
@@ -81,6 +81,9 @@ class LocationService {
       // Şehir bilgisini al (ReportService'ten)
       await _getCityName();
 
+      // Konumu backend'e gönder
+      await _sendLocationToBackend();
+
       _isLocationInitialized = true;
       _isLocationLoading = false;
 
@@ -113,6 +116,23 @@ class LocationService {
     } catch (e) {
       _cityName = 'Bilinmeyen Şehir';
       print('Şehir bilgisi alınamadı: $e');
+    }
+  }
+
+  Future<void> _sendLocationToBackend() async {
+    if (_latitude == null || _longitude == null) return;
+
+    try {
+      final friendsService = FriendsService();
+      await friendsService.updateLocation(
+        latitude: _latitude!,
+        longitude: _longitude!,
+        address: _cityName ?? _locationText,
+      );
+      print('📍 Konum backend\'e gönderildi: $_cityName');
+    } catch (e) {
+      print('❌ Konum gönderme hatası: $e');
+      // Sessizce başarısız ol
     }
   }
 
@@ -375,9 +395,7 @@ class LocationService {
   Future<List<Map<String, dynamic>>> getFormattedFriendsForMap() async {
     try {
       final friendsService = FriendsService();
-      await friendsService.fetchFriends();
-
-      final friends = friendsService.friends;
+      final friends = await friendsService.getFriends();
       List<Map<String, dynamic>> friendsWithLocation = [];
 
       for (final friend in friends) {

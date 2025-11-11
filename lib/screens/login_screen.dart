@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
-import 'demo_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -25,10 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (user != null && mounted) {
         print('✅ Login screen: Giriş başarılı, ana sayfaya yönlendiriliyor');
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DemoScreen()),
-        );
+        Navigator.pushReplacementNamed(context, '/home');
       } else {
         print('❌ Login screen: Kullanıcı null döndü');
         _showError(
@@ -52,15 +49,21 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Misafir kullanıcı için temporary login
-      final user = await _authService.signInWithGoogle();
-      if (user != null && mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const DemoScreen()),
-        );
+      // Misafir kullanıcı için geçici ID oluştur (use AuthService compatible keys)
+      final prefs = await SharedPreferences.getInstance();
+      final guestId = 'guest_${DateTime.now().millisecondsSinceEpoch}';
+      await prefs.setString('user_id', guestId);
+      await prefs.setString('user_name', 'Misafir Kullanıcı');
+      await prefs.setString('user_email', 'guest@depremhatti.com');
+      await prefs.setString('user_photo_url', '');
+
+      print('✅ Misafir olarak giriş yapıldı: $guestId');
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (error) {
+      print('❌ Misafir giriş hatası: $error');
       _showError('Misafir girişi başarısız: $error');
     } finally {
       if (mounted) {
@@ -107,36 +110,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Spacer(),
 
                 // Logo
-                Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Dış halka
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3),
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    // İç ikon
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite,
-                        size: 50,
-                        color: Color(0xFFFF3A3D),
-                      ),
-                    ),
-                  ],
+                SvgPicture.asset(
+                  'assets/Icons/Logo.svg',
+                  width: 140,
+                  height: 140,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
                 ),
 
                 const SizedBox(height: 40),

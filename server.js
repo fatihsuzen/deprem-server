@@ -11,6 +11,7 @@ const EarthquakeMonitor = require('./services/earthquakeMonitor');
 const DeviceManager = require('./services/deviceManager');
 const GeoService = require('./services/geoService');
 const NotificationService = require('./services/notificationService');
+const PriorityNotificationService = require('./services/priorityNotificationService');
 const ValidationService = require('./services/validationService');
 const databaseService = require('./services/databaseService');
 
@@ -36,11 +37,16 @@ const io = socketIo(server, {
 });
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false, // Monitoring sayfası için
+}));
 app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Static files for monitoring dashboard
+app.use(express.static('public'));
 
 // Routes
 app.use('/api/friends', friendsRoutes);
@@ -50,7 +56,7 @@ app.use('/api/earthquakes', earthquakesRoutes);
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
   try {
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, address } = req.body;
     const uid = req.headers['x-firebase-uid'];
 
     if (!uid) {
@@ -61,6 +67,11 @@ app.post('/api/users/update-location', async (req, res) => {
       return res.status(400).json({ error: 'Latitude ve longitude gerekli' });
     }
 
+    // Koordinat validasyonu
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ error: 'Geçersiz koordinatlar' });
+    }
+
     const User = require('./models/User');
     const user = await User.findOne({ uid });
     
@@ -68,18 +79,137 @@ app.post('/api/users/update-location', async (req, res) => {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
 
-    await user.updateLocation(latitude, longitude);
+    await user.updateLocation(latitude, longitude, address || '');
     
     console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
 
     res.json({
       success: true,
-      location: user.location
+      location: {
+        latitude,
+        longitude,
+        address: address || '',
+        lastUpdate: user.location.lastUpdate
+      }
     });
 
   } catch (error) {
     console.error('❌ Location update hatası:', error);
     res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// User notification settings update
+app.post('/api/users/notification-settings', async (req, res) => {
+  try {
+    const { notificationRadius, minMagnitude, maxMagnitude } = req.body;
+    const uid = req.headers['x-firebase-uid'];
+
+    if (!uid) {
+      return res.status(401).json({ error: 'Firebase UID gerekli' });
+    }
+
+    const User = require('./models/User');
+    const user = await User.findOne({ uid });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    // Ayarları güncelle
+    if (!user.notificationSettings) {
+      user.notificationSettings = {};
+    }
+
+    if (notificationRadius !== undefined) {
+      user.notificationSettings.notificationRadius = notificationRadius;
+    }
+    if (minMagnitude !== undefined) {
+      user.notificationSettings.minMagnitude = minMagnitude;
+    }
+    if (maxMagnitude !== undefined) {
+      user.notificationSettings.maxMagnitude = maxMagnitude;
+    }
+
+    await user.save();
+    
+    console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName}`);
+    console.log(`   Yarıçap: ${user.notificationSettings.notificationRadius} km`);
+    console.log(`   Büyüklük: ${user.notificationSettings.minMagnitude}-${user.notificationSettings.maxMagnitude}`);
+
+    res.json({
+      success: true,
+      settings: user.notificationSettings
+    });
+
+  } catch (error) {
+    console.error('❌ Notification settings update hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Add device token
+app.post('/api/users/device-token', async (req, res) => {
+  try {
+    const { token, platform } = req.body;
+    const uid = req.headers['x-firebase-uid'];
+
+    if (!uid) {
+      return res.status(401).json({ error: 'Firebase UID gerekli' });
+    }
+
+    if (!token) {
+      return res.status(400).json({ error: 'Device token gerekli' });
+    }
+
+    const User = require('./models/User');
+    const user = await User.findOne({ uid });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    await user.addDeviceToken(token, platform || 'unknown');
+    
+    console.log(`📱 Device token eklendi: ${user.displayName} (${platform})`);
+
+    res.json({
+      success: true,
+      message: 'Device token kaydedildi'
+    });
+
+  } catch (error) {
+    console.error('❌ Device token hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Test: Öncelikli bildirim gönder
+app.post('/api/test/priority-notification', async (req, res) => {
+  try {
+    const { lat, lon, magnitude, location, depth } = req.body;
+
+    if (!lat || !lon || !magnitude || !location) {
+      return res.status(400).json({ error: 'lat, lon, magnitude, location gerekli' });
+    }
+
+    const earthquake = {
+      lat: parseFloat(lat),
+      lon: parseFloat(lon),
+      magnitude: parseFloat(magnitude),
+      location,
+      depth: depth || 10,
+      time: new Date()
+    };
+
+    console.log('🧪 Test bildirimi başlatılıyor...');
+    const result = await priorityNotificationService.sendPriorityEarthquakeNotifications(earthquake);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('❌ Test bildirim hatası:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -128,6 +258,58 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
+// Admin endpoint: Get all users with location data
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const users = await User.find({})
+      .select('uid displayName email location notificationSettings createdAt')
+      .sort({ 'location.lastUpdate': -1 })
+      .limit(100);
+    
+    res.json({
+      success: true,
+      users: users,
+      count: users.length
+    });
+  } catch (error) {
+    console.error('❌ Kullanıcı listesi hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin endpoint: Get system statistics
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Earthquake = require('./models/Earthquake');
+    
+    const [userCount, earthquakeCount, usersWithLocation] = await Promise.all([
+      User.countDocuments(),
+      Earthquake.countDocuments(),
+      User.countDocuments({ 'location.coordinates': { $ne: null } })
+    ]);
+    
+    res.json({
+      success: true,
+      stats: {
+        totalUsers: userCount,
+        totalEarthquakes: earthquakeCount,
+        usersWithLocation: usersWithLocation,
+        activeConnections: io.engine.clientsCount || 0
+      }
+    });
+  } catch (error) {
+    console.error('❌ İstatistik hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Monitoring dashboard route
+app.get('/monitor', (req, res) => {
+  res.sendFile(__dirname + '/public/monitor.html');
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -143,6 +325,7 @@ const earthquakeMonitor = new EarthquakeMonitor();
 const deviceManager = new DeviceManager();
 const geoService = new GeoService();
 const notificationService = new NotificationService(io);
+const priorityNotificationService = new PriorityNotificationService(notificationService);
 const validationService = new ValidationService();
 
 // Socket.io Connection Handler

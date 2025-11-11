@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/nav_svg_icon.dart';
 import 'map_screen.dart';
-import 'friends.dart';
+import 'friends_page_api.dart';
 import 'chat.dart';
 import 'history.dart';
 import 'settings_page.dart';
@@ -18,7 +18,7 @@ class _RootScreenState extends State<RootScreen> {
   int _selectedIndex = 2; // default to map
 
   final List<Widget> _pages = [
-    FriendsPage(),
+    const FriendsPageAPI(),
     ChatPage(),
     MapScreen(),
     HistoryPage(),

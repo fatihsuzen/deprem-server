@@ -1,7 +1,9 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:math';
 import '../main.dart';
+import 'user_preferences_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -10,6 +12,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  final UserPreferencesService _prefsService = UserPreferencesService();
 
   Future<void> initialize() async {
     print('NotificationService başlatılıyor...');
@@ -319,8 +322,35 @@ class NotificationService {
     required double magnitude,
     required String location,
     required String depth,
+    double? earthquakeLat,
+    double? earthquakeLon,
+    double? userLat,
+    double? userLon,
   }) async {
-    print('Deprem bildirimi gönderiliyor: $title');
+    print('Deprem bildirimi kontrol ediliyor: $title');
+
+    // Kullanıcının bildirim yarıçapı ayarını al
+    final notificationRadius = await _prefsService.getNotificationRadius();
+
+    // Eğer deprem ve kullanıcı konumu verilmişse, mesafeyi kontrol et
+    if (earthquakeLat != null &&
+        earthquakeLon != null &&
+        userLat != null &&
+        userLon != null) {
+      final distance =
+          _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+
+      print(
+          'Deprem mesafesi: ${distance.toStringAsFixed(1)} km (limit: ${notificationRadius.toInt()} km)');
+
+      // Eğer deprem belirlenen yarıçap dışındaysa, bildirim gönderme
+      if (distance > notificationRadius) {
+        print('❌ Deprem yarıçap dışında, bildirim gönderilmedi');
+        return;
+      }
+
+      print('✅ Deprem yarıçap içinde, bildirim gönderiliyor');
+    }
 
     // Kritik deprem bildirimi - rapor istemiyle
     const AndroidNotificationDetails androidDetails =
@@ -386,6 +416,28 @@ class NotificationService {
       location: location,
       depth: depth,
     );
+  }
+
+  // Mesafe hesaplama (Haversine formülü)
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // km
+
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+
+    final a = (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            (sin(dLon / 2) * sin(dLon / 2));
+
+    final c = 2 * asin(sqrt(a));
+
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degrees) {
+    return degrees * (pi / 180);
   }
 
   // Basit test bildirimi

@@ -63,13 +63,31 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     setState(() {
       if (_favoriteRooms.contains(roomId)) {
         _favoriteRooms.remove(roomId);
+        print('⭐ Favorilerden çıkarıldı: $roomId');
       } else {
         _favoriteRooms.add(roomId);
+        print('⭐ Favorilere eklendi: $roomId');
       }
     });
 
     // SharedPreferences'e kaydet
     await _prefs.setStringList('favorite_rooms', _favoriteRooms.toList());
+    print('💾 Favori odalar kaydedildi: ${_favoriteRooms.toList()}');
+
+    // Kullanıcıya feedback göster
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _favoriteRooms.contains(roomId)
+                ? '⭐ Favorilere eklendi'
+                : '✓ Favorilerden çıkarıldı',
+          ),
+          duration: const Duration(milliseconds: 1000),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   bool _isFavorite(String roomId) {
@@ -272,6 +290,13 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     final nonFavoriteRooms =
         rooms.where((room) => !_isFavorite(room['id'])).toList();
 
+    print(
+        '📊 Sıralama: ${favoriteRooms.length} favori, ${nonFavoriteRooms.length} normal oda');
+    if (favoriteRooms.isNotEmpty) {
+      print(
+          '⭐ Favori odalar: ${favoriteRooms.map((r) => r['name']).join(', ')}');
+    }
+
     return [...favoriteRooms, ...nonFavoriteRooms];
   }
 
@@ -281,151 +306,185 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
     final lastMessage = room['lastMessage'];
     final isFavorite = _isFavorite(room['id']);
 
-    return Card(
-      elevation: 4,
-      color: Theme.of(context).colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => _joinRoom(room),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              // Flag and name
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+    return Stack(
+      children: [
+        Card(
+          elevation: isFavorite ? 6 : 4,
+          color: isFavorite
+              ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
+              : Theme.of(context).colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: isFavorite
+                ? BorderSide(
+                    color: Colors.amber.withOpacity(0.5),
+                    width: 2,
+                  )
+                : BorderSide.none,
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () {
+              print('🔵 Karta tıklandı: ${room['id']}');
+              _joinRoom(room);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  // Boşluk bırak yıldız için (sol tarafta)
+                  const SizedBox(width: 44),
+
+                  // Flag and name
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          room['flag'] ?? '🌍',
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            room['name'] ?? 'Adsiz Oda',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onSurface,
+                        Row(
+                          children: [
+                            Text(
+                              room['flag'] ?? '🌍',
+                              style: const TextStyle(fontSize: 20),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                room['name'] ?? 'Adsiz Oda',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      room['description'] ?? '',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context)
-                            .colorScheme
-                            .onSurface
-                            .withOpacity(0.6),
-                      ),
-                    ),
-                    if (lastMessage != null) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isDarkTheme
-                              ? Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer
-                                  .withOpacity(0.3)
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '${lastMessage['displayName']}: ${lastMessage['message']}',
+                        const SizedBox(height: 4),
+                        Text(
+                          room['description'] ?? '',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withOpacity(0.8),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              // User count, favorite star and join button
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Favorite star
-                  IconButton(
-                    onPressed: () => _toggleFavorite(room['id']),
-                    icon: Icon(
-                      isFavorite ? Icons.star : Icons.star_border,
-                      color: isFavorite ? Colors.amber : Colors.grey.shade400,
-                      size: 20,
-                    ),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    tooltip:
-                        isFavorite ? 'Favorilerden cikar' : 'Favorilere ekle',
-                  ),
-                  const SizedBox(height: 4),
-
-                  // User count
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: activeUserCount > 0
-                          ? Colors.green.withOpacity(0.2)
-                          : Colors.grey.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.people,
-                          size: 14,
-                          color: activeUserCount > 0
-                              ? Colors.green.shade700
-                              : Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '$activeUserCount',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: activeUserCount > 0
-                                ? Colors.green.shade700
-                                : Colors.grey.shade600,
+                                .withOpacity(0.6),
                           ),
                         ),
+                        if (lastMessage != null) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isDarkTheme
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primaryContainer
+                                      .withOpacity(0.3)
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${lastMessage['displayName']}: ${lastMessage['message']}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.8),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.primary,
+
+                  // User count and arrow
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // User count
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: activeUserCount > 0
+                              ? Colors.green.withOpacity(0.2)
+                              : Colors.grey.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people,
+                              size: 14,
+                              color: activeUserCount > 0
+                                  ? Colors.green.shade700
+                                  : Colors.grey.shade600,
+                            ),
+                            const SizedBox(width: 3),
+                            Text(
+                              '$activeUserCount',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: activeUserCount > 0
+                                    ? Colors.green.shade700
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 14,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
+        // Yıldız ikonu - Stack ile kartın üstünde (sol tarafta)
+        Positioned(
+          left: 4,
+          top: 4,
+          child: GestureDetector(
+            onTap: () {
+              print('🌟 Yıldıza tıklandı: ${room['id']}');
+              _toggleFavorite(room['id']);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Icon(
+                isFavorite ? Icons.star : Icons.star_border,
+                color: isFavorite ? Colors.amber : Colors.grey.shade600,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

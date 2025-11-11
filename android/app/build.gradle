@@ -34,6 +34,15 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            // Optimize for faster startup
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // Debug build'de daha hızlı build için
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }

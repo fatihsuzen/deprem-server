@@ -78,7 +78,8 @@ class _ReportScreenState extends State<ReportScreen> {
     {
       'level': 9,
       'title': 'Çok sayıda bina çöker, insanlar ayakta duramaz',
-      'description': 'IX - Binalarda sürekli çökmeler, insanların yere savrılması',
+      'description':
+          'IX - Binalarda sürekli çökmeler, insanların yere savrılması',
       'color': Colors.red.shade600,
       'textColor': Colors.white,
     },

@@ -25,7 +25,7 @@ class _DemoScreenState extends State<DemoScreen> {
     _screens = [
       const SimpleFriendsScreen(), // 0 - Arkadaşlar
       const ChatRoomsScreen(), // 1 - Chat
-      const MapScreen(), // 2 - Harita
+      MapScreen(), // 2 - Harita
       const PastEarthquakesScreen(), // 3 - Geçmiş Depremler
       const SettingsScreen(), // 4 - Ayarlar
     ];

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/chat_service.dart';
 import '../services/auth_service.dart';
 
@@ -23,6 +24,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _roomInfo;
   List<Map<String, dynamic>> _activeUsers = [];
   String? _currentUserId;
+  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -40,6 +42,11 @@ class _ChatScreenState extends State<ChatScreen> {
     _refreshTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
+
+    // Odadan ayrıl
+    print('👋 Odadan ayrılınıyor: ${widget.roomId}');
+    _chatService.leaveRoom(widget.roomId);
+
     super.dispose();
   }
 
@@ -50,8 +57,15 @@ class _ChatScreenState extends State<ChatScreen> {
       await _authService.loadUserData();
       _currentUserId = _authService.currentUserId;
 
+      // Odaya katıl (backend üyelik kontrolü için gerekli)
+      print('🚪 Odaya katılınıyor: ${widget.roomId}');
+      await _chatService.joinRoom(widget.roomId);
+
       // Room bilgilerini al
       _roomInfo = _chatService.getRoomById(widget.roomId);
+
+      // Favori durumunu yükle
+      await _loadFavoriteStatus();
 
       // Mesajları ve aktif kullanıcıları yükle
       await _loadChatData();
@@ -60,6 +74,43 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadFavoriteStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favorites = prefs.getStringList('favorite_rooms') ?? [];
+    setState(() {
+      _isFavorite = favorites.contains(widget.roomId);
+    });
+  }
+
+  Future<void> _toggleFavorite() async {
+    final prefs = await SharedPreferences.getInstance();
+    final favorites = prefs.getStringList('favorite_rooms') ?? [];
+
+    setState(() {
+      if (_isFavorite) {
+        favorites.remove(widget.roomId);
+        _isFavorite = false;
+      } else {
+        favorites.add(widget.roomId);
+        _isFavorite = true;
+      }
+    });
+
+    await prefs.setStringList('favorite_rooms', favorites);
+
+    // Snackbar göster
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              _isFavorite ? 'Favorilere eklendi' : 'Favorilerden çıkarıldı'),
+          duration: const Duration(seconds: 1),
+          backgroundColor: _isFavorite ? Colors.green : Colors.grey,
+        ),
+      );
+    }
   }
 
   Future<void> _loadChatData() async {
@@ -213,6 +264,12 @@ class _ChatScreenState extends State<ChatScreen> {
         backgroundColor: primaryColor,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
+          IconButton(
+            onPressed: _toggleFavorite,
+            icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
+            tooltip: _isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle',
+            color: _isFavorite ? Colors.amber : Colors.white,
+          ),
           IconButton(
             onPressed: _showActiveUsers,
             icon: const Icon(Icons.people),
