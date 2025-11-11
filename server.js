@@ -12,6 +12,7 @@ const DeviceManager = require('./services/deviceManager');
 const GeoService = require('./services/geoService');
 const NotificationService = require('./services/notificationService');
 const PriorityNotificationService = require('./services/priorityNotificationService');
+const P2PEarthquakeAnalyzer = require('./services/p2pEarthquakeAnalyzer');
 const ValidationService = require('./services/validationService');
 const databaseService = require('./services/databaseService');
 
@@ -213,6 +214,43 @@ app.post('/api/test/priority-notification', async (req, res) => {
   }
 });
 
+// P2P Shake Report Endpoint
+app.post('/api/p2p/shake-report', async (req, res) => {
+  try {
+    const report = req.body;
+    
+    // Validasyon
+    if (!report.location || !report.sensorData) {
+      return res.status(400).json({ error: 'Geçersiz rapor formatı' });
+    }
+    
+    console.log(`📥 P2P Rapor alındı: ${report.userId || 'Unknown'}`);
+    
+    // Analiz et
+    const result = await p2pEarthquakeAnalyzer.processShakeReport(report);
+    
+    res.json(result);
+    
+  } catch (error) {
+    console.error('❌ P2P rapor hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// P2P Statistics Endpoint
+app.get('/api/p2p/statistics', (req, res) => {
+  try {
+    const stats = p2pEarthquakeAnalyzer.getStatistics();
+    res.json({
+      success: true,
+      statistics: stats
+    });
+  } catch (error) {
+    console.error('❌ P2P istatistik hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Register user endpoint
 app.post('/api/register', async (req, res) => {
   try {
@@ -326,6 +364,7 @@ const deviceManager = new DeviceManager();
 const geoService = new GeoService();
 const notificationService = new NotificationService(io);
 const priorityNotificationService = new PriorityNotificationService(notificationService);
+const p2pEarthquakeAnalyzer = new P2PEarthquakeAnalyzer();
 const validationService = new ValidationService();
 
 // Socket.io Connection Handler
