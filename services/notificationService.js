@@ -23,21 +23,25 @@ try {
 }
 
 // MQTT setup (for Android persistent connections)
+// Note: MQTT is optional. Set ENABLE_MQTT=true and MQTT_BROKER_URL in .env to use it
 let mqttClient = null;
 try {
-  if (process.env.MQTT_BROKER_URL) {
+  if (process.env.ENABLE_MQTT === 'true' && process.env.MQTT_BROKER_URL) {
     const mqtt = require('mqtt');
     const mqttOptions = {};
     if (process.env.MQTT_USERNAME) mqttOptions.username = process.env.MQTT_USERNAME;
     if (process.env.MQTT_PASSWORD) mqttOptions.password = process.env.MQTT_PASSWORD;
     mqttClient = mqtt.connect(process.env.MQTT_BROKER_URL, mqttOptions);
     mqttClient.on('connect', () => console.log('✅ Connected to MQTT broker'));
-    mqttClient.on('error', (e) => console.error('MQTT error:', e));
+    mqttClient.on('error', (e) => {
+      console.error('⚠️ MQTT error:', e.message);
+      mqttClient = null; // Disable MQTT on error
+    });
   } else {
-    console.log('⚠️ MQTT broker not configured (MQTT_BROKER_URL not set)');
+    console.log('⚠️ MQTT disabled (set ENABLE_MQTT=true and MQTT_BROKER_URL in .env to enable)');
   }
 } catch (err) {
-  console.error('MQTT init error:', err);
+  console.error('⚠️ MQTT init error:', err.message);
   mqttClient = null;
 }
 
