@@ -116,8 +116,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
       // Kullanıcının max magnitude ayarına göre filtrele
       final filteredEarthquakes = earthquakes.where((eq) {
-        final magnitude = (eq['mag'] is int) 
-            ? (eq['mag'] as int).toDouble() 
+        final magnitude = (eq['mag'] is int)
+            ? (eq['mag'] as int).toDouble()
             : eq['mag'] as double;
         return magnitude <= _maxMagnitude;
       }).toList();
@@ -402,8 +402,72 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void _onTapMarker(Map<String, dynamic> q) {
     final mag = (q['mag'] as num).toDouble();
     final place = q['place'] ?? 'Konum';
-    final date = q['date'] ?? 'Tarih bilgisi yok';
     final time = q['time'] ?? '--:--';
+
+    // Tarih formatını düzelt
+    String formattedDate = 'Tarih bilgisi yok';
+    if (q['timestamp'] != null) {
+      try {
+        DateTime dt;
+        // Timestamp int (milisaniye) veya string (ISO) olabilir
+        if (q['timestamp'] is int) {
+          dt = DateTime.fromMillisecondsSinceEpoch(q['timestamp']).toLocal();
+        } else if (q['timestamp'] is String) {
+          dt = DateTime.parse(q['timestamp']).toLocal();
+        } else {
+          throw Exception('Geçersiz timestamp tipi');
+        }
+        
+        final months = [
+          'Ocak',
+          'Şubat',
+          'Mart',
+          'Nisan',
+          'Mayıs',
+          'Haziran',
+          'Temmuz',
+          'Ağustos',
+          'Eylül',
+          'Ekim',
+          'Kasım',
+          'Aralık'
+        ];
+        final days = [
+          'Pazartesi',
+          'Salı',
+          'Çarşamba',
+          'Perşembe',
+          'Cuma',
+          'Cumartesi',
+          'Pazar'
+        ];
+        formattedDate =
+            '${dt.day} ${months[dt.month - 1]} ${days[dt.weekday - 1]} ${dt.year}';
+      } catch (e) {
+        print('❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}');
+        formattedDate = q['date'] ?? 'Tarih bilgisi yok';
+      }
+    } else if (q['date'] != null) {
+      formattedDate = q['date'];
+    }
+
+    // Magnitude açıklaması
+    String magDescription = '';
+    if (mag < 2.0) {
+      magDescription = 'Mikro deprem';
+    } else if (mag < 3.0) {
+      magDescription = 'Çok hafif';
+    } else if (mag < 4.0) {
+      magDescription = 'Hafif';
+    } else if (mag < 5.0) {
+      magDescription = 'Orta';
+    } else if (mag < 6.0) {
+      magDescription = 'Kuvvetli';
+    } else if (mag < 7.0) {
+      magDescription = 'Çok kuvvetli';
+    } else {
+      magDescription = 'Yıkıcı';
+    }
 
     showModalBottomSheet(
         context: context,
@@ -437,15 +501,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                     SizedBox(width: 12),
                     Text(
-                      '$mag-${(mag + 0.5).toStringAsFixed(1)} Mw',
+                      '${mag.toStringAsFixed(1)} Mw',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
                     SizedBox(width: 8),
                     Text(
-                      'Hafif sarsıntı',
+                      magDescription,
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -488,7 +553,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                     SizedBox(width: 12),
                     Text(
-                      date,
+                      formattedDate,
                       style: TextStyle(
                         fontSize: 16,
                         color: Colors.black87,
@@ -702,11 +767,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 if (_showEarthquakes)
                   ..._quakes.asMap().entries.map((entry) {
                     final q = entry.value;
-                    final lat = (q['lat'] is int) 
-                        ? (q['lat'] as int).toDouble() 
+                    final lat = (q['lat'] is int)
+                        ? (q['lat'] as int).toDouble()
                         : q['lat'] as double;
-                    final lon = (q['lon'] is int) 
-                        ? (q['lon'] as int).toDouble() 
+                    final lon = (q['lon'] is int)
+                        ? (q['lon'] as int).toDouble()
                         : q['lon'] as double;
                     final mag = (q['mag'] as num).toDouble();
                     final color = _colorForMag(mag);
@@ -793,8 +858,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    _formatTimeAgo((q['minutesAgo'] is int) 
-                                        ? q['minutesAgo'] as int 
+                                    _formatTimeAgo((q['minutesAgo'] is int)
+                                        ? q['minutesAgo'] as int
                                         : (q['minutesAgo'] as double).toInt()),
                                     style: TextStyle(
                                       color: Colors.white,
