@@ -110,13 +110,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _minMagnitude,
               min: 0.0,
               max: 9.0,
-              onChanged: (value) async {
+              onChanged: (value) {
+                if (value < _maxMagnitude) {
+                  setState(() => _minMagnitude = value);
+                }
+              },
+              onChangeEnd: (value) async {
                 if (value < _maxMagnitude) {
                   await _prefsService.setMinMagnitude(value);
-                  setState(() => _minMagnitude = value);
                   _showSnackBar(
                       'Minimum büyüklük: ${value.toStringAsFixed(1)}');
                   await _syncSettingsToServer();
+                  // Harita verilerini yenile
+                  if (mounted) {
+                    Navigator.of(context).pop({'reloadEarthquakes': true});
+                  }
                 }
               },
               color: Colors.orange,
@@ -130,13 +138,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _maxMagnitude,
               min: 1.0,
               max: 10.0,
-              onChanged: (value) async {
+              onChanged: (value) {
+                if (value > _minMagnitude) {
+                  setState(() => _maxMagnitude = value);
+                }
+              },
+              onChangeEnd: (value) async {
                 if (value > _minMagnitude) {
                   await _prefsService.setMaxMagnitude(value);
-                  setState(() => _maxMagnitude = value);
                   _showSnackBar(
                       'Maksimum büyüklük: ${value.toStringAsFixed(1)}');
                   await _syncSettingsToServer();
+                  // Harita verilerini yenile
+                  if (mounted) {
+                    Navigator.of(context).pop({'reloadEarthquakes': true});
+                  }
                 }
               },
               color: Colors.red,
@@ -150,12 +166,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               value: _notificationRadius,
               min: 10.0,
               max: 1000.0,
-              onChanged: (value) async {
-                await _prefsService.setNotificationRadius(value);
+              onChanged: (value) {
                 setState(() => _notificationRadius = value);
+              },
+              onChangeEnd: (value) async {
+                await _prefsService.setNotificationRadius(value);
                 _showSnackBar('Bildirim yarıçapı: ${value.toInt()} km');
-                
-                // Sunucuya gönder
                 await _syncSettingsToServer();
               },
             ),
@@ -488,6 +504,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required double min,
     required double max,
     required Function(double) onChanged,
+    Function(double)? onChangeEnd,
     required Color color,
   }) {
     return Container(
@@ -545,6 +562,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               max: max,
               divisions: 90,
               onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
             ),
           ),
           Row(
@@ -577,6 +595,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required double min,
     required double max,
     required Function(double) onChanged,
+    Function(double)? onChangeEnd,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -633,6 +652,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               max: max,
               divisions: 99,
               onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
             ),
           ),
           Row(
