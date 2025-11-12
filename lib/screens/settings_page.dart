@@ -346,6 +346,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF3333)),
+      );
+    }
+    
     return ListView(
       padding: EdgeInsets.all(0),
       children: [
