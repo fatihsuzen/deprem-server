@@ -793,7 +793,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    _formatTimeAgo(q['minutesAgo'] as int),
+                                    _formatTimeAgo((q['minutesAgo'] is int) 
+                                        ? q['minutesAgo'] as int 
+                                        : (q['minutesAgo'] as double).toInt()),
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
