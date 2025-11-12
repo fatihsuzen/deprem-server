@@ -7,6 +7,8 @@ import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 
 class MapScreen extends StatefulWidget {
+  const MapScreen({Key? key}) : super(key: key);
+  
   @override
   _MapScreenState createState() => _MapScreenState();
 }

@@ -15,32 +15,39 @@ class DemoScreen extends StatefulWidget {
 
 class _DemoScreenState extends State<DemoScreen> {
   int _selectedIndex = 2; // Harita sekmesi başlangıçta seçili
-
-  // Tüm ekranlar
-  late final List<Widget> _screens;
+  Key _mapScreenKey = UniqueKey();
 
   @override
   void initState() {
     super.initState();
-    _screens = [
-      const SimpleFriendsScreen(), // 0 - Arkadaşlar
-      const ChatRoomsScreen(), // 1 - Chat
-      MapScreen(), // 2 - Harita
-      const PastEarthquakesScreen(), // 3 - Geçmiş Depremler
-      const SettingsScreen(), // 4 - Ayarlar
-    ];
   }
 
   void _onNavItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    // Ayarlardan haritaya geçildiğinde haritayı yeniden oluştur
+    if (_selectedIndex == 4 && index == 2) {
+      setState(() {
+        _mapScreenKey = UniqueKey(); // Yeni key ile harita yeniden oluşturulur
+        _selectedIndex = index;
+      });
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const SimpleFriendsScreen(), // 0 - Arkadaşlar
+      const ChatRoomsScreen(), // 1 - Chat
+      MapScreen(key: _mapScreenKey), // 2 - Harita
+      const PastEarthquakesScreen(), // 3 - Geçmiş Depremler
+      const SettingsScreen(), // 4 - Ayarlar
+    ];
+    
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: screens[_selectedIndex],
 
       // Alt navigasyon çubuğu
       bottomNavigationBar: Container(
