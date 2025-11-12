@@ -232,20 +232,13 @@ router.get('/', async (req, res) => {
     const usgsData = await fetchUSGSData(period);
     earthquakes = earthquakes.concat(usgsData);
 
-    // Eğer Türkiye istenmişse veya kullanıcı Türkiye'deyse Kandilli ve EMSC ekle
-    if (region === 'Turkey' || (userLat >= 36 && userLat <= 42 && userLon >= 26 && userLon <= 45)) {
-      const kandilliData = await fetchKandilliData();
-      earthquakes = earthquakes.concat(kandilliData);
-      
-      const emscData = await fetchEMSCData();
-      earthquakes = earthquakes.concat(emscData);
-    }
-
-    // Eğer Avrupa/Akdeniz bölgesiyse (Türkiye değilse) EMSC ekle
-    if (region === 'Europe' || (userLat >= 30 && userLat <= 72 && userLon >= -25 && userLon <= 50 && region !== 'Turkey')) {
-      const emscData = await fetchEMSCData();
-      earthquakes = earthquakes.concat(emscData);
-    }
+    // Kandilli verilerini her zaman ekle (Türkiye için önemli)
+    const kandilliData = await fetchKandilliData();
+    earthquakes = earthquakes.concat(kandilliData);
+    
+    // EMSC verilerini her zaman ekle (Akdeniz/Avrupa bölgesi için önemli)
+    const emscData = await fetchEMSCData();
+    earthquakes = earthquakes.concat(emscData);
 
     // Minimum büyüklük filtresi
     earthquakes = earthquakes.filter(eq => eq.mag >= minMag);
