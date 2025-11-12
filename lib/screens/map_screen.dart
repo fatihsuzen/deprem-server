@@ -115,11 +115,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       );
 
       // Kullanıcının max magnitude ayarına göre filtrele
+      // Ve son 24 saat içindeki depremler
       final filteredEarthquakes = earthquakes.where((eq) {
         final magnitude = (eq['mag'] is int)
             ? (eq['mag'] as int).toDouble()
             : eq['mag'] as double;
-        return magnitude <= _maxMagnitude;
+        
+        // Magnitude kontrolü
+        if (magnitude > _maxMagnitude) return false;
+        
+        // 24 saat (1440 dakika) kontrolü
+        final minutesAgo = (eq['minutesAgo'] is int)
+            ? eq['minutesAgo'] as int
+            : (eq['minutesAgo'] as double).toInt();
+        
+        return minutesAgo <= 1440; // 24 saat = 1440 dakika
       }).toList();
 
       setState(() {
@@ -404,6 +414,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final place = q['place'] ?? 'Konum';
     final time = q['time'] ?? '--:--';
 
+    // Debug: Tüm deprem verisini logla
+    print(
+        '🔍 Deprem verisi: timestamp=${q['timestamp']}, date=${q['date']}, time=${q['time']}');
+
     // Tarih formatını düzelt
     String formattedDate = 'Tarih bilgisi yok';
     if (q['timestamp'] != null) {
@@ -417,7 +431,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         } else {
           throw Exception('Geçersiz timestamp tipi');
         }
-        
+
+        print('✅ Parse edilen tarih: ${dt.toString()}');
+
         final months = [
           'Ocak',
           'Şubat',
@@ -443,8 +459,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         ];
         formattedDate =
             '${dt.day} ${months[dt.month - 1]} ${days[dt.weekday - 1]} ${dt.year}';
+        print('📅 Formatlanmış tarih: $formattedDate');
       } catch (e) {
-        print('❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}');
+        print(
+            '❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}');
         formattedDate = q['date'] ?? 'Tarih bilgisi yok';
       }
     } else if (q['date'] != null) {
