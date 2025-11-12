@@ -155,6 +155,76 @@ async function fetchEMSCData() {
   }
 }
 
+// AFAD verilerini çekmek için (Türkiye resmi)
+async function fetchAFADData() {
+  try {
+    const now = new Date();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const formatDate = (date) => {
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    };
+
+    const params = {
+      start: formatDate(yesterday),
+      end: formatDate(now),
+      format: 'json'
+    };
+
+    const response = await axios.get('https://deprem.afad.gov.tr/apiv2/event/filter', {
+      params,
+      timeout: 10000,
+      headers: {
+        'User-Agent': 'DepremApp/1.0',
+        'Accept': 'application/json'
+      }
+    });
+
+    const earthquakes = Array.isArray(response.data) ? response.data : (response.data.data || []);
+    
+    if (earthquakes && earthquakes.length > 0) {
+      console.log(`✅ ${earthquakes.length} AFAD deprem verisi alındı`);
+      return earthquakes.map(eq => {
+        const lat = parseFloat(eq.geojson?.coordinates?.[1] || eq.latitude || eq.lat);
+        const lon = parseFloat(eq.geojson?.coordinates?.[0] || eq.longitude || eq.lon);
+        const mag = parseFloat(eq.mag || eq.magnitude);
+        const depth = parseFloat(eq.depth || eq.Depth);
+        const quakeDate = new Date(eq.date || eq.event_date_time || eq.timestamp);
+        const minutesAgo = Math.floor((Date.now() - quakeDate.getTime()) / (1000 * 60));
+
+        return {
+          id: `afad_${eq.eventID || eq.event_id || eq._id}`,
+          lat,
+          lon,
+          mag,
+          depth,
+          place: eq.location || eq.place || eq.title || 'Unknown',
+          region: 'Turkey',
+          date: quakeDate.toLocaleDateString('en-US', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+          }),
+          time: quakeDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false
+          }),
+          timestamp: quakeDate.toISOString(),
+          minutesAgo,
+          source: 'AFAD'
+        };
+      });
+    }
+
+    return [];
+  } catch (error) {
+    console.error('❌ AFAD hatası:', error.message);
+    return [];
+  }
+}
+
 // Kandilli verilerini çekmek için (Türkiye için detaylı)
 async function fetchKandilliData() {
   try {
@@ -231,6 +301,10 @@ router.get('/', async (req, res) => {
     // USGS'den veri çek (Ana kaynak - Global)
     const usgsData = await fetchUSGSData(period);
     earthquakes = earthquakes.concat(usgsData);
+
+    // AFAD verilerini her zaman ekle (Türkiye resmi kaynak)
+    const afadData = await fetchAFADData();
+    earthquakes = earthquakes.concat(afadData);
 
     // Kandilli verilerini her zaman ekle (Türkiye için önemli)
     const kandilliData = await fetchKandilliData();
