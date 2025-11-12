@@ -16,11 +16,12 @@ class RootScreen extends StatefulWidget {
 
 class _RootScreenState extends State<RootScreen> {
   int _selectedIndex = 2; // default to map
+  Key _mapScreenKey = UniqueKey();
 
-  final List<Widget> _pages = [
+  List<Widget> _getPages() => [
     const FriendsPageAPI(),
     ChatPage(),
-    MapScreen(),
+    MapScreen(key: _mapScreenKey),
     HistoryPage(),
     SettingsPage(),
   ];
@@ -34,9 +35,17 @@ class _RootScreenState extends State<RootScreen> {
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    // Ayarlardan haritaya geçildiğinde haritayı yeniden oluştur
+    if (_selectedIndex == 4 && index == 2) {
+      setState(() {
+        _mapScreenKey = UniqueKey(); // Yeni key ile harita yeniden oluşturulur
+        _selectedIndex = index;
+      });
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
@@ -81,7 +90,7 @@ class _RootScreenState extends State<RootScreen> {
               ]
             : null,
       ),
-      body: _pages[_selectedIndex],
+      body: _getPages()[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.white,

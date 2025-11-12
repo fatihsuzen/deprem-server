@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/user_preferences_service.dart';
+import '../services/location_update_service.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -8,48 +10,120 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final UserPreferencesService _prefsService = UserPreferencesService();
+  final LocationUpdateService _locationUpdateService = LocationUpdateService();
+  
   bool _notificationsEnabled = true;
-  double _minimumMagnitude = 3.0;
+  double _minimumMagnitude = UserPreferencesService.defaultMinMagnitude;
+  double _maximumMagnitude = UserPreferencesService.defaultMaxMagnitude;
+  double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
   bool _locationServicesEnabled = true;
   bool _backgroundRefreshEnabled = true;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await _prefsService.getAllSettings();
+    setState(() {
+      _minimumMagnitude = settings['minMagnitude'];
+      _maximumMagnitude = settings['maxMagnitude'];
+      _notificationRadius = settings['notificationRadius'];
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _syncSettingsToServer() async {
+    try {
+      await _locationUpdateService.sendNotificationSettings(
+        notificationRadius: _notificationRadius,
+        minMagnitude: _minimumMagnitude,
+        maxMagnitude: _maximumMagnitude,
+      );
+      print('✅ Ayarlar sunucuya senkronize edildi');
+    } catch (e) {
+      print('⚠️  Ayar senkronizasyonu hatası: $e');
+    }
+  }
 
   void _showMagnitudeDialog() {
-    double tempMagnitude = _minimumMagnitude;
+    double tempMinMagnitude = _minimumMagnitude;
+    double tempMaxMagnitude = _maximumMagnitude;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Minimum Büyüklük'),
+          title: Text('Deprem Büyüklük Aralığı'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                  'Bildirim almak istediğiniz minimum deprem büyüklüğünü seçin'),
+              Text('Haritada görmek istediğiniz deprem büyüklük aralığını seçin'),
               SizedBox(height: 20),
+              // Minimum Büyüklük
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${tempMagnitude.toStringAsFixed(1)}+ Mw',
+                  Text('Minimum:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${tempMinMagnitude.toStringAsFixed(1)} Mw',
                       style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF9800))),
+                ],
+              ),
+              Slider(
+                value: tempMinMagnitude,
+                min: 0.0,
+                max: 9.0,
+                divisions: 90,
+                activeColor: Color(0xFFFF9800),
+                label: '${tempMinMagnitude.toStringAsFixed(1)}',
+                onChanged: (value) {
+                  if (value < tempMaxMagnitude) {
+                    setDialogState(() {
+                      tempMinMagnitude = value;
+                    });
+                  }
+                },
+              ),
+              SizedBox(height: 20),
+              // Maximum Büyüklük
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Maksimum:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('${tempMaxMagnitude.toStringAsFixed(1)} Mw',
+                      style: TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFFFF3333))),
                 ],
               ),
               Slider(
-                value: tempMagnitude,
+                value: tempMaxMagnitude,
                 min: 1.0,
-                max: 7.0,
-                divisions: 60,
+                max: 10.0,
+                divisions: 90,
                 activeColor: Color(0xFFFF3333),
-                label: '${tempMagnitude.toStringAsFixed(1)}+',
+                label: '${tempMaxMagnitude.toStringAsFixed(1)}',
                 onChanged: (value) {
-                  setDialogState(() {
-                    tempMagnitude = value;
-                  });
+                  if (value > tempMinMagnitude) {
+                    setDialogState(() {
+                      tempMaxMagnitude = value;
+                    });
+                  }
                 },
+              ),
+              SizedBox(height: 10),
+              Text(
+                '${tempMinMagnitude.toStringAsFixed(1)} - ${tempMaxMagnitude.toStringAsFixed(1)} Mw arası depremler gösterilecek',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -59,15 +133,19 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                await _prefsService.setMinMagnitude(tempMinMagnitude);
+                await _prefsService.setMaxMagnitude(tempMaxMagnitude);
                 setState(() {
-                  _minimumMagnitude = tempMagnitude;
+                  _minimumMagnitude = tempMinMagnitude;
+                  _maximumMagnitude = tempMaxMagnitude;
                 });
+                await _syncSettingsToServer();
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                        'Minimum büyüklük ${tempMagnitude.toStringAsFixed(1)}+ olarak ayarlandı'),
+                        'Büyüklük aralığı ${tempMinMagnitude.toStringAsFixed(1)}-${tempMaxMagnitude.toStringAsFixed(1)} olarak ayarlandı'),
                     backgroundColor: Color(0xFF4CAF50),
                   ),
                 );
@@ -183,6 +261,78 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  void _showRadiusDialog() {
+    double tempRadius = _notificationRadius;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Bildirim Yarıçapı'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Kaç km içindeki depremlerden bildirim almak istersiniz?'),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('${tempRadius.toInt()} km',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFFAA00))),
+                ],
+              ),
+              Slider(
+                value: tempRadius,
+                min: 10.0,
+                max: 1000.0,
+                divisions: 99,
+                activeColor: Color(0xFFFFAA00),
+                label: '${tempRadius.toInt()} km',
+                onChanged: (value) {
+                  setDialogState(() {
+                    tempRadius = value;
+                  });
+                },
+              ),
+              Text(
+                '10 km - 1000 km arası',
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _prefsService.setNotificationRadius(tempRadius);
+                setState(() {
+                  _notificationRadius = tempRadius;
+                });
+                await _syncSettingsToServer();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Bildirim yarıçapı ${tempRadius.toInt()} km olarak ayarlandı'),
+                    backgroundColor: Color(0xFF4CAF50),
+                  ),
+                );
+              },
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
+              child: Text('Kaydet', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProFeature(String text) {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 4),
@@ -219,9 +369,18 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildSettingTile(
           icon: Icons.speed,
           title: 'Minimum Büyüklük',
-          subtitle: '${_minimumMagnitude.toStringAsFixed(1)}+ Mw ve üzeri',
+          subtitle: '${_minimumMagnitude.toStringAsFixed(1)}-${_maximumMagnitude.toStringAsFixed(1)} Mw arası',
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: _showMagnitudeDialog,
+          enabled: _notificationsEnabled,
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.place,
+          title: 'Bildirim Yarıçapı',
+          subtitle: '${_notificationRadius.toInt()} km içindeki depremler',
+          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: _showRadiusDialog,
           enabled: _notificationsEnabled,
         ),
         _buildDivider(),
