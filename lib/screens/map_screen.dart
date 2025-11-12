@@ -116,7 +116,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
       // Kullanıcının max magnitude ayarına göre filtrele
       final filteredEarthquakes = earthquakes.where((eq) {
-        final magnitude = eq['mag'] as double;
+        final magnitude = (eq['mag'] is int) 
+            ? (eq['mag'] as int).toDouble() 
+            : eq['mag'] as double;
         return magnitude <= _maxMagnitude;
       }).toList();
 
@@ -589,8 +591,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       location['longitude'] != null;
                 }).map((friend) {
                   final location = friend['location'];
-                  final lat = location['latitude'] as double;
-                  final lon = location['longitude'] as double;
+                  final lat = (location['latitude'] is int)
+                      ? (location['latitude'] as int).toDouble()
+                      : location['latitude'] as double;
+                  final lon = (location['longitude'] is int)
+                      ? (location['longitude'] as int).toDouble()
+                      : location['longitude'] as double;
                   final isOnline = friend['isOnline'] ?? false;
 
                   return Marker(
@@ -631,8 +637,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             if (_showAssemblyAreas)
               MarkerLayer(
                 markers: _assemblyAreas.map((area) {
-                  final lat = area['lat'] as double;
-                  final lon = area['lon'] as double;
+                  final lat = (area['lat'] is int)
+                      ? (area['lat'] as int).toDouble()
+                      : area['lat'] as double;
+                  final lon = (area['lon'] is int)
+                      ? (area['lon'] as int).toDouble()
+                      : area['lon'] as double;
 
                   return Marker(
                     point: LatLng(lat, lon),
@@ -692,8 +702,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 if (_showEarthquakes)
                   ..._quakes.asMap().entries.map((entry) {
                     final q = entry.value;
-                    final lat = q['lat'] as double;
-                    final lon = q['lon'] as double;
+                    final lat = (q['lat'] is int) 
+                        ? (q['lat'] as int).toDouble() 
+                        : q['lat'] as double;
+                    final lon = (q['lon'] is int) 
+                        ? (q['lon'] as int).toDouble() 
+                        : q['lon'] as double;
                     final mag = (q['mag'] as num).toDouble();
                     final color = _colorForMag(mag);
 
