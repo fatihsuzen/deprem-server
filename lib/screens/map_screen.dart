@@ -105,13 +105,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     setState(() => _earthquakesLoading = true);
 
     try {
+      // Türkiye bölgesi için özel parametreler
       final earthquakes = await _earthquakeService.getRecentEarthquakes(
         limit: 100,
         minMagnitude: _minMagnitude,
         period: 'day',
-        userLat: _userLocation.latitude,
-        userLon: _userLocation.longitude,
+        userLat: 39.0, // Türkiye merkez koordinatı (test için)
+        userLon: 35.0,
         radius: 5000, // 5000 km yarıçap (global)
+        region: 'Turkey', // Kandilli verilerini de dahil et
       );
 
       // Kullanıcının max magnitude ayarına göre filtrele
