@@ -104,14 +104,29 @@ async function fetchUSGSData(period = 'day') {
 // EMSC (European-Mediterranean Seismological Centre) verilerini çekmek için
 async function fetchEMSCData() {
   try {
-    const response = await axios.get('https://www.seismicportal.eu/fdsnws/event/1/query', {
+    // EMSC FDSN web service - son 24 saat
+    const now = new Date();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    const response = await axios.get('http://www.seismicportal.eu/fdsnws/event/1/query', {
       params: {
         format: 'json',
         limit: 100,
-        orderby: 'time-desc'
+        orderby: 'time-desc',
+        starttime: yesterday.toISOString(),
+        endtime: now.toISOString()
       },
-      timeout: 15000
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'DepremApp/1.0'
+      }
     });
+
+    // EMSC returns GeoJSON format
+    if (!response.data || !response.data.features) {
+      console.warn('⚠️ EMSC yanıt formatı beklenmiyor');
+      return [];
+    }
 
     const earthquakes = response.data.features.map(feature => {
       const props = feature.properties;
@@ -124,12 +139,12 @@ async function fetchEMSCData() {
       const region = getRegionName(lat, lon);
 
       return {
-        id: `emsc_${feature.id}`,
+        id: `emsc_${props.unid || feature.id}`,
         lat,
         lon,
         mag: props.mag || 0,
         depth: Math.abs(coords[2]) || 0,
-        place: props.flynn_region || 'Unknown location',
+        place: props.flynn_region || props.place || 'Unknown location',
         region,
         date: quakeDate.toLocaleDateString('en-US', { 
           day: 'numeric', 
@@ -151,6 +166,10 @@ async function fetchEMSCData() {
     return earthquakes;
   } catch (error) {
     console.error('❌ EMSC hatası:', error.message);
+    if (error.response) {
+      console.error('   Status:', error.response.status);
+      console.error('   Data:', error.response.data);
+    }
     return [];
   }
 }
