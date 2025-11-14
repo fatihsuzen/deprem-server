@@ -3,21 +3,23 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:location/location.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
-  
+
   @override
   _MapScreenState createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   late MapController _mapController;
-  final LatLng _userLocation =
-      LatLng(41.0308, 28.5742); // İstanbul Büyükçekmece
+  LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
+  bool _locationLoading = true;
+  final Location _location = Location();
   bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
   Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
   late AnimationController _waveController;
@@ -48,112 +50,283 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Fay hatları - Dünya genelinde önemli aktif faylar (Global coverage)
   final List<Map<String, dynamic>> _faultLines = [
     // TÜRKİYE - KUZEY ANADOLU FAY HATTI (KAFH)
-    {'name': 'KAFH', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(40.76, 26.55), LatLng(40.78, 27.20), LatLng(40.77, 27.85), LatLng(40.76, 28.35),
-      LatLng(40.75, 28.85), LatLng(40.78, 29.35), LatLng(40.82, 29.95), LatLng(40.85, 30.45),
-      LatLng(40.88, 30.95), LatLng(40.90, 31.45), LatLng(40.94, 32.85), LatLng(40.75, 34.95),
-      LatLng(40.60, 36.35), LatLng(40.40, 37.95), LatLng(39.70, 41.05),
-    ]},
+    {
+      'name': 'KAFH',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(40.76, 26.55),
+        LatLng(40.78, 27.20),
+        LatLng(40.77, 27.85),
+        LatLng(40.76, 28.35),
+        LatLng(40.75, 28.85),
+        LatLng(40.78, 29.35),
+        LatLng(40.82, 29.95),
+        LatLng(40.85, 30.45),
+        LatLng(40.88, 30.95),
+        LatLng(40.90, 31.45),
+        LatLng(40.94, 32.85),
+        LatLng(40.75, 34.95),
+        LatLng(40.60, 36.35),
+        LatLng(40.40, 37.95),
+        LatLng(39.70, 41.05),
+      ]
+    },
     // TÜRKİYE - DOĞU ANADOLU FAY HATTI (DAFH)
-    {'name': 'DAFH', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(39.70, 41.05), LatLng(38.68, 39.22), LatLng(38.05, 37.90),
-      LatLng(37.55, 36.70), LatLng(36.85, 36.25), LatLng(36.50, 36.20),
-    ]},
+    {
+      'name': 'DAFH',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(39.70, 41.05),
+        LatLng(38.68, 39.22),
+        LatLng(38.05, 37.90),
+        LatLng(37.55, 36.70),
+        LatLng(36.85, 36.25),
+        LatLng(36.50, 36.20),
+      ]
+    },
     // TÜRKİYE - EGE GRABENLERİ
-    {'name': 'Gediz', 'color': Color(0xFFFF0000), 'points': [LatLng(38.72, 28.52), LatLng(38.66, 28.72), LatLng(38.48, 29.12)]},
-    {'name': 'Menderes', 'color': Color(0xFFFF0000), 'points': [LatLng(37.85, 27.85), LatLng(37.83, 28.35), LatLng(37.77, 29.08)]},
-    
+    {
+      'name': 'Gediz',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(38.72, 28.52),
+        LatLng(38.66, 28.72),
+        LatLng(38.48, 29.12)
+      ]
+    },
+    {
+      'name': 'Menderes',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(37.85, 27.85),
+        LatLng(37.83, 28.35),
+        LatLng(37.77, 29.08)
+      ]
+    },
+
     // AMERİKA - SAN ANDREAS FAULT
-    {'name': 'San Andreas', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(33.0, -116.0), LatLng(34.0, -117.5), LatLng(35.0, -119.0), LatLng(36.0, -120.5),
-      LatLng(36.5, -121.0), LatLng(37.0, -121.8), LatLng(37.7, -122.5), LatLng(38.4, -122.8),
-    ]},
-    {'name': 'Cascadia', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(40.5, -124.5), LatLng(42.0, -125.0), LatLng(44.0, -125.5),
-      LatLng(46.0, -125.5), LatLng(48.0, -125.0), LatLng(49.0, -127.0),
-    ]},
-    
+    {
+      'name': 'San Andreas',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(33.0, -116.0),
+        LatLng(34.0, -117.5),
+        LatLng(35.0, -119.0),
+        LatLng(36.0, -120.5),
+        LatLng(36.5, -121.0),
+        LatLng(37.0, -121.8),
+        LatLng(37.7, -122.5),
+        LatLng(38.4, -122.8),
+      ]
+    },
+    {
+      'name': 'Cascadia',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(40.5, -124.5),
+        LatLng(42.0, -125.0),
+        LatLng(44.0, -125.5),
+        LatLng(46.0, -125.5),
+        LatLng(48.0, -125.0),
+        LatLng(49.0, -127.0),
+      ]
+    },
+
     // JAPONYA - RING OF FIRE
-    {'name': 'Japan Trench', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(40.0, 143.0), LatLng(39.0, 143.5), LatLng(38.0, 143.8),
-      LatLng(37.0, 144.0), LatLng(36.0, 144.0), LatLng(35.0, 141.5),
-    ]},
-    {'name': 'Nankai Trough', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(33.0, 135.0), LatLng(32.5, 136.5), LatLng(32.0, 138.0),
-      LatLng(31.5, 139.5), LatLng(31.0, 141.0),
-    ]},
-    
+    {
+      'name': 'Japan Trench',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(40.0, 143.0),
+        LatLng(39.0, 143.5),
+        LatLng(38.0, 143.8),
+        LatLng(37.0, 144.0),
+        LatLng(36.0, 144.0),
+        LatLng(35.0, 141.5),
+      ]
+    },
+    {
+      'name': 'Nankai Trough',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(33.0, 135.0),
+        LatLng(32.5, 136.5),
+        LatLng(32.0, 138.0),
+        LatLng(31.5, 139.5),
+        LatLng(31.0, 141.0),
+      ]
+    },
+
     // ENDONEZYA - SUNDA MEGATHRUST
-    {'name': 'Sunda Megathrust', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(-6.0, 105.0), LatLng(-5.0, 103.0), LatLng(-3.5, 100.5), LatLng(-2.0, 98.0),
-      LatLng(-0.5, 96.0), LatLng(1.0, 94.5), LatLng(3.0, 93.5), LatLng(5.0, 92.5),
-    ]},
-    {'name': 'Sumatra', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(5.5, 95.5), LatLng(3.0, 97.0), LatLng(1.0, 98.5),
-      LatLng(-1.0, 100.0), LatLng(-3.0, 101.5), LatLng(-5.0, 103.0),
-    ]},
-    
+    {
+      'name': 'Sunda Megathrust',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(-6.0, 105.0),
+        LatLng(-5.0, 103.0),
+        LatLng(-3.5, 100.5),
+        LatLng(-2.0, 98.0),
+        LatLng(-0.5, 96.0),
+        LatLng(1.0, 94.5),
+        LatLng(3.0, 93.5),
+        LatLng(5.0, 92.5),
+      ]
+    },
+    {
+      'name': 'Sumatra',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(5.5, 95.5),
+        LatLng(3.0, 97.0),
+        LatLng(1.0, 98.5),
+        LatLng(-1.0, 100.0),
+        LatLng(-3.0, 101.5),
+        LatLng(-5.0, 103.0),
+      ]
+    },
+
     // ŞİLİ - NAZCA PLATE
-    {'name': 'Chile Trench', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(-18.0, -70.5), LatLng(-23.0, -70.2), LatLng(-28.0, -71.0),
-      LatLng(-33.0, -71.5), LatLng(-38.0, -73.0), LatLng(-43.0, -74.0),
-    ]},
-    
+    {
+      'name': 'Chile Trench',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(-18.0, -70.5),
+        LatLng(-23.0, -70.2),
+        LatLng(-28.0, -71.0),
+        LatLng(-33.0, -71.5),
+        LatLng(-38.0, -73.0),
+        LatLng(-43.0, -74.0),
+      ]
+    },
+
     // MEKSİKA
-    {'name': 'Mexico Subduction', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(16.0, -98.0), LatLng(17.0, -100.5), LatLng(18.0, -103.0),
-      LatLng(19.0, -105.0), LatLng(20.0, -107.0),
-    ]},
-    
+    {
+      'name': 'Mexico Subduction',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(16.0, -98.0),
+        LatLng(17.0, -100.5),
+        LatLng(18.0, -103.0),
+        LatLng(19.0, -105.0),
+        LatLng(20.0, -107.0),
+      ]
+    },
+
     // YENİ ZELANDA
-    {'name': 'Alpine Fault', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(-46.0, 166.5), LatLng(-44.5, 168.0), LatLng(-43.0, 170.0), LatLng(-42.0, 172.0),
-    ]},
-    {'name': 'Hikurangi', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(-42.0, 174.0), LatLng(-40.5, 175.5), LatLng(-39.0, 177.0), LatLng(-37.5, 178.5),
-    ]},
-    
+    {
+      'name': 'Alpine Fault',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(-46.0, 166.5),
+        LatLng(-44.5, 168.0),
+        LatLng(-43.0, 170.0),
+        LatLng(-42.0, 172.0),
+      ]
+    },
+    {
+      'name': 'Hikurangi',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(-42.0, 174.0),
+        LatLng(-40.5, 175.5),
+        LatLng(-39.0, 177.0),
+        LatLng(-37.5, 178.5),
+      ]
+    },
+
     // HİNDİSTAN - HİMALAYA
-    {'name': 'Himalayan Thrust', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(28.0, 80.0), LatLng(28.5, 82.0), LatLng(29.0, 84.0),
-      LatLng(29.5, 86.0), LatLng(28.5, 88.0), LatLng(27.5, 90.0),
-    ]},
-    
+    {
+      'name': 'Himalayan Thrust',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(28.0, 80.0),
+        LatLng(28.5, 82.0),
+        LatLng(29.0, 84.0),
+        LatLng(29.5, 86.0),
+        LatLng(28.5, 88.0),
+        LatLng(27.5, 90.0),
+      ]
+    },
+
     // İRAN - ZAGROS
-    {'name': 'Zagros Thrust', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(38.0, 45.0), LatLng(37.5, 47.0), LatLng(36.5, 49.0),
-      LatLng(35.5, 51.0), LatLng(34.0, 53.0), LatLng(32.0, 55.0),
-    ]},
-    
+    {
+      'name': 'Zagros Thrust',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(38.0, 45.0),
+        LatLng(37.5, 47.0),
+        LatLng(36.5, 49.0),
+        LatLng(35.5, 51.0),
+        LatLng(34.0, 53.0),
+        LatLng(32.0, 55.0),
+      ]
+    },
+
     // İTALYA
-    {'name': 'Apennine', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(43.5, 10.5), LatLng(43.0, 12.0), LatLng(42.5, 13.5),
-      LatLng(41.5, 14.5), LatLng(40.5, 15.5),
-    ]},
-    
+    {
+      'name': 'Apennine',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(43.5, 10.5),
+        LatLng(43.0, 12.0),
+        LatLng(42.5, 13.5),
+        LatLng(41.5, 14.5),
+        LatLng(40.5, 15.5),
+      ]
+    },
+
     // YUNANİSTAN
-    {'name': 'Hellenic Arc', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(36.5, 21.0), LatLng(35.5, 23.0), LatLng(35.0, 25.0),
-      LatLng(35.5, 27.0), LatLng(36.5, 28.5),
-    ]},
-    
+    {
+      'name': 'Hellenic Arc',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(36.5, 21.0),
+        LatLng(35.5, 23.0),
+        LatLng(35.0, 25.0),
+        LatLng(35.5, 27.0),
+        LatLng(36.5, 28.5),
+      ]
+    },
+
     // FİLİPİNLER
-    {'name': 'Philippine Fault', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(6.0, 126.0), LatLng(8.0, 124.5), LatLng(10.0, 123.5),
-      LatLng(12.0, 123.0), LatLng(14.0, 122.0), LatLng(16.0, 121.0),
-    ]},
-    
+    {
+      'name': 'Philippine Fault',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(6.0, 126.0),
+        LatLng(8.0, 124.5),
+        LatLng(10.0, 123.5),
+        LatLng(12.0, 123.0),
+        LatLng(14.0, 122.0),
+        LatLng(16.0, 121.0),
+      ]
+    },
+
     // PAPUA YENİ GİNE
-    {'name': 'Papua Thrust', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(-5.0, 145.0), LatLng(-6.0, 147.0), LatLng(-7.0, 148.5),
-      LatLng(-8.0, 150.0), LatLng(-9.0, 151.0),
-    ]},
-    
+    {
+      'name': 'Papua Thrust',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(-5.0, 145.0),
+        LatLng(-6.0, 147.0),
+        LatLng(-7.0, 148.5),
+        LatLng(-8.0, 150.0),
+        LatLng(-9.0, 151.0),
+      ]
+    },
+
     // ALASKA
-    {'name': 'Aleutian Trench', 'color': Color(0xFFFF0000), 'points': [
-      LatLng(55.0, -160.0), LatLng(54.0, -165.0), LatLng(53.0, -170.0),
-      LatLng(52.0, -175.0), LatLng(51.5, 180.0),
-    ]},
+    {
+      'name': 'Aleutian Trench',
+      'color': Color(0xFFFF0000),
+      'points': [
+        LatLng(55.0, -160.0),
+        LatLng(54.0, -165.0),
+        LatLng(53.0, -170.0),
+        LatLng(52.0, -175.0),
+        LatLng(51.5, 180.0),
+      ]
+    },
   ];
 
   // Assembly areas (toplanma alanları) - örnek data
@@ -189,9 +362,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     // Toggle durumlarını yükle
     _loadToggleStates();
 
-    // Kullanıcı ayarlarını yükle ve depremleri getir
-    _loadUserSettingsAndEarthquakes();
-
     // Dalga animasyonu için
     _waveController = AnimationController(
       duration: const Duration(seconds: 2),
@@ -202,8 +372,68 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
     );
 
-    // Arkadaş listesini yükle
-    _loadFriends();
+    // Önce konum al, sonra haritayı focus et ve verileri yükle
+    _initializeMapWithLocation();
+  }
+
+  Future<void> _initializeMapWithLocation() async {
+    // Kullanıcı konumunu al
+    await _getUserLocation();
+
+    // Konum alındıktan sonra haritayı konuma focus et
+    if (mounted && !_locationLoading) {
+      _mapController.move(_userLocation, 11.0);
+      print('🗺️  Harita kullanıcı konumuna odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+    }
+
+    // Kullanıcı ayarlarını yükle ve depremleri getir
+    _loadUserSettingsAndEarthquakes();
+
+    // Arkadaş listesini yükle - 3 saniye gecikme ile (kullanıcı girişi için)
+    Future.delayed(Duration(seconds: 3), () {
+      if (mounted) {
+        _loadFriends();
+      }
+    });
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      print('📍 Kullanıcı konumu alınıyor...');
+      bool serviceEnabled = await _location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) {
+          setState(() => _locationLoading = false);
+          print('❌ Konum servisi kapalı');
+          return;
+        }
+      }
+
+      PermissionStatus permissionGranted = await _location.hasPermission();
+      if (permissionGranted == PermissionStatus.denied) {
+        permissionGranted = await _location.requestPermission();
+        if (permissionGranted != PermissionStatus.granted) {
+          setState(() => _locationLoading = false);
+          return;
+        }
+      }
+
+      final locationData = await _location.getLocation();
+      if (locationData.latitude != null && locationData.longitude != null) {
+        setState(() {
+          _userLocation =
+              LatLng(locationData.latitude!, locationData.longitude!);
+          _locationLoading = false;
+        });
+
+        print(
+            '✅ Kullanıcı konumu alındı: ${locationData.latitude}, ${locationData.longitude}');
+      }
+    } catch (e) {
+      print('❌ Konum alma hatası: $e');
+      setState(() => _locationLoading = false);
+    }
   }
 
   Future<void> _loadToggleStates() async {
@@ -238,15 +468,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     setState(() => _earthquakesLoading = true);
 
     try {
-      // Türkiye bölgesi için özel parametreler
+      // Kullanıcının gerçek konumunu kullan
       final earthquakes = await _earthquakeService.getRecentEarthquakes(
         limit: 100,
         minMagnitude: _minMagnitude,
         period: 'day',
-        userLat: 39.0, // Türkiye merkez koordinatı (test için)
-        userLon: 35.0,
+        userLat: _userLocation.latitude,
+        userLon: _userLocation.longitude,
         radius: 5000, // 5000 km yarıçap (global)
-        region: 'Turkey', // Kandilli verilerini de dahil et
+        region: 'Global', // Global depremler
       );
 
       // Kullanıcının max magnitude ayarına göre filtrele
@@ -255,15 +485,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         final magnitude = (eq['mag'] is int)
             ? (eq['mag'] as int).toDouble()
             : eq['mag'] as double;
-        
+
         // Magnitude kontrolü
         if (magnitude > _maxMagnitude) return false;
-        
+
         // 24 saat (1440 dakika) kontrolü
         final minutesAgo = (eq['minutesAgo'] is int)
             ? eq['minutesAgo'] as int
             : (eq['minutesAgo'] as double).toInt();
-        
+
         return minutesAgo <= 1440; // 24 saat = 1440 dakika
       }).toList();
 
@@ -287,12 +517,46 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   Future<void> _loadFriends() async {
     try {
+      print('👥 Arkadaş listesi yükleniyor...');
       final friends = await _friendsService.getFriends();
-      setState(() {
-        _friends = friends;
-      });
+      print('✅ ${friends.length} arkadaş yüklendi');
+
+      // Her arkadaşın konum bilgisini kontrol et
+      int withLocation = 0;
+      int withoutLocation = 0;
+      for (var friend in friends) {
+        final location = friend['location'];
+        if (location != null &&
+            location['latitude'] != null &&
+            location['longitude'] != null) {
+          print(
+              '  📍 ${friend['displayName']}: ${location['latitude']}, ${location['longitude']}');
+          withLocation++;
+        } else {
+          print('  ⚠️  ${friend['displayName']}: Konum bilgisi yok');
+          withoutLocation++;
+        }
+      }
+
+      print(
+          '📊 Konum istatistikleri: $withLocation konumlu, $withoutLocation konumsuz');
+      print('🗺️  Arkadaş toggle durumu: $_showFriends');
+
+      if (mounted) {
+        setState(() {
+          _friends = friends;
+        });
+        print(
+            '✅ Arkadaş listesi state güncellendi, marker sayısı: ${_friends.where((f) => f['location'] != null && f['location']['latitude'] != null).length}');
+      }
     } catch (e) {
       print('❌ Arkadaş listesi yükleme hatası: $e');
+      // Hata olursa boş liste bırak, uygulama çökmesin
+      if (mounted) {
+        setState(() {
+          _friends = [];
+        });
+      }
     }
   }
 

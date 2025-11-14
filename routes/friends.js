@@ -153,7 +153,8 @@ router.get('/', validateFirebaseUID, async (req, res) => {
 
     console.log(`👥 ${uid} kullanıcısının ${friends.length} arkadaşı yüklendi`);
     friends.forEach(friend => {
-      console.log(`   👤 ${friend.displayName} (${friend.uid})`);
+      const hasLocation = friend.location && friend.location.latitude && friend.location.longitude;
+      console.log(`   👤 ${friend.displayName} (${friend.uid}) - Konum: ${hasLocation ? `${friend.location.latitude}, ${friend.location.longitude}` : 'YOK'} - Paylaşım: ${friendUsers.find(f => f.uid === friend.uid)?.settings?.shareLocationWithFriends !== false ? 'AÇIK' : 'KAPALI'}`);
     });
 
     res.json({
