@@ -2,6 +2,7 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
@@ -26,6 +27,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   bool _showEarthquakes = true;
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
+  bool _showFaultLines = true;
 
   // Friends data
   List<Map<String, dynamic>> _friends = [];
@@ -42,6 +44,117 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   double _minMagnitude = UserPreferencesService.defaultMinMagnitude;
   double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
   double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
+
+  // Fay hatları - Dünya genelinde önemli aktif faylar (Global coverage)
+  final List<Map<String, dynamic>> _faultLines = [
+    // TÜRKİYE - KUZEY ANADOLU FAY HATTI (KAFH)
+    {'name': 'KAFH', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(40.76, 26.55), LatLng(40.78, 27.20), LatLng(40.77, 27.85), LatLng(40.76, 28.35),
+      LatLng(40.75, 28.85), LatLng(40.78, 29.35), LatLng(40.82, 29.95), LatLng(40.85, 30.45),
+      LatLng(40.88, 30.95), LatLng(40.90, 31.45), LatLng(40.94, 32.85), LatLng(40.75, 34.95),
+      LatLng(40.60, 36.35), LatLng(40.40, 37.95), LatLng(39.70, 41.05),
+    ]},
+    // TÜRKİYE - DOĞU ANADOLU FAY HATTI (DAFH)
+    {'name': 'DAFH', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(39.70, 41.05), LatLng(38.68, 39.22), LatLng(38.05, 37.90),
+      LatLng(37.55, 36.70), LatLng(36.85, 36.25), LatLng(36.50, 36.20),
+    ]},
+    // TÜRKİYE - EGE GRABENLERİ
+    {'name': 'Gediz', 'color': Color(0xFFFF0000), 'points': [LatLng(38.72, 28.52), LatLng(38.66, 28.72), LatLng(38.48, 29.12)]},
+    {'name': 'Menderes', 'color': Color(0xFFFF0000), 'points': [LatLng(37.85, 27.85), LatLng(37.83, 28.35), LatLng(37.77, 29.08)]},
+    
+    // AMERİKA - SAN ANDREAS FAULT
+    {'name': 'San Andreas', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(33.0, -116.0), LatLng(34.0, -117.5), LatLng(35.0, -119.0), LatLng(36.0, -120.5),
+      LatLng(36.5, -121.0), LatLng(37.0, -121.8), LatLng(37.7, -122.5), LatLng(38.4, -122.8),
+    ]},
+    {'name': 'Cascadia', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(40.5, -124.5), LatLng(42.0, -125.0), LatLng(44.0, -125.5),
+      LatLng(46.0, -125.5), LatLng(48.0, -125.0), LatLng(49.0, -127.0),
+    ]},
+    
+    // JAPONYA - RING OF FIRE
+    {'name': 'Japan Trench', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(40.0, 143.0), LatLng(39.0, 143.5), LatLng(38.0, 143.8),
+      LatLng(37.0, 144.0), LatLng(36.0, 144.0), LatLng(35.0, 141.5),
+    ]},
+    {'name': 'Nankai Trough', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(33.0, 135.0), LatLng(32.5, 136.5), LatLng(32.0, 138.0),
+      LatLng(31.5, 139.5), LatLng(31.0, 141.0),
+    ]},
+    
+    // ENDONEZYA - SUNDA MEGATHRUST
+    {'name': 'Sunda Megathrust', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(-6.0, 105.0), LatLng(-5.0, 103.0), LatLng(-3.5, 100.5), LatLng(-2.0, 98.0),
+      LatLng(-0.5, 96.0), LatLng(1.0, 94.5), LatLng(3.0, 93.5), LatLng(5.0, 92.5),
+    ]},
+    {'name': 'Sumatra', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(5.5, 95.5), LatLng(3.0, 97.0), LatLng(1.0, 98.5),
+      LatLng(-1.0, 100.0), LatLng(-3.0, 101.5), LatLng(-5.0, 103.0),
+    ]},
+    
+    // ŞİLİ - NAZCA PLATE
+    {'name': 'Chile Trench', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(-18.0, -70.5), LatLng(-23.0, -70.2), LatLng(-28.0, -71.0),
+      LatLng(-33.0, -71.5), LatLng(-38.0, -73.0), LatLng(-43.0, -74.0),
+    ]},
+    
+    // MEKSİKA
+    {'name': 'Mexico Subduction', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(16.0, -98.0), LatLng(17.0, -100.5), LatLng(18.0, -103.0),
+      LatLng(19.0, -105.0), LatLng(20.0, -107.0),
+    ]},
+    
+    // YENİ ZELANDA
+    {'name': 'Alpine Fault', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(-46.0, 166.5), LatLng(-44.5, 168.0), LatLng(-43.0, 170.0), LatLng(-42.0, 172.0),
+    ]},
+    {'name': 'Hikurangi', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(-42.0, 174.0), LatLng(-40.5, 175.5), LatLng(-39.0, 177.0), LatLng(-37.5, 178.5),
+    ]},
+    
+    // HİNDİSTAN - HİMALAYA
+    {'name': 'Himalayan Thrust', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(28.0, 80.0), LatLng(28.5, 82.0), LatLng(29.0, 84.0),
+      LatLng(29.5, 86.0), LatLng(28.5, 88.0), LatLng(27.5, 90.0),
+    ]},
+    
+    // İRAN - ZAGROS
+    {'name': 'Zagros Thrust', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(38.0, 45.0), LatLng(37.5, 47.0), LatLng(36.5, 49.0),
+      LatLng(35.5, 51.0), LatLng(34.0, 53.0), LatLng(32.0, 55.0),
+    ]},
+    
+    // İTALYA
+    {'name': 'Apennine', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(43.5, 10.5), LatLng(43.0, 12.0), LatLng(42.5, 13.5),
+      LatLng(41.5, 14.5), LatLng(40.5, 15.5),
+    ]},
+    
+    // YUNANİSTAN
+    {'name': 'Hellenic Arc', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(36.5, 21.0), LatLng(35.5, 23.0), LatLng(35.0, 25.0),
+      LatLng(35.5, 27.0), LatLng(36.5, 28.5),
+    ]},
+    
+    // FİLİPİNLER
+    {'name': 'Philippine Fault', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(6.0, 126.0), LatLng(8.0, 124.5), LatLng(10.0, 123.5),
+      LatLng(12.0, 123.0), LatLng(14.0, 122.0), LatLng(16.0, 121.0),
+    ]},
+    
+    // PAPUA YENİ GİNE
+    {'name': 'Papua Thrust', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(-5.0, 145.0), LatLng(-6.0, 147.0), LatLng(-7.0, 148.5),
+      LatLng(-8.0, 150.0), LatLng(-9.0, 151.0),
+    ]},
+    
+    // ALASKA
+    {'name': 'Aleutian Trench', 'color': Color(0xFFFF0000), 'points': [
+      LatLng(55.0, -160.0), LatLng(54.0, -165.0), LatLng(53.0, -170.0),
+      LatLng(52.0, -175.0), LatLng(51.5, 180.0),
+    ]},
+  ];
 
   // Assembly areas (toplanma alanları) - örnek data
   final List<Map<String, dynamic>> _assemblyAreas = [
@@ -73,6 +186,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     super.initState();
     _mapController = MapController();
 
+    // Toggle durumlarını yükle
+    _loadToggleStates();
+
     // Kullanıcı ayarlarını yükle ve depremleri getir
     _loadUserSettingsAndEarthquakes();
 
@@ -88,6 +204,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     // Arkadaş listesini yükle
     _loadFriends();
+  }
+
+  Future<void> _loadToggleStates() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _showEarthquakes = prefs.getBool('mapToggle_earthquakes') ?? true;
+      _showFriends = prefs.getBool('mapToggle_friends') ?? true;
+      _showAssemblyAreas = prefs.getBool('mapToggle_assembly') ?? true;
+      _showFaultLines = prefs.getBool('mapToggle_faultLines') ?? true;
+    });
+  }
+
+  Future<void> _saveToggleState(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('mapToggle_$key', value);
   }
 
   Future<void> _loadUserSettingsAndEarthquakes() async {
@@ -633,16 +764,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         });
   }
 
-  void _showEarthquakeReportSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return EarthquakeReportSheet();
-      },
-    );
-  }
-
   void _zoomIn() {
     _mapController.move(_mapController.center, _mapController.zoom + 1);
   }
@@ -668,7 +789,20 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               subdomains: ['a', 'b', 'c'],
               userAgentPackageName: 'dev.deprem_bildirim',
             ),
-            // Arkadaş marker'ları (en altta)
+            // Fay hatları katmanı
+            if (_showFaultLines)
+              PolylineLayer(
+                polylines: _faultLines.map((fault) {
+                  return Polyline(
+                    points: fault['points'] as List<LatLng>,
+                    strokeWidth: 1.5,
+                    color: (fault['color'] as Color).withOpacity(0.7),
+                    borderStrokeWidth: 0.3,
+                    borderColor: Colors.white.withOpacity(0.9),
+                  );
+                }).toList(),
+              ),
+            // Arkadaş marker'ları
             if (_showFriends)
               MarkerLayer(
                 markers: _friends.where((friend) {
@@ -1017,6 +1151,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   color: Colors.red,
                   onChanged: (value) {
                     setState(() => _showEarthquakes = value ?? false);
+                    _saveToggleState('earthquakes', value ?? false);
                   },
                 ),
                 _buildCheckboxItem(
@@ -1026,6 +1161,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   color: Colors.purple,
                   onChanged: (value) {
                     setState(() => _showFriends = value ?? false);
+                    _saveToggleState('friends', value ?? false);
                   },
                 ),
                 _buildCheckboxItem(
@@ -1035,6 +1171,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   color: Colors.green,
                   onChanged: (value) {
                     setState(() => _showAssemblyAreas = value ?? false);
+                    _saveToggleState('assembly', value ?? false);
+                  },
+                ),
+                _buildCheckboxItem(
+                  icon: Icons.format_line_spacing,
+                  label: 'Fay Hatları',
+                  isChecked: _showFaultLines,
+                  color: Colors.red,
+                  onChanged: (value) {
+                    setState(() => _showFaultLines = value ?? false);
+                    _saveToggleState('faultLines', value ?? false);
                   },
                 ),
               ],
@@ -1073,22 +1220,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
-        Align(
-          alignment: Alignment(0, 0.88),
-          child: ElevatedButton(
-            onPressed: _showEarthquakeReportSheet,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Color(0xFFFF3333),
-              foregroundColor: Colors.white,
-              minimumSize: Size(250, 54),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999)),
-            ),
-            child: Text('Deprem Bildir',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600)),
-          ),
-        )
       ],
     );
   }

@@ -83,6 +83,16 @@ const userSchema = new mongoose.Schema({
     platform: String, // 'android', 'ios'
     addedAt: { type: Date, default: Date.now }
   }],
+  settings: {
+    minMagnitude: { type: Number, default: 2.5 },
+    maxMagnitude: { type: Number, default: 10.0 },
+    notificationRadius: { type: Number, default: 50 },
+    notificationsEnabled: { type: Boolean, default: true },
+    soundEnabled: { type: Boolean, default: true },
+    vibrationEnabled: { type: Boolean, default: true },
+    darkMode: { type: Boolean, default: false },
+    language: { type: String, default: 'tr' }
+  },
   createdAt: {
     type: Date,
     default: Date.now

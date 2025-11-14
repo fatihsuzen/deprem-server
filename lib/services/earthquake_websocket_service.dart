@@ -86,8 +86,10 @@ class EarthquakeWebSocketService {
   Future<void> _registerDevice() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('userId') ?? 'guest_${DateTime.now().millisecondsSinceEpoch}';
-      final deviceId = prefs.getString('deviceId') ?? 'device_${DateTime.now().millisecondsSinceEpoch}';
+      final userId = prefs.getString('userId') ??
+          'guest_${DateTime.now().millisecondsSinceEpoch}';
+      final deviceId = prefs.getString('deviceId') ??
+          'device_${DateTime.now().millisecondsSinceEpoch}';
 
       // Konum al
       final position = await _locationService.getCurrentLocation();
@@ -176,7 +178,8 @@ class EarthquakeWebSocketService {
       final userLon = userLocation['longitude']!;
 
       // Mesafeyi hesapla
-      final distance = _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+      final distance =
+          _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
 
       print('📍 Deprem mesafesi: ${distance.toStringAsFixed(1)} km');
 
@@ -186,12 +189,14 @@ class EarthquakeWebSocketService {
       final minMagnitude = prefs.getDouble('minMagnitude') ?? 4.0;
 
       if (magnitude < minMagnitude) {
-        print('⚠️ Deprem büyüklüğü minimum eşiğin altında: M$magnitude < M$minMagnitude');
+        print(
+            '⚠️ Deprem büyüklüğü minimum eşiğin altında: M$magnitude < M$minMagnitude');
         return;
       }
 
       if (distance > notificationRadius) {
-        print('⚠️ Deprem yarıçap dışında: ${distance.toStringAsFixed(1)} km > ${notificationRadius.toInt()} km');
+        print(
+            '⚠️ Deprem yarıçap dışında: ${distance.toStringAsFixed(1)} km > ${notificationRadius.toInt()} km');
         return;
       }
 
@@ -223,11 +228,12 @@ class EarthquakeWebSocketService {
   Future<void> _handleP2PEarthquake(dynamic data) async {
     try {
       print('🌍 P2P DEPREM: ${data.toString()}');
-      
+
       final earthquake = data['earthquake'];
       if (earthquake == null) return;
 
-      final magnitude = (earthquake['mag'] ?? earthquake['magnitude'] ?? 0.0).toDouble();
+      final magnitude =
+          (earthquake['mag'] ?? earthquake['magnitude'] ?? 0.0).toDouble();
       final coordinates = earthquake['coordinates'];
       final earthquakeLat = (coordinates['coordinates']?[1] ?? 0.0).toDouble();
       final earthquakeLon = (coordinates['coordinates']?[0] ?? 0.0).toDouble();
@@ -243,7 +249,8 @@ class EarthquakeWebSocketService {
       final userLon = userLocation['longitude']!;
 
       // Mesafeyi hesapla
-      final distance = _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+      final distance =
+          _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
 
       print('📍 P2P Deprem mesafesi: ${distance.toStringAsFixed(1)} km');
 

@@ -21,6 +21,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _vibrationEnabled = true;
   bool _locationServicesEnabled = true;
   bool _backgroundRefreshEnabled = true;
+  bool _shareLocationWithFriends = true;
   bool _isLoading = true;
 
   @override
@@ -35,6 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _minimumMagnitude = settings['minMagnitude'];
       _maximumMagnitude = settings['maxMagnitude'];
       _notificationRadius = settings['notificationRadius'];
+      _shareLocationWithFriends = settings['shareLocation'];
       _isLoading = false;
     });
   }
@@ -430,6 +432,30 @@ class _SettingsPageState extends State<SettingsPage> {
 
         // Konum ve Veriler Bölümü
         _buildSectionHeader('Konum ve Veriler'),
+        _buildSettingTile(
+          icon: Icons.share_location,
+          title: 'Konumumu Arkadaşlarla Paylaş',
+          subtitle: '2 saatte bir konum güncelle',
+          trailing: CupertinoSwitch(
+            value: _shareLocationWithFriends,
+            activeColor: Color(0xFFFF3333),
+            onChanged: (value) async {
+              setState(() {
+                _shareLocationWithFriends = value;
+              });
+              await _prefsService.setShareLocation(value);
+              
+              // Konum paylaşımı açıldıysa hemen bir güncelleme yap
+              if (value) {
+                await _locationUpdateService.sendLocationUpdate();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Konumunuz arkadaşlarınızla paylaşılıyor')),
+                );
+              }
+            },
+          ),
+        ),
+        _buildDivider(),
         _buildSettingTile(
           icon: Icons.location_on,
           title: 'Konum Servisleri',

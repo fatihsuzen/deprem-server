@@ -82,16 +82,17 @@ class NotificationService {
 
   void _handleNotificationTap(NotificationResponse response) {
     print('Bildirim yanıtı işleniyor: ${response.payload}');
-    
+
     // Deprem alert'i ise tam ekran aç
-    if (response.payload != null && response.payload!.startsWith('earthquake_alert|')) {
+    if (response.payload != null &&
+        response.payload!.startsWith('earthquake_alert|')) {
       // earthquake_alert|magnitude|location|distance formatı
       final parts = response.payload!.split('|');
       if (parts.length >= 4) {
         final magnitude = double.tryParse(parts[1]) ?? 0.0;
         final location = parts[2];
         final distance = double.tryParse(parts[3]) ?? 0.0;
-        
+
         _showAlertScreen(magnitude, location, distance, 'AFAD');
       }
     }
@@ -470,7 +471,7 @@ class NotificationService {
 
     // 2. Uygulama açıksa veya bildirime tıklandığında tam ekran göster
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     if (navigatorKey.currentContext != null) {
       // Uygulama açık - direkt tam ekran göster
       _showAlertScreen(magnitude, location, distance, source);

@@ -4,17 +4,19 @@ import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_preferences_service.dart';
 
 class LocationUpdateService {
   static const String baseUrl = 'http://188.132.202.24:3000/api'; // VDS IP
   static const Duration updateInterval = Duration(hours: 2); // 2 saatte bir
-  
+
   final Location _location = Location();
   Timer? _periodicTimer;
   bool _isRunning = false;
 
   // Singleton pattern
-  static final LocationUpdateService _instance = LocationUpdateService._internal();
+  static final LocationUpdateService _instance =
+      LocationUpdateService._internal();
   factory LocationUpdateService() => _instance;
   LocationUpdateService._internal();
 
@@ -36,7 +38,8 @@ class LocationUpdateService {
       await sendLocationUpdate();
     });
 
-    print('✅ Periyodik konum güncellemeleri başlatıldı (${updateInterval.inHours} saat aralıklarla)');
+    print(
+        '✅ Periyodik konum güncellemeleri başlatıldı (${updateInterval.inHours} saat aralıklarla)');
   }
 
   /// Periyodik güncellemeleri durdur
@@ -81,6 +84,15 @@ class LocationUpdateService {
   /// Mevcut konumu al ve sunucuya gönder
   Future<bool> sendLocationUpdate() async {
     try {
+      // Konum paylaşım ayarını kontrol et
+      final prefsService = UserPreferencesService();
+      final shareLocation = await prefsService.getShareLocation();
+      
+      if (!shareLocation) {
+        print('⏭️  Konum paylaşımı kapalı, güncelleme atlandı');
+        return false;
+      }
+
       // İzin kontrolü
       final hasPermission = await checkAndRequestPermission();
       if (!hasPermission) {
@@ -97,41 +109,45 @@ class LocationUpdateService {
 
       // Mevcut konumu al
       final locationData = await _location.getLocation();
-      
+
       if (locationData.latitude == null || locationData.longitude == null) {
         print('❌ Konum bilgisi alınamadı');
         return false;
       }
 
-      print('📍 Konum alındı: ${locationData.latitude}, ${locationData.longitude}');
+      print(
+          '📍 Konum alındı: ${locationData.latitude}, ${locationData.longitude}');
 
       // Sunucuya gönder
-      final response = await http.post(
-        Uri.parse('$baseUrl/users/update-location'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': user.uid,
-        },
-        body: jsonEncode({
-          'latitude': locationData.latitude,
-          'longitude': locationData.longitude,
-          'address': '', // Opsiyonel: Geocoding ile adres eklenebilir
-        }),
-      ).timeout(const Duration(seconds: 15));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/users/update-location'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-firebase-uid': user.uid,
+            },
+            body: jsonEncode({
+              'latitude': locationData.latitude,
+              'longitude': locationData.longitude,
+              'address': '', // Opsiyonel: Geocoding ile adres eklenebilir
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        print('✅ Konum sunucuya gönderildi: ${data['location']['latitude']}, ${data['location']['longitude']}');
-        
+        print(
+            '✅ Konum sunucuya gönderildi: ${data['location']['latitude']}, ${data['location']['longitude']}');
+
         // Son güncelleme zamanını kaydet
         await _saveLastUpdateTime();
-        
+
         return true;
       } else {
-        print('❌ Konum gönderme hatası: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Konum gönderme hatası: ${response.statusCode} - ${response.body}');
         return false;
       }
-
     } catch (e) {
       print('❌ Konum güncelleme hatası: $e');
       return false;
@@ -151,30 +167,32 @@ class LocationUpdateService {
         return false;
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/users/notification-settings'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': user.uid,
-        },
-        body: jsonEncode({
-          'notificationRadius': notificationRadius,
-          'minMagnitude': minMagnitude,
-          'maxMagnitude': maxMagnitude,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/users/notification-settings'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-firebase-uid': user.uid,
+            },
+            body: jsonEncode({
+              'notificationRadius': notificationRadius,
+              'minMagnitude': minMagnitude,
+              'maxMagnitude': maxMagnitude,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('✅ Bildirim ayarları sunucuya gönderildi');
         print('   Yarıçap: ${data['settings']['notificationRadius']} km');
-        print('   Büyüklük: ${data['settings']['minMagnitude']}-${data['settings']['maxMagnitude']}');
+        print(
+            '   Büyüklük: ${data['settings']['minMagnitude']}-${data['settings']['maxMagnitude']}');
         return true;
       } else {
         print('❌ Ayar gönderme hatası: ${response.statusCode}');
         return false;
       }
-
     } catch (e) {
       print('❌ Bildirim ayarları gönderme hatası: $e');
       return false;
@@ -190,17 +208,19 @@ class LocationUpdateService {
         return false;
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/users/device-token'),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': user.uid,
-        },
-        body: jsonEncode({
-          'token': token,
-          'platform': platform,
-        }),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/users/device-token'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-firebase-uid': user.uid,
+            },
+            body: jsonEncode({
+              'token': token,
+              'platform': platform,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         print('✅ Device token sunucuya kaydedildi ($platform)');
@@ -209,7 +229,6 @@ class LocationUpdateService {
         print('❌ Device token kaydetme hatası: ${response.statusCode}');
         return false;
       }
-
     } catch (e) {
       print('❌ Device token gönderme hatası: $e');
       return false;
@@ -219,7 +238,8 @@ class LocationUpdateService {
   /// Son güncelleme zamanını kaydet
   Future<void> _saveLastUpdateTime() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('last_location_update', DateTime.now().millisecondsSinceEpoch);
+    await prefs.setInt(
+        'last_location_update', DateTime.now().millisecondsSinceEpoch);
   }
 
   /// Son güncelleme zamanını al
@@ -237,7 +257,7 @@ class LocationUpdateService {
     print('🔄 Uygulama açılışı: Konum kontrolü yapılıyor...');
 
     final lastUpdate = await getLastUpdateTime();
-    
+
     if (lastUpdate == null) {
       // Hiç güncelleme yapılmamış
       print('📍 İlk konum güncellemesi yapılıyor...');
@@ -246,13 +266,16 @@ class LocationUpdateService {
     }
 
     final timeSinceLastUpdate = DateTime.now().difference(lastUpdate);
-    
+
     if (timeSinceLastUpdate >= updateInterval) {
-      print('📍 Son güncellemeden ${timeSinceLastUpdate.inMinutes} dakika geçmiş, konum güncelleniyor...');
+      print(
+          '📍 Son güncellemeden ${timeSinceLastUpdate.inMinutes} dakika geçmiş, konum güncelleniyor...');
       await sendLocationUpdate();
     } else {
-      final remainingMinutes = updateInterval.inMinutes - timeSinceLastUpdate.inMinutes;
-      print('⏭️  Son güncelleme ${timeSinceLastUpdate.inMinutes} dakika önce, ${remainingMinutes} dakika sonra güncellenecek');
+      final remainingMinutes =
+          updateInterval.inMinutes - timeSinceLastUpdate.inMinutes;
+      print(
+          '⏭️  Son güncelleme ${timeSinceLastUpdate.inMinutes} dakika önce, ${remainingMinutes} dakika sonra güncellenecek');
     }
   }
 

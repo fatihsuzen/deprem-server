@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/earthquake_service.dart';
+import '../services/user_preferences_service.dart';
+import 'dart:math' show sin, cos, sqrt, asin;
 
 class HistoryPage extends StatefulWidget {
   @override
@@ -7,65 +10,137 @@ class HistoryPage extends StatefulWidget {
 
 class _HistoryPageState extends State<HistoryPage> {
   String _selectedFilter = 'Tümü';
+  List<Map<String, dynamic>> _earthquakes = [];
+  bool _isLoading = true;
+  final EarthquakeService _earthquakeService = EarthquakeService();
+  final UserPreferencesService _prefsService = UserPreferencesService();
   
-  final List<Map<String, dynamic>> _earthquakes = [
-    {
-      'magnitude': 5.2,
-      'location': 'Silivri Açıkları (İstanbul)',
-      'depth': '12.5 km',
-      'minutesAgo': 10,
-      'time': '17:20',
-      'intensity': 'Şiddetli'
-    },
-    {
-      'magnitude': 4.8,
-      'location': 'Burdur - Gölhisar',
-      'depth': '8.3 km',
-      'minutesAgo': 125,
-      'time': '22:45',
-      'intensity': 'Belirgin'
-    },
-    {
-      'magnitude': 4.2,
-      'location': 'İstanbul Merkez',
-      'depth': '15.2 km',
-      'minutesAgo': 280,
-      'time': '14:35',
-      'intensity': 'Belirgin'
-    },
-    {
-      'magnitude': 3.8,
-      'location': 'Balıkesir Merkez',
-      'depth': '10.0 km',
-      'minutesAgo': 450,
-      'time': '14:35',
-      'intensity': 'Hafif'
-    },
-    {
-      'magnitude': 3.5,
-      'location': 'İzmir - Seferihisar',
-      'depth': '7.8 km',
-      'minutesAgo': 680,
-      'time': '09:12',
-      'intensity': 'Hafif'
-    },
-    {
-      'magnitude': 2.9,
-      'location': 'Manisa - Akhisar',
-      'depth': '5.4 km',
-      'minutesAgo': 890,
-      'time': '03:45',
-      'intensity': 'Çok Hafif'
-    },
-    {
-      'magnitude': 2.6,
-      'location': 'Aydın - Söke',
-      'depth': '6.2 km',
-      'minutesAgo': 1200,
-      'time': '09:15',
-      'intensity': 'Çok Hafif'
-    },
-  ];
+  double _minMagnitude = 2.5;
+  double _maxMagnitude = 10.0;
+  double _notificationRadius = 50.0;
+  double? _userLat;
+  double? _userLon;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await _prefsService.getAllSettings();
+    setState(() {
+      _minMagnitude = settings['minMagnitude'];
+      _maxMagnitude = settings['maxMagnitude'];
+      _notificationRadius = settings['notificationRadius'];
+    });
+    await _getUserLocation();
+    _loadEarthquakes();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      // LocationUpdateService'ten son bilinen konumu al
+      final prefs = await _prefsService.getAllSettings();
+      if (prefs.containsKey('lastLatitude') && prefs.containsKey('lastLongitude')) {
+        setState(() {
+          _userLat = prefs['lastLatitude'];
+          _userLon = prefs['lastLongitude'];
+        });
+        print('📍 Konum alındı: $_userLat, $_userLon');
+      } else {
+        // Varsayılan: Türkiye merkezi
+        setState(() {
+          _userLat = 39.0;
+          _userLon = 35.0;
+        });
+        print('⚠️ Kayıtlı konum yok, Türkiye merkezi kullanılıyor');
+      }
+    } catch (e) {
+      print('⚠️ Konum alınamadı: $e');
+      setState(() {
+        _userLat = 39.0;
+        _userLon = 35.0;
+      });
+    }
+  }
+
+  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+    const R = 6371; // Dünya yarıçapı (km)
+    final dLat = _toRadians(lat2 - lat1);
+    final dLon = _toRadians(lon2 - lon1);
+    final a = 
+      sin(dLat / 2) * sin(dLat / 2) +
+      cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
+      sin(dLon / 2) * sin(dLon / 2);
+    final c = 2 * asin(sqrt(a));
+    return R * c;
+  }
+
+  double _toRadians(double degree) {
+    return degree * 3.14159265359 / 180;
+  }
+
+  Future<void> _loadEarthquakes() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final earthquakes = await _earthquakeService.getRecentEarthquakes(
+        limit: 100, // Daha fazla çek, sonra filtrele
+        minMagnitude: _minMagnitude,
+        period: 'day',
+        userLat: _userLat,
+        userLon: _userLon,
+      );
+
+      // Magnitude range ve mesafeye göre filtrele
+      final filtered = earthquakes.where((eq) {
+        final mag = (eq['mag'] is int) 
+            ? (eq['mag'] as int).toDouble() 
+            : eq['mag'] as double;
+        
+        // Magnitude kontrolü
+        if (mag < _minMagnitude || mag > _maxMagnitude) {
+          return false;
+        }
+
+        // Mesafe kontrolü (eğer konum varsa)
+        if (_userLat != null && _userLon != null) {
+          final lat = (eq['lat'] is int) 
+              ? (eq['lat'] as int).toDouble() 
+              : eq['lat'] as double;
+          final lon = (eq['lon'] is int) 
+              ? (eq['lon'] as int).toDouble() 
+              : eq['lon'] as double;
+          
+          final distance = _calculateDistance(
+            _userLat!,
+            _userLon!,
+            lat,
+            lon,
+          );
+          
+          return distance <= _notificationRadius;
+        }
+        
+        return true;
+      }).take(30).toList();
+
+      setState(() {
+        _earthquakes = filtered;
+        _isLoading = false;
+      });
+
+      print('✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)');
+    } catch (e) {
+      print('❌ Geçmiş depremler yükleme hatası: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   String _getTimeAgoText(int minutesAgo) {
     if (minutesAgo < 60) {
@@ -79,17 +154,15 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   List<Map<String, dynamic>> get _filteredEarthquakes {
-    // Son 24 saat içindeki depremleri filtrele (1440 dakika)
-    final last24Hours = _earthquakes.where((eq) => eq['minutesAgo'] <= 1440).toList();
-    
-    if (_selectedFilter == 'Tümü') {
-      return last24Hours;
-    } else if (_selectedFilter == 'Bugün') {
-      return last24Hours.where((eq) => eq['minutesAgo'] <= 720).toList(); // 12 saat
-    } else if (_selectedFilter == 'Bu Hafta') {
-      return last24Hours; // 24 saat zaten
-    }
-    return last24Hours;
+    // Maksimum 30 deprem göster
+    return _earthquakes.take(30).toList();
+  }
+
+  String _getIntensity(double magnitude) {
+    if (magnitude >= 5.0) return 'Şiddetli';
+    if (magnitude >= 4.0) return 'Belirgin';
+    if (magnitude >= 3.0) return 'Hafif';
+    return 'Çok Hafif';
   }
 
   Color _getMagnitudeColor(double magnitude) {
@@ -107,6 +180,14 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _showEarthquakeDetail(Map<String, dynamic> earthquake) {
+    final magnitude = (earthquake['mag'] is int) 
+        ? (earthquake['mag'] as int).toDouble() 
+        : earthquake['mag'] as double;
+    final depth = (earthquake['depth'] is int)
+        ? (earthquake['depth'] as int).toDouble()
+        : earthquake['depth'] as double;
+    final intensity = _getIntensity(magnitude);
+    
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -133,12 +214,12 @@ class _HistoryPageState extends State<HistoryPage> {
                 children: [
                   Icon(
                     Icons.warning_rounded,
-                    color: _getMagnitudeColor(earthquake['magnitude']),
+                    color: _getMagnitudeColor(magnitude),
                     size: 24,
                   ),
                   SizedBox(width: 12),
                   Text(
-                    '${earthquake['magnitude']} Mw',
+                    '${magnitude.toStringAsFixed(1)} Mw',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -147,7 +228,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                   SizedBox(width: 8),
                   Text(
-                    earthquake['intensity'],
+                    intensity,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -165,7 +246,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      earthquake['location'],
+                      earthquake['place'] ?? 'Bilinmeyen Konum',
                       style: TextStyle(fontSize: 16, color: Colors.black87),
                     ),
                   ),
@@ -179,7 +260,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   Icon(Icons.layers, color: Color(0xFFFF3333), size: 24),
                   SizedBox(width: 12),
                   Text(
-                    'Derinlik: ${earthquake['depth']}',
+                    'Derinlik: ${depth.toStringAsFixed(1)} km',
                     style: TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ],
@@ -192,11 +273,25 @@ class _HistoryPageState extends State<HistoryPage> {
                   Icon(Icons.access_time, color: Color(0xFFFF3333), size: 24),
                   SizedBox(width: 12),
                   Text(
-                    _getTimeAgoText(earthquake['minutesAgo']),
+                    _getTimeAgoText(earthquake['minutesAgo'] as int),
                     style: TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ],
               ),
+              SizedBox(height: 20),
+              
+              // Kaynak
+              if (earthquake['source'] != null)
+                Row(
+                  children: [
+                    Icon(Icons.source, color: Color(0xFFFF3333), size: 24),
+                    SizedBox(width: 12),
+                    Text(
+                      'Kaynak: ${earthquake['source']}',
+                      style: TextStyle(fontSize: 16, color: Colors.black87),
+                    ),
+                  ],
+                ),
               SizedBox(height: 32),
               
               // Kapat Butonu
@@ -232,7 +327,7 @@ class _HistoryPageState extends State<HistoryPage> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Filtre butonları
+        // Filtre butonları ve ayarlar bilgisi
         Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
@@ -245,48 +340,87 @@ class _HistoryPageState extends State<HistoryPage> {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
             children: [
-              _buildFilterChip('Tümü'),
-              SizedBox(width: 8),
-              _buildFilterChip('Bugün'),
-              SizedBox(width: 8),
-              _buildFilterChip('Bu Hafta'),
+              SizedBox(height: 8),
+              // Magnitude range ve mesafe bilgisi
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.filter_alt, size: 14, color: Colors.grey[600]),
+                    SizedBox(width: 6),
+                    Text(
+                      'Büyüklük: ${_minMagnitude.toStringAsFixed(1)}-${_maxMagnitude.toStringAsFixed(1)} | Mesafe: ${_notificationRadius.toInt()} km',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
         
         // Deprem listesi
         Expanded(
-          child: _filteredEarthquakes.isEmpty
+          child: _isLoading
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.inbox_outlined,
-                        size: 64,
-                        color: Colors.grey[400],
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Deprem kaydı bulunamadı',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
+                  child: CircularProgressIndicator(
+                    color: Color(0xFFFF3333),
                   ),
                 )
-              : ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: _filteredEarthquakes.length,
-                  itemBuilder: (context, index) {
-                    final earthquake = _filteredEarthquakes[index];
-                    return _buildEarthquakeCard(earthquake);
-                  },
-                ),
+              : _filteredEarthquakes.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Deprem kaydı bulunamadı',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: _loadEarthquakes,
+                            icon: Icon(Icons.refresh),
+                            label: Text('Yenile'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Color(0xFFFF3333),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadEarthquakes,
+                      color: Color(0xFFFF3333),
+                      child: ListView.builder(
+                        padding: EdgeInsets.all(16),
+                        itemCount: _filteredEarthquakes.length,
+                        itemBuilder: (context, index) {
+                          final earthquake = _filteredEarthquakes[index];
+                          return _buildEarthquakeCard(earthquake);
+                        },
+                      ),
+                    ),
         ),
       ],
     );
@@ -319,8 +453,14 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildEarthquakeCard(Map<String, dynamic> earthquake) {
-    final magnitude = earthquake['magnitude'] as double;
+    final magnitude = (earthquake['mag'] is int) 
+        ? (earthquake['mag'] as int).toDouble() 
+        : earthquake['mag'] as double;
+    final depth = (earthquake['depth'] is int)
+        ? (earthquake['depth'] as int).toDouble()
+        : earthquake['depth'] as double;
     final color = _getMagnitudeColor(magnitude);
+    final minutesAgo = earthquake['minutesAgo'] as int;
     
     return Container(
       margin: EdgeInsets.only(bottom: 12),
@@ -363,7 +503,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        '${magnitude}',
+                        magnitude.toStringAsFixed(1),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -381,7 +521,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        earthquake['location'],
+                        earthquake['place'] ?? 'Bilinmeyen Konum',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
@@ -400,7 +540,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            earthquake['depth'],
+                            '${depth.toStringAsFixed(1)} km',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey[600],
@@ -414,7 +554,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            earthquake['time'],
+                            earthquake['time'] ?? '',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey[600],
@@ -423,12 +563,34 @@ class _HistoryPageState extends State<HistoryPage> {
                         ],
                       ),
                       SizedBox(height: 4),
-                      Text(
-                        _getTimeAgoText(earthquake['minutesAgo']),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            _getTimeAgoText(minutesAgo),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                          if (earthquake['source'] != null) ...[
+                            SizedBox(width: 8),
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                earthquake['source'],
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Colors.grey[700],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

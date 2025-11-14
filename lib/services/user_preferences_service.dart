@@ -7,11 +7,13 @@ class UserPreferencesService {
   static const String _keyShowEarthquakes = 'show_earthquakes';
   static const String _keyShowFriends = 'show_friends';
   static const String _keyShowShelters = 'show_shelters';
+  static const String _keyShareLocation = 'share_location_with_friends';
 
   // Varsayılan değerler
   static const double defaultMinMagnitude = 2.5;
   static const double defaultMaxMagnitude = 10.0;
   static const double defaultNotificationRadius = 100.0; // km
+  static const bool defaultShareLocation = true; // Varsayılan olarak açık
 
   // Magnitude Ayarları
   Future<void> setMinMagnitude(double value) async {
@@ -76,6 +78,17 @@ class UserPreferencesService {
     return prefs.getBool(_keyShowShelters) ?? true;
   }
 
+  // Konum Paylaşım Ayarı
+  Future<void> setShareLocation(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyShareLocation, value);
+  }
+
+  Future<bool> getShareLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyShareLocation) ?? defaultShareLocation;
+  }
+
   // Tüm ayarları al (tek seferde)
   Future<Map<String, dynamic>> getAllSettings() async {
     return {
@@ -85,6 +98,7 @@ class UserPreferencesService {
       'showEarthquakes': await getShowEarthquakes(),
       'showFriends': await getShowFriends(),
       'showShelters': await getShowShelters(),
+      'shareLocation': await getShareLocation(),
     };
   }
 

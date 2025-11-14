@@ -50,9 +50,11 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static('public'));
 
 // Routes
+const settingsRoutes = require('./routes/settings');
 app.use('/api/friends', friendsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/earthquakes', earthquakesRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {

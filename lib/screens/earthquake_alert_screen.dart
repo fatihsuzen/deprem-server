@@ -148,12 +148,17 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                     return Positioned.fill(
                       child: Center(
                         child: Container(
-                          width: screenWidth * (0.5 + index * 0.3) * _pulseAnimation.value,
-                          height: screenWidth * (0.5 + index * 0.3) * _pulseAnimation.value,
+                          width: screenWidth *
+                              (0.5 + index * 0.3) *
+                              _pulseAnimation.value,
+                          height: screenWidth *
+                              (0.5 + index * 0.3) *
+                              _pulseAnimation.value,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3 - index * 0.1),
+                              color:
+                                  Colors.white.withOpacity(0.3 - index * 0.1),
                               width: 2,
                             ),
                           ),
@@ -171,7 +176,8 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
                   // Kaynak badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(20),
@@ -180,7 +186,9 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          widget.source == 'P2P' ? Icons.people : Icons.info_outline,
+                          widget.source == 'P2P'
+                              ? Icons.people
+                              : Icons.info_outline,
                           color: Colors.white,
                           size: 16,
                         ),
@@ -344,7 +352,8 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                         const SizedBox(height: 12),
                         _buildSafetyInstruction('Sakin olun, panik yapmayın'),
                         _buildSafetyInstruction('Sağlam masa altına saklanın'),
-                        _buildSafetyInstruction('Camlardan ve ağır eşyalardan uzak durun'),
+                        _buildSafetyInstruction(
+                            'Camlardan ve ağır eşyalardan uzak durun'),
                       ],
                     ),
                   ),

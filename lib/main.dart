@@ -44,7 +44,7 @@ void _initializeServicesInBackground() async {
     // Uygulama açılışında konum gönder (sunucuya)
     final locationUpdateService = LocationUpdateService();
     await locationUpdateService.sendLocationOnAppStart();
-    
+
     // Periyodik konum güncellemelerini başlat (2 saatte bir)
     await locationUpdateService.startPeriodicUpdates();
     print('✅ Location update service started');
@@ -61,7 +61,6 @@ void _initializeServicesInBackground() async {
     // final p2pService = P2PEarthquakeDetectionService();
     // await p2pService.startMonitoring();
     // print('✅ P2P Earthquake Detection started');
-
   } catch (error) {
     print('❌ Service initialization error: $error');
   }
@@ -72,14 +71,14 @@ Future<void> _syncUserSettings() async {
   try {
     final prefsService = UserPreferencesService();
     final settings = await prefsService.getAllSettings();
-    
+
     final locationUpdateService = LocationUpdateService();
     await locationUpdateService.sendNotificationSettings(
       notificationRadius: settings['notificationRadius'],
       minMagnitude: settings['minMagnitude'],
       maxMagnitude: settings['maxMagnitude'],
     );
-    
+
     print('✅ User settings synced to server');
   } catch (e) {
     print('⚠️  User settings sync error: $e');
@@ -143,7 +142,6 @@ class _DepremAppState extends State<DepremApp> {
           onError: Colors.white,
         ),
         useMaterial3: true,
-        fontFamily: 'Gabarito',
         primaryColor: const Color(0xFFFF3A3D),
         scaffoldBackgroundColor: Colors.white,
         appBarTheme: const AppBarTheme(
@@ -167,7 +165,6 @@ class _DepremAppState extends State<DepremApp> {
           onError: Colors.white,
         ),
         useMaterial3: true,
-        fontFamily: 'Gabarito',
         primaryColor: const Color(0xFFFF3A3D),
         scaffoldBackgroundColor: const Color(0xFF121212),
         appBarTheme: const AppBarTheme(
