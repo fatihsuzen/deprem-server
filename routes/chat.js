@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const ChatMessage = require('../models/ChatMessage');
 
 const router = express.Router();
 
@@ -206,14 +207,30 @@ const userCache = new Map();
 // Get all chat rooms with active user counts - Firebase gerekmez
 router.get('/rooms', validateUser, async (req, res) => {
   try {
-    const roomsData = Object.values(CHAT_ROOMS).map(room => ({
-      id: room.id,
-      name: room.name,
-      description: room.description,
-      flag: room.flag,
-      activeUserCount: room.activeUsers.size,
-      lastMessage: room.messages.length > 0 ? room.messages[room.messages.length - 1] : null
-    }));
+    const roomsData = await Promise.all(
+      Object.values(CHAT_ROOMS).map(async (room) => {
+        // Son mesajı MongoDB'den al
+        const lastMessage = await ChatMessage.findOne({ roomId: room.id })
+          .sort({ timestamp: -1 })
+          .lean();
+
+        return {
+          id: room.id,
+          name: room.name,
+          description: room.description,
+          flag: room.flag,
+          activeUserCount: room.activeUsers.size,
+          lastMessage: lastMessage ? {
+            id: lastMessage._id.toString(),
+            uid: lastMessage.uid,
+            displayName: lastMessage.displayName,
+            message: lastMessage.message,
+            timestamp: lastMessage.timestamp.toISOString(),
+            roomId: lastMessage.roomId
+          } : null
+        };
+      })
+    );
 
     console.log('📋 Chat rooms listesi gönderildi');
     
@@ -329,14 +346,30 @@ router.get('/rooms/:roomId/messages', validateUser, async (req, res) => {
       return res.status(404).json({ error: 'Chat room bulunamadı' });
     }
 
-    // Son mesajları al - reverse yapma, Flutter tarafında hallederiz
-    const messages = room.messages
-      .slice(-limit - offset, room.messages.length - offset);
+    // MongoDB'den mesajları çek
+    const messages = await ChatMessage.find({ roomId })
+      .sort({ timestamp: -1 })
+      .skip(offset)
+      .limit(limit)
+      .lean();
+
+    // Ters çevir (en eski önce)
+    messages.reverse();
+
+    // Mesajları standart formata dönüştür
+    const formattedMessages = messages.map(msg => ({
+      id: msg._id.toString(),
+      uid: msg.uid,
+      displayName: msg.displayName,
+      message: msg.message,
+      timestamp: msg.timestamp.toISOString(),
+      roomId: msg.roomId
+    }));
 
     res.json({
       success: true,
-      messages,
-      totalMessages: room.messages.length,
+      messages: formattedMessages,
+      totalMessages: await ChatMessage.countDocuments({ roomId }),
       room: {
         id: room.id,
         name: room.name,
@@ -376,23 +409,25 @@ router.post('/rooms/:roomId/messages', validateUser, [
       return res.status(403).json({ error: 'Bu odaya üye olmalısınız' });
     }
 
-    // Mesaj objesi oluştur
-    const messageObj = {
-      id: `msg_${Date.now()}_${uid}`,
+    // MongoDB'ye kaydet
+    const chatMessage = new ChatMessage({
+      roomId,
       uid,
       displayName,
       message,
-      timestamp: new Date().toISOString(),
-      roomId
+      timestamp: new Date()
+    });
+
+    await chatMessage.save();
+
+    const messageObj = {
+      id: chatMessage._id.toString(),
+      uid: chatMessage.uid,
+      displayName: chatMessage.displayName,
+      message: chatMessage.message,
+      timestamp: chatMessage.timestamp.toISOString(),
+      roomId: chatMessage.roomId
     };
-
-    // Mesajı odaya ekle
-    room.messages.push(messageObj);
-
-    // Son 100 mesajı tut (memory tasarrufu için)
-    if (room.messages.length > 100) {
-      room.messages = room.messages.slice(-100);
-    }
 
     console.log(`💬 ${displayName}: ${message} (${room.name})`);
 
