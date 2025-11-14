@@ -12,7 +12,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final UserPreferencesService _prefsService = UserPreferencesService();
   final LocationUpdateService _locationUpdateService = LocationUpdateService();
-  
+
   bool _notificationsEnabled = true;
   double _minimumMagnitude = UserPreferencesService.defaultMinMagnitude;
   double _maximumMagnitude = UserPreferencesService.defaultMaxMagnitude;
@@ -47,6 +47,7 @@ class _SettingsPageState extends State<SettingsPage> {
         notificationRadius: _notificationRadius,
         minMagnitude: _minimumMagnitude,
         maxMagnitude: _maximumMagnitude,
+        shareLocationWithFriends: _shareLocationWithFriends,
       );
       print('✅ Ayarlar sunucuya senkronize edildi');
     } catch (e) {
@@ -65,13 +66,15 @@ class _SettingsPageState extends State<SettingsPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Haritada görmek istediğiniz deprem büyüklük aralığını seçin'),
+              Text(
+                  'Haritada görmek istediğiniz deprem büyüklük aralığını seçin'),
               SizedBox(height: 20),
               // Minimum Büyüklük
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Minimum:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Minimum:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Text('${tempMinMagnitude.toStringAsFixed(1)} Mw',
                       style: TextStyle(
                           fontSize: 18,
@@ -99,7 +102,8 @@ class _SettingsPageState extends State<SettingsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Maksimum:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Maksimum:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   Text('${tempMaxMagnitude.toStringAsFixed(1)} Mw',
                       style: TextStyle(
                           fontSize: 18,
@@ -353,7 +357,7 @@ class _SettingsPageState extends State<SettingsPage> {
         child: CircularProgressIndicator(color: Color(0xFFFF3333)),
       );
     }
-    
+
     return ListView(
       padding: EdgeInsets.all(0),
       children: [
@@ -377,7 +381,8 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildSettingTile(
           icon: Icons.speed,
           title: 'Minimum Büyüklük',
-          subtitle: '${_minimumMagnitude.toStringAsFixed(1)}-${_maximumMagnitude.toStringAsFixed(1)} Mw arası',
+          subtitle:
+              '${_minimumMagnitude.toStringAsFixed(1)}-${_maximumMagnitude.toStringAsFixed(1)} Mw arası',
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: _showMagnitudeDialog,
           enabled: _notificationsEnabled,
@@ -444,12 +449,26 @@ class _SettingsPageState extends State<SettingsPage> {
                 _shareLocationWithFriends = value;
               });
               await _prefsService.setShareLocation(value);
-              
+
+              // Backend'e hemen gönder
+              await _locationUpdateService.sendNotificationSettings(
+                notificationRadius: _notificationRadius,
+                minMagnitude: _minimumMagnitude,
+                maxMagnitude: _maximumMagnitude,
+                shareLocationWithFriends: value,
+              );
+
               // Konum paylaşımı açıldıysa hemen bir güncelleme yap
               if (value) {
                 await _locationUpdateService.sendLocationUpdate();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Konumunuz arkadaşlarınızla paylaşılıyor')),
+                  SnackBar(
+                      content: Text('Konumunuz arkadaşlarınızla paylaşılıyor')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                      content: Text('Konum paylaşımı kapatıldı')),
                 );
               }
             },

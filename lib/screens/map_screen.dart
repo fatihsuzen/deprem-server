@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:location/location.dart';
+import '../services/auth_service.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
@@ -390,8 +391,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _loadUserSettingsAndEarthquakes();
 
     // Arkadaş listesini yükle - 3 saniye gecikme ile (kullanıcı girişi için)
-    Future.delayed(Duration(seconds: 3), () {
+    Future.delayed(Duration(seconds: 3), () async {
       if (mounted) {
+        // User data'yı yükle (Google Sign-In session)
+        final authService = AuthService();
+        await authService.loadUserData();
         _loadFriends();
       }
     });

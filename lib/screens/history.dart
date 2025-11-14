@@ -14,7 +14,7 @@ class _HistoryPageState extends State<HistoryPage> {
   bool _isLoading = true;
   final EarthquakeService _earthquakeService = EarthquakeService();
   final UserPreferencesService _prefsService = UserPreferencesService();
-  
+
   double _minMagnitude = 2.5;
   double _maxMagnitude = 10.0;
   double _notificationRadius = 50.0;
@@ -42,7 +42,8 @@ class _HistoryPageState extends State<HistoryPage> {
     try {
       // LocationUpdateService'ten son bilinen konumu al
       final prefs = await _prefsService.getAllSettings();
-      if (prefs.containsKey('lastLatitude') && prefs.containsKey('lastLongitude')) {
+      if (prefs.containsKey('lastLatitude') &&
+          prefs.containsKey('lastLongitude')) {
         setState(() {
           _userLat = prefs['lastLatitude'];
           _userLon = prefs['lastLongitude'];
@@ -65,14 +66,16 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     const R = 6371; // Dünya yarıçapı (km)
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    final a = 
-      sin(dLat / 2) * sin(dLat / 2) +
-      cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
-      sin(dLon / 2) * sin(dLon / 2);
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
     final c = 2 * asin(sqrt(a));
     return R * c;
   }
@@ -96,44 +99,48 @@ class _HistoryPageState extends State<HistoryPage> {
       );
 
       // Magnitude range ve mesafeye göre filtrele
-      final filtered = earthquakes.where((eq) {
-        final mag = (eq['mag'] is int) 
-            ? (eq['mag'] as int).toDouble() 
-            : eq['mag'] as double;
-        
-        // Magnitude kontrolü
-        if (mag < _minMagnitude || mag > _maxMagnitude) {
-          return false;
-        }
+      final filtered = earthquakes
+          .where((eq) {
+            final mag = (eq['mag'] is int)
+                ? (eq['mag'] as int).toDouble()
+                : eq['mag'] as double;
 
-        // Mesafe kontrolü (eğer konum varsa)
-        if (_userLat != null && _userLon != null) {
-          final lat = (eq['lat'] is int) 
-              ? (eq['lat'] as int).toDouble() 
-              : eq['lat'] as double;
-          final lon = (eq['lon'] is int) 
-              ? (eq['lon'] as int).toDouble() 
-              : eq['lon'] as double;
-          
-          final distance = _calculateDistance(
-            _userLat!,
-            _userLon!,
-            lat,
-            lon,
-          );
-          
-          return distance <= _notificationRadius;
-        }
-        
-        return true;
-      }).take(30).toList();
+            // Magnitude kontrolü
+            if (mag < _minMagnitude || mag > _maxMagnitude) {
+              return false;
+            }
+
+            // Mesafe kontrolü (eğer konum varsa)
+            if (_userLat != null && _userLon != null) {
+              final lat = (eq['lat'] is int)
+                  ? (eq['lat'] as int).toDouble()
+                  : eq['lat'] as double;
+              final lon = (eq['lon'] is int)
+                  ? (eq['lon'] as int).toDouble()
+                  : eq['lon'] as double;
+
+              final distance = _calculateDistance(
+                _userLat!,
+                _userLon!,
+                lat,
+                lon,
+              );
+
+              return distance <= _notificationRadius;
+            }
+
+            return true;
+          })
+          .take(30)
+          .toList();
 
       setState(() {
         _earthquakes = filtered;
         _isLoading = false;
       });
 
-      print('✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)');
+      print(
+          '✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)');
     } catch (e) {
       print('❌ Geçmiş depremler yükleme hatası: $e');
       setState(() {
@@ -145,7 +152,8 @@ class _HistoryPageState extends State<HistoryPage> {
   String _getTimeAgoText(int minutesAgo) {
     if (minutesAgo < 60) {
       return '$minutesAgo dk önce';
-    } else if (minutesAgo < 1440) { // 24 saat = 1440 dakika
+    } else if (minutesAgo < 1440) {
+      // 24 saat = 1440 dakika
       final hours = (minutesAgo / 60).floor();
       return '$hours saat önce';
     } else {
@@ -180,14 +188,14 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   void _showEarthquakeDetail(Map<String, dynamic> earthquake) {
-    final magnitude = (earthquake['mag'] is int) 
-        ? (earthquake['mag'] as int).toDouble() 
+    final magnitude = (earthquake['mag'] is int)
+        ? (earthquake['mag'] as int).toDouble()
         : earthquake['mag'] as double;
     final depth = (earthquake['depth'] is int)
         ? (earthquake['depth'] as int).toDouble()
         : earthquake['depth'] as double;
     final intensity = _getIntensity(magnitude);
-    
+
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
@@ -208,7 +216,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
               SizedBox(height: 24),
-              
+
               // Büyüklük
               Row(
                 children: [
@@ -237,7 +245,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
               SizedBox(height: 20),
-              
+
               // Konum
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +261,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
               SizedBox(height: 20),
-              
+
               // Derinlik
               Row(
                 children: [
@@ -266,7 +274,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
               SizedBox(height: 20),
-              
+
               // Zaman
               Row(
                 children: [
@@ -279,7 +287,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ],
               ),
               SizedBox(height: 20),
-              
+
               // Kaynak
               if (earthquake['source'] != null)
                 Row(
@@ -293,7 +301,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ],
                 ),
               SizedBox(height: 32),
-              
+
               // Kapat Butonu
               SizedBox(
                 width: double.infinity,
@@ -369,7 +377,7 @@ class _HistoryPageState extends State<HistoryPage> {
             ],
           ),
         ),
-        
+
         // Deprem listesi
         Expanded(
           child: _isLoading
@@ -453,15 +461,15 @@ class _HistoryPageState extends State<HistoryPage> {
   }
 
   Widget _buildEarthquakeCard(Map<String, dynamic> earthquake) {
-    final magnitude = (earthquake['mag'] is int) 
-        ? (earthquake['mag'] as int).toDouble() 
+    final magnitude = (earthquake['mag'] is int)
+        ? (earthquake['mag'] as int).toDouble()
         : earthquake['mag'] as double;
     final depth = (earthquake['depth'] is int)
         ? (earthquake['depth'] as int).toDouble()
         : earthquake['depth'] as double;
     final color = _getMagnitudeColor(magnitude);
     final minutesAgo = earthquake['minutesAgo'] as int;
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -514,7 +522,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   ),
                 ),
                 SizedBox(width: 16),
-                
+
                 // Deprem bilgileri
                 Expanded(
                   child: Column(
@@ -575,7 +583,8 @@ class _HistoryPageState extends State<HistoryPage> {
                           if (earthquake['source'] != null) ...[
                             SizedBox(width: 8),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.grey[200],
                                 borderRadius: BorderRadius.circular(4),
@@ -595,7 +604,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     ],
                   ),
                 ),
-                
+
                 // Chevron
                 Icon(
                   Icons.chevron_right,

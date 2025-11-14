@@ -19,12 +19,12 @@ class _RootScreenState extends State<RootScreen> {
   Key _mapScreenKey = UniqueKey();
 
   List<Widget> _getPages() => [
-    const FriendsPageAPI(),
-    ChatPage(),
-    MapScreen(key: _mapScreenKey),
-    HistoryPage(),
-    SettingsPage(),
-  ];
+        const FriendsPageAPI(),
+        ChatPage(),
+        MapScreen(key: _mapScreenKey),
+        HistoryPage(),
+        SettingsPage(),
+      ];
 
   final List<String> _titles = [
     'Bağlantılar',

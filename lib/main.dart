@@ -6,6 +6,7 @@ import 'screens/root.dart';
 import 'screens/login_screen.dart';
 import 'screens/mqtt_test_screen.dart';
 import 'screens/report_screen.dart';
+import 'services/auth_service.dart';
 import 'services/location_service.dart';
 import 'services/notification_service.dart';
 import 'services/location_update_service.dart';
@@ -30,6 +31,11 @@ void main() async {
 // Servisleri arka planda başlat
 void _initializeServicesInBackground() async {
   try {
+    // Kullanıcı verilerini yükle (Google Sign-In session)
+    final authService = AuthService();
+    await authService.loadUserData();
+    print('✅ User data loaded');
+
     await NotificationService().initialize();
     print('✅ Notification service initialized');
 

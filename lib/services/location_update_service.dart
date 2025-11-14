@@ -87,7 +87,7 @@ class LocationUpdateService {
       // Konum paylaşım ayarını kontrol et
       final prefsService = UserPreferencesService();
       final shareLocation = await prefsService.getShareLocation();
-      
+
       if (!shareLocation) {
         print('⏭️  Konum paylaşımı kapalı, güncelleme atlandı');
         return false;
@@ -159,12 +159,23 @@ class LocationUpdateService {
     required double notificationRadius,
     required double minMagnitude,
     required double maxMagnitude,
+    bool? shareLocationWithFriends,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         print('⚠️  Kullanıcı oturum açmamış');
         return false;
+      }
+
+      final body = <String, dynamic>{
+        'notificationRadius': notificationRadius,
+        'minMagnitude': minMagnitude,
+        'maxMagnitude': maxMagnitude,
+      };
+      
+      if (shareLocationWithFriends != null) {
+        body['shareLocationWithFriends'] = shareLocationWithFriends;
       }
 
       final response = await http
@@ -174,11 +185,7 @@ class LocationUpdateService {
               'Content-Type': 'application/json',
               'x-firebase-uid': user.uid,
             },
-            body: jsonEncode({
-              'notificationRadius': notificationRadius,
-              'minMagnitude': minMagnitude,
-              'maxMagnitude': maxMagnitude,
-            }),
+            body: jsonEncode(body),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -188,6 +195,9 @@ class LocationUpdateService {
         print('   Yarıçap: ${data['settings']['notificationRadius']} km');
         print(
             '   Büyüklük: ${data['settings']['minMagnitude']}-${data['settings']['maxMagnitude']}');
+        if (shareLocationWithFriends != null) {
+          print('   Konum paylaşımı: ${data['settings']['shareLocationWithFriends']}');
+        }
         return true;
       } else {
         print('❌ Ayar gönderme hatası: ${response.statusCode}');

@@ -45,7 +45,7 @@ class _DemoScreenState extends State<DemoScreen> {
       const PastEarthquakesScreen(), // 3 - Geçmiş Depremler
       const SettingsScreen(), // 4 - Ayarlar
     ];
-    
+
     return Scaffold(
       body: screens[_selectedIndex],
 
