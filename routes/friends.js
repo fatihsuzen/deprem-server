@@ -19,7 +19,13 @@ const validateFirebaseUID = (req, res, next) => {
 router.post('/profile', validateFirebaseUID, [
   body('email').isEmail().normalizeEmail(),
   body('displayName').trim().isLength({ min: 1, max: 50 }),
-  body('photoURL').optional().isURL()
+  body('photoURL').optional({ nullable: true, checkFalsy: true }).custom((value) => {
+    if (!value || value === '') return true; // Allow empty
+    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
+      return true;
+    }
+    throw new Error('photoURL geçerli bir URL olmalı');
+  })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -386,7 +392,13 @@ router.post('/users/create-or-update', [
   body('googleId').notEmpty().trim(),
   body('email').isEmail().normalizeEmail(),
   body('displayName').trim().isLength({ min: 1, max: 50 }),
-  body('photoURL').optional().isURL(),
+  body('photoURL').optional({ nullable: true, checkFalsy: true }).custom((value) => {
+    if (!value || value === '') return true; // Allow empty
+    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
+      return true;
+    }
+    throw new Error('photoURL geçerli bir URL olmalı');
+  }),
   body('shareCode').notEmpty().trim()
 ], async (req, res) => {
   try {

@@ -34,10 +34,13 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            // Optimize for faster startup
-            minifyEnabled true
-            shrinkResources true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // ProGuard'ı kapat - socket.io ve diğer kütüphaneler için sorun çıkarıyor
+            minifyEnabled false
+            shrinkResources false
+            // Eğer optimize etmek istersen:
+            // minifyEnabled true
+            // shrinkResources true
+            // proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             // Debug build'de daha hızlı build için
