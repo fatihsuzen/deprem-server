@@ -136,17 +136,20 @@ router.get('/', validateFirebaseUID, async (req, res) => {
     const friendUIDs = user.friends || [];
     const friendUsers = await User.find({ uid: { $in: friendUIDs } });
 
-    // Format friends data
-    const friends = friendUsers.map(friend => ({
-      uid: friend.uid,
-      displayName: friend.displayName,
-      email: friend.email,
-      photoURL: friend.photoURL,
-      location: friend.location,
-      lastSeen: friend.deviceInfo?.lastSeen,
-      isOnline: friend.deviceInfo?.lastSeen && 
-                (new Date() - friend.deviceInfo.lastSeen) < 5 * 60 * 1000 // 5 minutes
-    }));
+    // Format friends data - location'ı sadece shareLocationWithFriends=true ise döndür
+    const friends = friendUsers.map(friend => {
+      const shareLocation = friend.settings?.shareLocationWithFriends !== false;
+      return {
+        uid: friend.uid,
+        displayName: friend.displayName,
+        email: friend.email,
+        photoURL: friend.photoURL,
+        location: shareLocation ? friend.location : null, // Konum paylaşımı kapalıysa null döndür
+        lastSeen: friend.deviceInfo?.lastSeen,
+        isOnline: friend.deviceInfo?.lastSeen && 
+                  (new Date() - friend.deviceInfo.lastSeen) < 5 * 60 * 1000 // 5 minutes
+      };
+    });
 
     console.log(`👥 ${uid} kullanıcısının ${friends.length} arkadaşı yüklendi`);
     friends.forEach(friend => {

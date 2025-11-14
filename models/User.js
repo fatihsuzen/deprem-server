@@ -91,7 +91,8 @@ const userSchema = new mongoose.Schema({
     soundEnabled: { type: Boolean, default: true },
     vibrationEnabled: { type: Boolean, default: true },
     darkMode: { type: Boolean, default: false },
-    language: { type: String, default: 'tr' }
+    language: { type: String, default: 'tr' },
+    shareLocationWithFriends: { type: Boolean, default: true }
   },
   createdAt: {
     type: Date,

@@ -23,6 +23,7 @@ router.get('/:userId', async (req, res) => {
         vibrationEnabled: user.settings?.vibrationEnabled !== false,
         darkMode: user.settings?.darkMode || false,
         language: user.settings?.language || 'tr',
+        shareLocationWithFriends: user.settings?.shareLocationWithFriends !== false,
       }
     });
   } catch (error) {
@@ -43,7 +44,8 @@ router.post('/:userId', async (req, res) => {
       soundEnabled,
       vibrationEnabled,
       darkMode,
-      language
+      language,
+      shareLocationWithFriends
     } = req.body;
 
     const user = await User.findById(userId);
@@ -64,6 +66,7 @@ router.post('/:userId', async (req, res) => {
     if (vibrationEnabled !== undefined) user.settings.vibrationEnabled = vibrationEnabled;
     if (darkMode !== undefined) user.settings.darkMode = darkMode;
     if (language !== undefined) user.settings.language = language;
+    if (shareLocationWithFriends !== undefined) user.settings.shareLocationWithFriends = shareLocationWithFriends;
 
     await user.save();
 
@@ -84,7 +87,7 @@ router.post('/:userId', async (req, res) => {
 router.post('/:userId/notification-settings', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { notificationRadius, minMagnitude, maxMagnitude } = req.body;
+    const { notificationRadius, minMagnitude, maxMagnitude, shareLocationWithFriends } = req.body;
 
     const user = await User.findById(userId);
     if (!user) {
@@ -98,18 +101,21 @@ router.post('/:userId/notification-settings', async (req, res) => {
     if (notificationRadius !== undefined) user.settings.notificationRadius = notificationRadius;
     if (minMagnitude !== undefined) user.settings.minMagnitude = minMagnitude;
     if (maxMagnitude !== undefined) user.settings.maxMagnitude = maxMagnitude;
+    if (shareLocationWithFriends !== undefined) user.settings.shareLocationWithFriends = shareLocationWithFriends;
 
     await user.save();
 
     console.log(`📱 ${user.name} bildirim ayarları güncellendi:`, {
       radius: user.settings.notificationRadius,
       minMag: user.settings.minMagnitude,
-      maxMag: user.settings.maxMagnitude
+      maxMag: user.settings.maxMagnitude,
+      shareLocation: user.settings.shareLocationWithFriends
     });
 
     res.json({
       success: true,
-      message: 'Bildirim ayarları güncellendi'
+      message: 'Bildirim ayarları güncellendi',
+      settings: user.settings
     });
   } catch (error) {
     console.error('Bildirim ayarları güncelleme hatası:', error);
