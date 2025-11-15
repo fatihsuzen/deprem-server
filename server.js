@@ -151,6 +151,81 @@ app.post('/api/users/notification-settings', async (req, res) => {
   }
 });
 
+// Get user info and settings
+app.get('/api/users/me', async (req, res) => {
+  try {
+    const uid = req.headers['x-firebase-uid'];
+
+    if (!uid) {
+      return res.status(401).json({ error: 'Firebase UID gerekli' });
+    }
+
+    const User = require('./models/User');
+    const user = await User.findOne({ uid });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        uid: user.uid,
+        displayName: user.displayName,
+        email: user.email,
+        location: user.location,
+        notificationSettings: user.notificationSettings || {
+          notificationRadius: 100,
+          minMagnitude: 2.5,
+          maxMagnitude: 9.7,
+        },
+        lastLocationUpdate: user.lastLocationUpdate,
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ User info hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
+// Get all users with their settings (for monitoring)
+app.get('/api/users/all-settings', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const users = await User.find({})
+      .select('displayName email location notificationSettings settings createdAt')
+      .sort({ 'location.lastUpdate': -1 })
+      .limit(100);
+
+    const userList = users.map(user => ({
+      name: user.displayName,
+      email: user.email,
+      location: user.location?.coordinates ? {
+        lat: user.location.coordinates[1],
+        lon: user.location.coordinates[0],
+        lastUpdate: user.location.lastUpdate
+      } : null,
+      notificationSettings: user.notificationSettings || user.settings || {
+        notificationRadius: 100,
+        minMagnitude: 2.5,
+        maxMagnitude: 9.7
+      },
+      createdAt: user.createdAt
+    }));
+
+    res.json({
+      success: true,
+      count: userList.length,
+      users: userList
+    });
+
+  } catch (error) {
+    console.error('❌ Users list hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+
 // Add device token
 app.post('/api/users/device-token', async (req, res) => {
   try {
