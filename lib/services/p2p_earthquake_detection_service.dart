@@ -12,14 +12,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 class P2PEarthquakeDetectionService {
   static const String baseUrl = 'http://188.132.202.24:3000/api';
 
-  // Sensör parametreleri
-  static const double SHAKE_THRESHOLD = 2.5; // m/s² - Deprem eşiği
-  static const double STRONG_SHAKE_THRESHOLD = 5.0; // m/s² - Güçlü sarsıntı
+  // Sensör parametreleri - TEST İÇİN HASSAS AYARLAR
+  static const double SHAKE_THRESHOLD = 1.5; // m/s² - Düşük eşik (masa sallama için)
+  static const double STRONG_SHAKE_THRESHOLD = 3.0; // m/s² - Güçlü sarsıntı (daha düşük)
   static const Duration SHAKE_WINDOW =
-      Duration(seconds: 3); // Sarsıntı penceresi
-  static const int MIN_SHAKE_COUNT = 5; // Minimum sarsıntı sayısı
+      Duration(seconds: 2); // Sarsıntı penceresi (daha kısa)
+  static const int MIN_SHAKE_COUNT = 3; // Minimum sarsıntı sayısı (daha az)
   static const Duration COOLDOWN_PERIOD =
-      Duration(minutes: 2); // Tekrar gönderim engeli
+      Duration(seconds: 30); // Tekrar gönderim engeli (test için kısa)
 
   // Servis durumu
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;

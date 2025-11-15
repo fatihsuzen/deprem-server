@@ -30,9 +30,9 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   DateTime? _lastShakeTime;
   
-  // Eşik değerleri
-  final double _shakeThreshold = 15.0; // m/s² - daha düşük, daha hassas
-  final double _reportThreshold = 20.0; // Rapor göndermek için eşik
+  // Eşik değerleri - MASA SALLAMA İÇİN OPTİMİZE EDİLMİŞ
+  final double _shakeThreshold = 2.0; // m/s² - Hafif sarsıntı (masaya vurma)
+  final double _reportThreshold = 4.0; // Rapor göndermek için eşik (güçlü sarsıntı)
 
   @override
   void initState() {
@@ -79,16 +79,16 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
         if (magnitude > _shakeThreshold) {
           final now = DateTime.now();
           
-          // Spam önleme - 2 saniyede bir log
+          // Spam önleme - 0.5 saniyede bir log (daha sık)
           if (_lastShakeTime == null || 
-              now.difference(_lastShakeTime!).inSeconds >= 2) {
+              now.difference(_lastShakeTime!).inMilliseconds >= 500) {
             _shakeCount++;
             _lastShakeTime = now;
-            _addLog('⚡ Sarsıntı! Şiddet: ${magnitude.toStringAsFixed(1)} m/s²');
+            _addLog('⚡ Sarsıntı! Şiddet: ${magnitude.toStringAsFixed(2)} m/s²');
             
             // Güçlü sarsıntı - rapor gönderilecek
             if (magnitude > _reportThreshold) {
-              _addLog('📤 Rapor gönderiliyor...');
+              _addLog('📤 GÜÇLÜ! Rapor gönderiliyor... (${magnitude.toStringAsFixed(2)} m/s²)');
               _reportsSent++;
             }
           }
