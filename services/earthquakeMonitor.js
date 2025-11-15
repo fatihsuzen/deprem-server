@@ -418,9 +418,12 @@ class EarthquakeMonitor {
       const earthquakes = [];
       
       for (const line of lines) {
+        // IMPORTANT: trim() is required because lines have \r at the end
+        const trimmedLine = line.trim();
+        
         // Match the complete pattern in one line
         // Date, time, lat, lon, depth, -.- , mag, -.- , location
-        const match = line.match(/(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
+        const match = trimmedLine.match(/(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
         
         if (match) {
           try {
