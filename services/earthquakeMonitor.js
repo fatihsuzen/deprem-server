@@ -410,95 +410,62 @@ class EarthquakeMonitor {
   }
 
   parseKandilliData(htmlData) {
-    // Kandilli HTML parsing with proper date extraction
-    // Format: 2025.11.15 14:23:45 38.1234  N  27.5678  E  10.5  -.-  3.2  IZMIR
+    // Kandilli HTML parsing - Real format:
+    // 2025.11.14 07:54:24  39.1702   27.9638       10.2      -.-  2.4  -.-   AKKOCALI-AKHISAR (MANISA)
+    // Format: DATE TIME LAT LON DEPTH -.- MAG -.- LOCATION
     try {
       const lines = htmlData.split('\n');
       const earthquakes = [];
       
       for (const line of lines) {
-        // Kandilli format has date, time, lat, N, lon, E, depth, -, mag, location
-        if (line.includes('N') && line.includes('E') && /\d{4}\.\d{2}\.\d{2}/.test(line)) {
+        // Look for lines with date pattern at the start
+        const match = line.match(/^(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
+        
+        if (match) {
           try {
-            const parts = line.trim().split(/\s+/);
+            const [_, dateStr, timeStr, latStr, lonStr, depthStr, magStr, place] = match;
             
-            // Find date (YYYY.MM.DD) and time (HH:MM:SS)
-            let dateStr = null;
-            let timeStr = null;
-            let lat = null;
-            let lon = null;
-            let depth = null;
-            let mag = null;
-            let location = [];
+            const lat = parseFloat(latStr);
+            const lon = parseFloat(lonStr);
+            const depth = parseFloat(depthStr);
+            const mag = parseFloat(magStr);
             
-            for (let i = 0; i < parts.length; i++) {
-              // Date format: 2025.11.15
-              if (/^\d{4}\.\d{2}\.\d{2}$/.test(parts[i])) {
-                dateStr = parts[i];
-              }
-              // Time format: 14:23:45
-              else if (/^\d{2}:\d{2}:\d{2}$/.test(parts[i]) && dateStr) {
-                timeStr = parts[i];
-              }
-              // Latitude (before N)
-              else if (parts[i + 1] === 'N' && !isNaN(parseFloat(parts[i]))) {
-                lat = parseFloat(parts[i]);
-              }
-              // Longitude (before E)
-              else if (parts[i + 1] === 'E' && !isNaN(parseFloat(parts[i]))) {
-                lon = parseFloat(parts[i]);
-              }
-              // Skip N and E markers
-              else if (parts[i] === 'N' || parts[i] === 'E') {
-                continue;
-              }
-              // Depth (first number after E)
-              else if (lon && !depth && !isNaN(parseFloat(parts[i]))) {
-                depth = parseFloat(parts[i]);
-              }
-              // Magnitude (after depth and -.-)
-              else if (depth && parts[i] !== '-.-' && !mag && !isNaN(parseFloat(parts[i])) && parseFloat(parts[i]) > 0 && parseFloat(parts[i]) < 10) {
-                mag = parseFloat(parts[i]);
-              }
-              // Location (after magnitude)
-              else if (mag && isNaN(parseFloat(parts[i]))) {
-                location.push(parts[i]);
-              }
+            // Validate values
+            if (isNaN(lat) || isNaN(lon) || isNaN(mag) || mag <= 0 || mag > 10) {
+              continue;
             }
             
-            // Validate we have all required data
-            if (dateStr && timeStr && lat && lon && mag) {
-              // Parse date: 2025.11.15 14:23:45 → Date object
-              const [year, month, day] = dateStr.split('.').map(Number);
-              const [hour, minute, second] = timeStr.split(':').map(Number);
-              
-              // Kandilli uses Turkey time (UTC+3)
-              const timestamp = new Date(year, month - 1, day, hour, minute, second);
-              
-              // Validate date is reasonable (not in future, not too old)
-              const now = new Date();
-              const ageHours = (now - timestamp) / (1000 * 60 * 60);
-              
-              if (ageHours >= 0 && ageHours <= 48) { // Within last 48 hours
-                earthquakes.push({
-                  id: `kandilli_${dateStr.replace(/\./g, '')}_${timeStr.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
-                  source: 'Kandilli',
-                  magnitude: mag,
-                  location: {
-                    latitude: lat,
-                    longitude: lon
-                  },
-                  depth: depth || 0,
-                  place: location.length > 0 ? location.join(' ') : 'Turkey',
-                  timestamp: timestamp,
-                  type: 'earthquake',
-                  rawDate: dateStr,
-                  rawTime: timeStr
-                });
-              }
+            // Parse date: 2025.11.14 07:54:24 → Date object
+            const [year, month, day] = dateStr.split('.').map(Number);
+            const [hour, minute, second] = timeStr.split(':').map(Number);
+            
+            // Kandilli uses Turkey time (UTC+3) - create as local time
+            const timestamp = new Date(year, month - 1, day, hour, minute, second);
+            
+            // Validate date is reasonable (not in future, not too old)
+            const now = new Date();
+            const ageHours = (now - timestamp) / (1000 * 60 * 60);
+            
+            if (ageHours >= -1 && ageHours <= 72) { // Allow 1 hour in future (clock skew), up to 3 days old
+              earthquakes.push({
+                id: `kandilli_${dateStr.replace(/\./g, '')}_${timeStr.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
+                source: 'Kandilli',
+                magnitude: mag,
+                location: {
+                  latitude: lat,
+                  longitude: lon
+                },
+                depth: isNaN(depth) ? 0 : depth,
+                place: place.trim() || 'Turkey',
+                timestamp: timestamp,
+                type: 'earthquake',
+                rawDate: dateStr,
+                rawTime: timeStr
+              });
             }
           } catch (parseError) {
             // Skip malformed lines
+            console.error('Kandilli parse error:', parseError.message);
             continue;
           }
         }
