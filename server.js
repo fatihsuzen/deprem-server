@@ -211,21 +211,28 @@ app.get('/api/users/all-settings', async (req, res) => {
       .sort({ 'location.lastUpdate': -1 })
       .limit(100);
 
-    const userList = users.map(user => ({
-      name: user.displayName,
-      email: user.email,
-      location: user.location?.coordinates ? {
-        lat: user.location.coordinates[1],
-        lon: user.location.coordinates[0],
-        lastUpdate: user.location.lastUpdate
-      } : null,
-      notificationSettings: user.notificationSettings || user.settings || {
-        notificationRadius: 100,
-        minMagnitude: 2.5,
-        maxMagnitude: 9.7
-      },
-      createdAt: user.createdAt
-    }));
+    const userList = users.map(user => {
+      const userData = {
+        name: user.displayName,
+        email: user.email,
+        location: user.location?.coordinates ? {
+          lat: user.location.coordinates[1],
+          lon: user.location.coordinates[0],
+          lastUpdate: user.location.lastUpdate
+        } : null,
+        notificationSettings: user.notificationSettings || user.settings || {
+          notificationRadius: 100,
+          minMagnitude: 2.5,
+          maxMagnitude: 9.7
+        },
+        createdAt: user.createdAt
+      };
+      
+      // DEBUG: Her kullanıcının ayarlarını logla
+      console.log(`📊 ${user.displayName}: notificationSettings =`, JSON.stringify(user.notificationSettings));
+      
+      return userData;
+    });
 
     res.json({
       success: true,
