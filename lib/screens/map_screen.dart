@@ -560,9 +560,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         _quakes = filteredEarthquakes;
         _earthquakesLoading = false;
 
-        // İlk depremi son deprem olarak kaydet (konum bazlı sıralandı)
+        // EN YENİ depremi bul (minutesAgo en küçük olan)
         if (_quakes.isNotEmpty) {
-          _latestQuake = _quakes[0];
+          _latestQuake = _quakes.reduce((a, b) {
+            final aMinutes = (a['minutesAgo'] is int)
+                ? a['minutesAgo'] as int
+                : (a['minutesAgo'] as double).toInt();
+            final bMinutes = (b['minutesAgo'] is int)
+                ? b['minutesAgo'] as int
+                : (b['minutesAgo'] as double).toInt();
+            return aMinutes < bMinutes ? a : b;
+          });
+          
+          final latestMinutes = (_latestQuake!['minutesAgo'] is int)
+              ? _latestQuake!['minutesAgo'] as int
+              : (_latestQuake!['minutesAgo'] as double).toInt();
+          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
 
