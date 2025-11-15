@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:battery_plus/battery_plus.dart';
-import 'package:screen_state/screen_state.dart';
+// import 'package:battery_plus/battery_plus.dart'; // Optional
+// import 'package:screen_state/screen_state.dart'; // Optional
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,12 +24,12 @@ class P2PEarthquakeDetectionService {
   // Servis durumu
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   StreamSubscription<GyroscopeEvent>? _gyroscopeSubscription;
-  final Battery _battery = Battery();
-  final Screen _screen = Screen();
+  // final Battery _battery = Battery(); // Optional - disabled
+  // final Screen _screen = Screen(); // Optional - disabled
 
   bool _isMonitoring = false;
-  bool _isCharging = false;
-  bool _isScreenOff = false;
+  bool _isCharging = false; // Varsayılan: şarj olmuyor
+  bool _isScreenOff = false; // Varsayılan: ekran açık
   DateTime? _lastReportTime;
 
   // Sarsıntı verileri
@@ -49,25 +49,12 @@ class P2PEarthquakeDetectionService {
 
     print('🔍 P2P Deprem algılama servisi başlatılıyor...');
 
-    // Koşulları kontrol et
-    await _checkConditions();
-
-    // Batarya durumu dinleyici
-    _battery.onBatteryStateChanged.listen((BatteryState state) {
-      _isCharging =
-          (state == BatteryState.charging || state == BatteryState.full);
-      _updateMonitoringState();
-    });
-
-    // Ekran durumu dinleyici
-    try {
-      _screen.screenStateStream?.listen((ScreenStateEvent event) {
-        _isScreenOff = (event == ScreenStateEvent.SCREEN_OFF);
-        _updateMonitoringState();
-      });
-    } catch (e) {
-      print('⚠️ Ekran durumu izleme başarısız: $e');
-    }
+    // Koşulları kontrol et (basitleştirilmiş - battery/screen özellikleri devre dışı)
+    _isCharging = false; // Battery durumu kontrolü devre dışı
+    _isScreenOff = false; // Screen durumu kontrolü devre dışı
+    
+    // Not: Battery ve Screen özellikleri isteğe bağlı olarak eklenebilir
+    // Şu an için tüm koşullarda monitoring aktif
 
     // Sensörleri başlat
     _startSensorListening();
@@ -76,19 +63,13 @@ class P2PEarthquakeDetectionService {
     print('✅ P2P monitoring aktif');
   }
 
-  /// Koşulları kontrol et (şarj + ekran kapalı veya sadece ekran kapalı)
+  /// Koşulları kontrol et (basitleştirilmiş versiyon)
   Future<void> _checkConditions() async {
-    final batteryState = await _battery.batteryState;
-    _isCharging = (batteryState == BatteryState.charging ||
-        batteryState == BatteryState.full);
-
-    // Ekran durumu (platform-specific olduğu için try-catch)
-    try {
-      final screenState = await _screen.isKeptOn;
-      _isScreenOff = !screenState;
-    } catch (e) {
-      _isScreenOff = true; // Varsayılan olarak izin ver
-    }
+    // Battery ve Screen kontrolleri devre dışı
+    _isCharging = false;
+    _isScreenOff = false;
+    
+    // Her zaman monitoring aktif
   }
 
   /// Monitoring durumunu güncelle
@@ -321,7 +302,7 @@ class P2PEarthquakeDetectionService {
 
       // Cihaz bilgileri
       final deviceId = prefs.getString('deviceId');
-      final batteryLevel = await _battery.batteryLevel;
+      final batteryLevel = 100; // Battery kontrolü devre dışı
 
       // Rapor payload
       final payload = {
