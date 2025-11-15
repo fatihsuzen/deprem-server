@@ -326,7 +326,7 @@
 
         async function loadUsers() {
             try {
-                const response = await fetch('/api/admin/users');
+                const response = await fetch('/api/users/all-settings');
                 const data = await response.json();
                 
                 const users = data.users || [];
@@ -415,11 +415,13 @@
                     <tbody>
                         ${users.map(user => `
                             <tr>
-                                <td class="location">${user.displayName || 'Anonim'}</td>
+                                <td class="location">${user.name || user.displayName || 'Anonim'}</td>
                                 <td>${user.email || '-'}</td>
                                 <td>
-                                    ${user.location && user.location.coordinates ? 
-                                        `<span class="distance">${user.location.coordinates[1].toFixed(4)}, ${user.location.coordinates[0].toFixed(4)}</span>` : 
+                                    ${user.location && (user.location.lat || user.location.coordinates) ? 
+                                        (user.location.lat ? 
+                                            `<span class="distance">${user.location.lat.toFixed(4)}, ${user.location.lon.toFixed(4)}</span>` :
+                                            `<span class="distance">${user.location.coordinates[1].toFixed(4)}, ${user.location.coordinates[0].toFixed(4)}</span>`) :
                                         '<span class="badge badge-warning">Konum yok</span>'}
                                 </td>
                                 <td>
