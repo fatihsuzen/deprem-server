@@ -71,11 +71,10 @@ class EarthquakeMonitor {
       if (processedEarthquakes.length > 0) {
         console.log(`📊 Found ${processedEarthquakes.length} new earthquakes`);
         
-        // Trigger notifications for significant earthquakes
+        // Trigger notifications using Priority Notification Service
         for (const earthquake of processedEarthquakes) {
-          if (earthquake.magnitude >= 4.0) { // Only notify for magnitude 4.0+
-            await this.triggerEarthquakeNotification(earthquake);
-          }
+          // Kullanıcı ayarlarına göre bildirim gönder (magnitude kontrolü serviste)
+          await this.triggerEarthquakeNotification(earthquake);
         }
         // Persist earthquakes to DB if model available
         try {
@@ -265,109 +264,38 @@ class EarthquakeMonitor {
 
   async triggerEarthquakeNotification(earthquake) {
     try {
-      console.log(`🚨 Triggering notification for earthquake: M${earthquake.magnitude} at ${earthquake.place}`);
+      console.log(`🚨 Yeni deprem algılandı: M${earthquake.magnitude} - ${earthquake.place}`);
       
-      console.log(`📍 Location: ${earthquake.location.latitude}, ${earthquake.location.longitude}`);
-      console.log(`⏰ Time: ${earthquake.timestamp}`);
-      console.log(`🌊 Depth: ${earthquake.depth} km`);
-
-      // Calculate affected radius
-      const affectedRadius = this.calculateAffectedRadius(earthquake.magnitude);
-
-      // Server-side matching: find users whose preferences indicate they want notifications
-      try {
-        const User = require('../models/User');
-        const NotificationService = require('./notificationService');
-        const server = require('../server'); // to access deviceManager & notificationService via server module exports
-
-        // Query users with notifications enabled and minMagnitude <= earthquake.magnitude
-        const interestedUsers = await User.find({
-          'notificationPreferences.enabled': true,
-          $or: [
-            { 'notificationPreferences.minMagnitude': { $lte: earthquake.magnitude } },
-            { 'notificationPreferences.minMagnitude': { $exists: false } }
-          ]
-        }).lean();
-
-        // For each interested user, check devices in radius and notify
-        if (interestedUsers && interestedUsers.length > 0 && server && server.deviceManager) {
-          for (const u of interestedUsers) {
-            const prefs = u.notificationPreferences || { radiusKm: 50, minMagnitude: 4.0 };
-            const radius = prefs.radiusKm || 50;
-
-            // If user's minMagnitude is higher than quake mag, skip
-            if ((prefs.minMagnitude || 0) > earthquake.magnitude) continue;
-
-            const devices = server.deviceManager.getDevicesInRadius(
-              earthquake.location.latitude, earthquake.location.longitude, radius
-            );
-
-            if (devices && devices.length > 0) {
-              // Send a targeted broadcast to those device socketIds via notificationService
-              const notificationSvc = server.notificationService;
-              if (notificationSvc) {
-                // prepare payload
-                const payload = {
-                  epicenter: earthquake.location,
-                  magnitude: earthquake.magnitude,
-                  estimatedArrival: new Date(Date.now() + 30000),
-                  affectedRadius
-                };
-
-                // send to each device socket
-                devices.forEach(d => {
-                  try {
-                    notificationSvc.sendUserAlert(d.socketId, {
-                      type: 'earthquake_warning',
-                      message: `Deprem uyarısı: M${earthquake.magnitude} yakında`,
-                      data: payload
-                    });
-                  } catch (err) {
-                    console.warn('Failed to send user alert to device:', d.socketId, err.message);
-                  }
-                });
-                // Additionally, fetch registered push tokens for these users/devices and send FCM pushes via dispatcher
-                try {
-                  const DeviceModel = require('../models/Device');
-                  const pushDispatcher = require('./pushDispatcher');
-
-                  // Collect device entries for all matched devices
-                  const allDeviceEntries = [];
-                  for (const d of devices) {
-                    const deviceEntries = await DeviceModel.find({
-                      $or: [ { deviceId: d.deviceId }, { 'location.latitude': d.location.latitude, 'location.longitude': d.location.longitude } ]
-                    }).lean();
-                    if (deviceEntries && deviceEntries.length > 0) allDeviceEntries.push(...deviceEntries);
-                  }
-
-                  if (allDeviceEntries.length > 0) {
-                    const payload = {
-                      title: 'Deprem Uyarısı',
-                      body: `Bölgenizde M${earthquake.magnitude} büyüklüğünde deprem tespit edildi`,
-                      warning: notificationSvc.generateWarningMessage ? notificationSvc.generateWarningMessage(earthquake.magnitude) : undefined,
-                      data: {
-                        epicenter: JSON.stringify(earthquake.location),
-                        magnitude: String(earthquake.magnitude),
-                        id: earthquake.id || earthquake.eventId
-                      }
-                    };
-
-                    const dispatchResult = await pushDispatcher.sendPushToDeviceEntries(allDeviceEntries, payload, notificationSvc, { concurrency: 50 });
-                    console.log('Push dispatch result:', dispatchResult);
-                  }
-                } catch (err) {
-                  console.warn('Push dispatcher failed:', err.message);
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Server-side notification matching failed:', err.message);
+      // Priority Notification Service kullan
+      const PriorityNotificationService = require('./priorityNotificationService');
+      const server = require('../server');
+      
+      if (!server.notificationService) {
+        console.log('⚠️ Notification service hazır değil');
+        return;
       }
-
+      
+      const priorityService = new PriorityNotificationService(server.notificationService);
+      
+      // Deprem verisini uygun formata çevir
+      const earthquakeData = {
+        lat: earthquake.location?.latitude || 0,
+        lon: earthquake.location?.longitude || 0,
+        magnitude: earthquake.magnitude,
+        location: earthquake.place || 'Unknown',
+        depth: earthquake.depth || 10,
+        time: earthquake.timestamp ? new Date(earthquake.timestamp) : new Date()
+      };
+      
+      // Kullanıcı ayarlarına göre (range + magnitude) bildirim gönder
+      const result = await priorityService.sendPriorityEarthquakeNotifications(earthquakeData);
+      
+      if (result.success) {
+        console.log(`✅ Bildirimler gönderildi: ${result.stats.sent} başarılı, ${result.stats.skipped} atlandı`);
+      }
+      
     } catch (error) {
-      console.error('Failed to trigger earthquake notification:', error);
+      console.error('❌ Notification hatası:', error.message);
     }
   }
 
@@ -410,9 +338,9 @@ class EarthquakeMonitor {
   }
 
   parseKandilliData(htmlData) {
-    // Kandilli HTML parsing - Real format (single long line):
-    // 2025.11.15 05:55:23  39.2113   28.1335        8.9      -.-  1.1  -.-   MANDIRA-SINDIRGI (BALIKESIR)
-    // Format: DATE TIME LAT LON DEPTH -.- MAG -.- LOCATION
+    // Kandilli HTML parsing - NEW FORMAT (Nov 2025):
+    // [600] 2025.11.13 06:29:49  39.2547   28.0957       10.0      -.-  2.2  -.-   KARAGUR-SINDIRGI (BALIKESIR)                      İlksel
+    // Format: [NUM] DATE TIME LAT LON DEPTH -.- MAG -.- LOCATION
     try {
       const lines = htmlData.split('\n');
       const earthquakes = [];
@@ -421,9 +349,9 @@ class EarthquakeMonitor {
         // IMPORTANT: trim() is required because lines have \r at the end
         const trimmedLine = line.trim();
         
-        // Match the complete pattern in one line
-        // Date, time, lat, lon, depth, -.- , mag, -.- , location
-        const match = trimmedLine.match(/(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
+        // NEW REGEX: Match lines starting with [XXX] followed by earthquake data
+        // [600] 2025.11.13 06:29:49  39.2547   28.0957  10.0  -.-  2.2  -.-  LOCATION
+        const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
         
         if (match) {
           try {

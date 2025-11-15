@@ -97,12 +97,21 @@ class PriorityNotificationService {
         const { user, distance, userLat, userLon } = item;
 
         try {
-          // Kullanıcının notification range ayarını kontrol et
+          // Kullanıcının notification settings kontrolü
           const notificationRadius = user.notificationSettings?.notificationRadius || 100; // Default 100 km
+          const minMagnitude = user.notificationSettings?.magnitudeRange?.[0] || 2.5; // Default 2.5
+          const maxMagnitude = user.notificationSettings?.magnitudeRange?.[1] || 10.0; // Default 10.0
 
-          // Eğer deprem kullanıcının range'i dışındaysa atla
+          // 1. MESAFE FİLTRESİ: Range dışında mı?
           if (distance > notificationRadius) {
-            console.log(`⏭️  ${user.displayName}: ${distance.toFixed(2)} km > ${notificationRadius} km (range dışı, atlandı)`);
+            console.log(`⏭️  ${user.displayName}: ${distance.toFixed(2)} km > ${notificationRadius} km (range dışı)`);
+            skippedCount++;
+            continue;
+          }
+
+          // 2. MAGNITUDE FİLTRESİ: Büyüklük aralığında mı?
+          if (earthquake.magnitude < minMagnitude || earthquake.magnitude > maxMagnitude) {
+            console.log(`⏭️  ${user.displayName}: M${earthquake.magnitude} (${minMagnitude}-${maxMagnitude} dışında)`);
             skippedCount++;
             continue;
           }
