@@ -59,7 +59,7 @@ app.use('/api/settings', settingsRoutes);
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
   try {
-    const { latitude, longitude, address } = req.body;
+    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude } = req.body;
     const uid = req.headers['x-firebase-uid'];
 
     if (!uid) {
@@ -84,6 +84,18 @@ app.post('/api/users/update-location', async (req, res) => {
 
     await user.updateLocation(latitude, longitude, address || '');
     
+    // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
+    if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
+      if (!user.notificationSettings) {
+        user.notificationSettings = {};
+      }
+      if (notificationRadius !== undefined) user.notificationSettings.notificationRadius = notificationRadius;
+      if (minMagnitude !== undefined) user.notificationSettings.minMagnitude = minMagnitude;
+      if (maxMagnitude !== undefined) user.notificationSettings.maxMagnitude = maxMagnitude;
+      await user.save();
+      console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${notificationRadius}km, M${minMagnitude}-${maxMagnitude}`);
+    }
+    
     console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
 
     res.json({
@@ -93,7 +105,8 @@ app.post('/api/users/update-location', async (req, res) => {
         longitude,
         address: address || '',
         lastUpdate: user.location.lastUpdate
-      }
+      },
+      notificationSettings: user.notificationSettings
     });
 
   } catch (error) {
@@ -734,42 +747,6 @@ app.get('/api/friends/pending-requests/:userId', async (req, res) => {
     res.json(requests);
   } catch (error) {
     console.error('❌ Bekleyen istekler hatası:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
-
-// Konum güncelleme API'si
-app.post('/api/users/update-location', async (req, res) => {
-  try {
-    const { userId, latitude, longitude, address } = req.body;
-    
-    if (!userId || !latitude || !longitude) {
-      return res.status(400).json({ error: 'userId, latitude ve longitude gerekli' });
-    }
-
-    const user = await User.findOne({ uid: userId });
-    if (!user) {
-      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-    }
-
-    // Konumu güncelle
-    await user.updateLocation(latitude, longitude, address || '');
-    
-    console.log(`📍 Konum güncellendi: ${user.displayName} (${latitude}, ${longitude})`);
-    
-    res.json({ 
-      success: true, 
-      message: 'Konum güncellendi',
-      location: {
-        latitude,
-        longitude,
-        address,
-        lastUpdate: new Date()
-      }
-    });
-    
-  } catch (error) {
-    console.error('❌ Konum güncelleme hatası:', error);
     res.status(500).json({ error: 'Sunucu hatası' });
   }
 });

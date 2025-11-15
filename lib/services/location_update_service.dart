@@ -118,7 +118,13 @@ class LocationUpdateService {
       print(
           '📍 Konum alındı: ${locationData.latitude}, ${locationData.longitude}');
 
-      // Sunucuya gönder
+      // Bildirim ayarlarını al
+      final prefs = await SharedPreferences.getInstance();
+      final notificationRadius = prefs.getDouble('notification_radius') ?? 100.0;
+      final minMagnitude = prefs.getDouble('min_magnitude') ?? 2.5;
+      final maxMagnitude = prefs.getDouble('max_magnitude') ?? 9.7;
+
+      // Sunucuya gönder (konum + bildirim ayarları)
       final response = await http
           .post(
             Uri.parse('$baseUrl/users/update-location'),
@@ -130,6 +136,9 @@ class LocationUpdateService {
               'latitude': locationData.latitude,
               'longitude': locationData.longitude,
               'address': '', // Opsiyonel: Geocoding ile adres eklenebilir
+              'notificationRadius': notificationRadius,
+              'minMagnitude': minMagnitude,
+              'maxMagnitude': maxMagnitude,
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -138,6 +147,11 @@ class LocationUpdateService {
         final data = jsonDecode(response.body);
         print(
             '✅ Konum sunucuya gönderildi: ${data['location']['latitude']}, ${data['location']['longitude']}');
+        
+        // Bildirim ayarları da güncellendiyse logla
+        if (data['notificationSettings'] != null) {
+          print('⚙️  Bildirim ayarları güncellendi: ${data['notificationSettings']['notificationRadius']} km');
+        }
 
         // Son güncelleme zamanını kaydet
         await _saveLastUpdateTime();
