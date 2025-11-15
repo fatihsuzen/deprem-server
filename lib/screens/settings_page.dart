@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
+import 'p2p_test_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -435,8 +436,27 @@ class _SettingsPageState extends State<SettingsPage> {
 
         SizedBox(height: 16),
 
-        // Konum ve Veriler Bölümü
-        _buildSectionHeader('Konum ve Veriler'),
+        // Geliştirici Araçları
+        _buildSectionHeader('Geliştirici Araçları'),
+        _buildSettingTile(
+          icon: Icons.science_outlined,
+          title: 'P2P Deprem Simülasyonu',
+          subtitle: 'Telefonu sallayarak test et',
+          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => P2PTestScreen(),
+              ),
+            );
+          },
+        ),
+
+        SizedBox(height: 16),
+
+        // Diğer Bölümü
+        _buildSectionHeader('Diğer'),
         _buildSettingTile(
           icon: Icons.share_location,
           title: 'Konumumu Arkadaşlarla Paylaş',
