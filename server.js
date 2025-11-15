@@ -1036,6 +1036,123 @@ async function startServer() {
   }
 }
 
+// TEST ENDPOINT - Deprem bildirimi test et
+app.post('/api/test/earthquake-notification', async (req, res) => {
+  try {
+    console.log('\n🧪 ===== TEST BİLDİRİMİ BAŞLADI =====');
+    
+    const testEarthquake = req.body.earthquake || {
+      lat: 40.9593768,
+      lon: 29.2197328,
+      magnitude: 4.5,
+      location: 'TEST DEPREMI - İstanbul (Kadıköy)',
+      depth: 10,
+      time: new Date()
+    };
+    
+    console.log('📍 Test Depremi:', testEarthquake.location);
+    console.log('📊 Büyüklük:', testEarthquake.magnitude);
+    
+    const PriorityNotificationService = require('./services/priorityNotificationService');
+    const priorityService = new PriorityNotificationService(notificationService);
+    
+    const result = await priorityService.sendPriorityEarthquakeNotifications(testEarthquake);
+    
+    console.log('\n📊 TEST SONUÇLARI:');
+    console.log('════════════════════════════════════════');
+    console.log(`✅ Gönderilen: ${result.stats.sent}`);
+    console.log(`⏭️  Atlanan: ${result.stats.skipped}`);
+    console.log(`❌ Hatalı: ${result.stats.failed}`);
+    console.log('════════════════════════════════════════\n');
+    
+    res.json({
+      success: true,
+      message: 'Test bildirimi gönderildi',
+      earthquake: testEarthquake,
+      results: result
+    });
+  } catch (error) {
+    console.error('❌ Test bildirimi hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET endpoint - Browser'dan kolay tetikleme
+app.get('/api/test/earthquake-notification', async (req, res) => {
+  try {
+    console.log('\n🧪 ===== TEST BİLDİRİMİ BAŞLADI (GET) =====');
+    
+    const testEarthquake = {
+      lat: 40.9593768,
+      lon: 29.2197328,
+      magnitude: 4.5,
+      location: 'TEST DEPREMI - İstanbul (Kadıköy)',
+      depth: 10,
+      time: new Date()
+    };
+    
+    console.log('📍 Test Depremi:', testEarthquake.location);
+    console.log('📊 Büyüklük:', testEarthquake.magnitude);
+    
+    const PriorityNotificationService = require('./services/priorityNotificationService');
+    const priorityService = new PriorityNotificationService(notificationService);
+    
+    const result = await priorityService.sendPriorityEarthquakeNotifications(testEarthquake);
+    
+    console.log('\n📊 TEST SONUÇLARI:');
+    console.log('════════════════════════════════════════');
+    console.log(`✅ Gönderilen: ${result.stats.sent}`);
+    console.log(`⏭️  Atlanan: ${result.stats.skipped}`);
+    console.log(`❌ Hatalı: ${result.stats.failed}`);
+    console.log('════════════════════════════════════════\n');
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Deprem Bildirimi Test</title>
+        <style>
+          body { font-family: system-ui; max-width: 600px; margin: 50px auto; padding: 20px; background: #0f1419; color: #fff; }
+          .card { background: #1e2732; padding: 30px; border-radius: 12px; margin-bottom: 20px; }
+          .success { color: #4CAF50; }
+          .warning { color: #FF9800; }
+          .error { color: #f44336; }
+          h1 { margin: 0 0 20px 0; }
+          .stat { font-size: 32px; font-weight: bold; margin: 10px 0; }
+          button { background: #FF3333; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+          button:hover { background: #cc0000; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>🧪 Deprem Bildirimi Test Sonucu</h1>
+          <p><strong>📍 Konum:</strong> ${testEarthquake.location}</p>
+          <p><strong>📊 Büyüklük:</strong> M${testEarthquake.magnitude}</p>
+          <p><strong>🌍 Koordinatlar:</strong> ${testEarthquake.lat}, ${testEarthquake.lon}</p>
+          <p><strong>⏰ Zaman:</strong> ${testEarthquake.time.toLocaleString('tr-TR')}</p>
+        </div>
+        
+        <div class="card">
+          <h2>📊 Bildirim İstatistikleri</h2>
+          <p class="success">✅ Gönderilen: <span class="stat">${result.stats.sent}</span></p>
+          <p class="warning">⏭️ Atlanan: <span class="stat">${result.stats.skipped}</span></p>
+          <p class="error">❌ Hatalı: <span class="stat">${result.stats.failed}</span></p>
+          
+          ${result.stats.sent > 0 
+            ? '<p class="success" style="margin-top: 20px; font-size: 18px;">🎉 BAŞARILI! Bildirimi telefonunuzda kontrol edin.</p>' 
+            : '<p class="warning" style="margin-top: 20px; font-size: 18px;">⚠️ Hiç bildirim gönderilmedi. Range veya magnitude ayarlarını kontrol edin.</p>'}
+        </div>
+        
+        <button onclick="location.reload()">🔄 Tekrar Test Et</button>
+      </body>
+      </html>
+    `);
+  } catch (error) {
+    console.error('❌ Test bildirimi hatası:', error);
+    res.status(500).send(`<h1>❌ Hata</h1><p>${error.message}</p>`);
+  }
+});
+
 startServer();
 
 // Export app and key services so other modules (like earthquakeMonitor) can access deviceManager and notificationService
