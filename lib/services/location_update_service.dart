@@ -142,6 +142,10 @@ class LocationUpdateService {
         // Son güncelleme zamanını kaydet
         await _saveLastUpdateTime();
 
+        // SharedPreferences'a da kaydet (History ekranı için)
+        await _saveLocationToPrefs(
+            locationData.latitude!, locationData.longitude!);
+
         return true;
       } else {
         print(
@@ -173,7 +177,7 @@ class LocationUpdateService {
         'minMagnitude': minMagnitude,
         'maxMagnitude': maxMagnitude,
       };
-      
+
       if (shareLocationWithFriends != null) {
         body['shareLocationWithFriends'] = shareLocationWithFriends;
       }
@@ -196,7 +200,8 @@ class LocationUpdateService {
         print(
             '   Büyüklük: ${data['settings']['minMagnitude']}-${data['settings']['maxMagnitude']}');
         if (shareLocationWithFriends != null) {
-          print('   Konum paylaşımı: ${data['settings']['shareLocationWithFriends']}');
+          print(
+              '   Konum paylaşımı: ${data['settings']['shareLocationWithFriends']}');
         }
         return true;
       } else {
@@ -250,6 +255,14 @@ class LocationUpdateService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
         'last_location_update', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  /// Konumu SharedPreferences'a kaydet (History ekranı için)
+  Future<void> _saveLocationToPrefs(double latitude, double longitude) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('lastLatitude', latitude);
+    await prefs.setDouble('lastLongitude', longitude);
+    print('💾 Konum SharedPreferences\'a kaydedildi: $latitude, $longitude');
   }
 
   /// Son güncelleme zamanını al

@@ -4,13 +4,15 @@ const axios = require('axios');
 
 // Get earthquakeMonitor from server module (will be set after server initializes)
 let earthquakeMonitor = null;
-try {
-  const serverModule = require('../server');
-  earthquakeMonitor = serverModule.earthquakeMonitor;
-} catch (e) {
-  // Server not initialized yet, will be available later
-  console.log('ℹ️  earthquakeMonitor will be initialized by server');
+
+// Function to set earthquakeMonitor after server initializes it
+function setEarthquakeMonitor(monitor) {
+  earthquakeMonitor = monitor;
+  console.log('✅ earthquakeMonitor set in routes/earthquakes.js');
 }
+
+// Export the setter function
+router.setEarthquakeMonitor = setEarthquakeMonitor;
 
 // Mesafe hesaplama (Haversine formülü)
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -258,6 +260,8 @@ async function fetchAFADData() {
 // NOT: Artık earthquakeMonitor servisinden alıyoruz - doğru parser ile parse edilmiş veri
 async function fetchKandilliData() {
   try {
+    console.log('🔍 fetchKandilliData çağrıldı, earthquakeMonitor durumu:', !!earthquakeMonitor);
+    
     if (!earthquakeMonitor) {
       console.log('⚠️  earthquakeMonitor henüz hazır değil');
       return [];
@@ -265,6 +269,8 @@ async function fetchKandilliData() {
     
     // earthquakeMonitor'den tüm depremleri al, sadece Kandilli olanları filtrele
     const allEarthquakes = earthquakeMonitor.getRecentEarthquakes(500);
+    console.log(`📊 earthquakeMonitor'den ${allEarthquakes.length} toplam deprem alındı`);
+    
     const kandilliEarthquakes = allEarthquakes
       .filter(eq => eq.source === 'Kandilli')
       .map(eq => {
@@ -296,7 +302,7 @@ async function fetchKandilliData() {
         };
       });
     
-    console.log(`✅ ${kandilliEarthquakes.length} Kandilli deprem verisi hazır`);
+    console.log(`✅ Kandilli: ${kandilliEarthquakes.length} deprem hazır`);
     return kandilliEarthquakes;
   } catch (error) {
     console.error('❌ Kandilli hatası:', error.message);

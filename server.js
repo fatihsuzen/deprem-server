@@ -380,6 +380,10 @@ const priorityNotificationService = new PriorityNotificationService(notification
 const p2pEarthquakeAnalyzer = new P2PEarthquakeAnalyzer();
 const validationService = new ValidationService();
 
+// Set earthquakeMonitor in routes after initialization
+earthquakesRoutes.setEarthquakeMonitor(earthquakeMonitor);
+console.log('✅ earthquakeMonitor injected into earthquakes routes');
+
 // Socket.io Connection Handler
 io.on('connection', (socket) => {
   console.log(`📱 Client connected: ${socket.id}`);

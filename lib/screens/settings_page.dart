@@ -467,8 +467,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text('Konum paylaşımı kapatıldı')),
+                  SnackBar(content: Text('Konum paylaşımı kapatıldı')),
                 );
               }
             },

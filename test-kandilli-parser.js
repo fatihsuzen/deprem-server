@@ -37,38 +37,28 @@ async function testKandilliParser() {
     console.log('\n🧪 Parser testi:\n');
     
     earthquakes = [];
-    for (let i = 0; i < lines.length - 1; i++) {
-      const line1 = lines[i].trim();
-      const line2 = lines[i + 1].trim();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       
-      // Line 1: DATE TIME LAT LON DEPTH -.-
-      const match1 = line1.match(/^(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s*$/);
+      // Match the complete pattern in one line
+      const match = line.match(/(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
       
-      if (match1) {
-        console.log(`✅ Match1 bulundu: ${line1}`);
+      if (match) {
+        console.log(`✅ Match bulundu [satır ${i}]:`);
+        console.log(`   ${line.substring(0, 100)}...`);
         
-        // Line 2: MAG -.- LOCATION
-        const match2 = line2.match(/^([\d.]+)\s+-\.-\s+(.+)$/);
+        const [_, dateStr, timeStr, latStr, lonStr, depthStr, magStr, place] = match;
         
-        if (match2) {
-          console.log(`✅ Match2 bulundu: ${line2}`);
-          
-          const [_, dateStr, timeStr, latStr, lonStr, depthStr] = match1;
-          const [__, magStr, place] = match2;
-          
-          console.log(`   📅 Tarih: ${dateStr} ${timeStr}`);
-          console.log(`   📍 Konum: ${latStr}, ${lonStr}`);
-          console.log(`   📏 Derinlik: ${depthStr}`);
-          console.log(`   📊 Büyüklük: ${magStr}`);
-          console.log(`   🏙️  Yer: ${place}`);
-          console.log('');
-          
-          earthquakes.push({ dateStr, timeStr, latStr, lonStr, depthStr, magStr, place });
-          
-          if (earthquakes.length >= 5) break;
-        } else {
-          console.log(`❌ Match2 BAŞARISIZ: ${line2}`);
-        }
+        console.log(`   📅 Tarih: ${dateStr} ${timeStr}`);
+        console.log(`   📍 Konum: ${latStr}, ${lonStr}`);
+        console.log(`   📏 Derinlik: ${depthStr}`);
+        console.log(`   📊 Büyüklük: ${magStr}`);
+        console.log(`   🏙️  Yer: ${place.substring(0, 50)}`);
+        console.log('');
+        
+        earthquakes.push({ dateStr, timeStr, latStr, lonStr, depthStr, magStr, place });
+        
+        if (earthquakes.length >= 5) break;
       }
     }
     

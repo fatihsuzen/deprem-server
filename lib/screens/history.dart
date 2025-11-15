@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:location/location.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import 'dart:math' show sin, cos, sqrt, asin;
@@ -40,34 +42,85 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _getUserLocation() async {
     try {
-      // LocationUpdateService'ten son bilinen konumu al
-      final prefs = await _prefsService.getAllSettings();
-      if (prefs.containsKey('lastLatitude') &&
-          prefs.containsKey('lastLongitude')) {
+      print('📍 History - Gerçek GPS konumu alınıyor...');
+
+      final location = Location();
+
+      // Konum servisini kontrol et
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) {
+          print('⚠️ History - Konum servisi kapalı, cache kullanılıyor');
+          await _loadCachedLocation();
+          return;
+        }
+      }
+
+      // İzin kontrol et
+      PermissionStatus permission = await location.hasPermission();
+      if (permission == PermissionStatus.denied) {
+        permission = await location.requestPermission();
+        if (permission != PermissionStatus.granted) {
+          print('⚠️ History - Konum izni yok, cache kullanılıyor');
+          await _loadCachedLocation();
+          return;
+        }
+      }
+
+      // Gerçek konumu al (Map ile aynı şekilde)
+      final locationData = await location.getLocation();
+
+      if (locationData.latitude != null && locationData.longitude != null) {
         setState(() {
-          _userLat = prefs['lastLatitude'];
-          _userLon = prefs['lastLongitude'];
+          _userLat = locationData.latitude;
+          _userLon = locationData.longitude;
         });
-        print('📍 Konum alındı: $_userLat, $_userLon');
+
+        // Cache'e de kaydet
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('lastLatitude', _userLat!);
+        await prefs.setDouble('lastLongitude', _userLon!);
+
+        print('✅ History - GERÇEK GPS konumu alındı: $_userLat, $_userLon');
       } else {
-        // Varsayılan: Türkiye merkezi
-        setState(() {
-          _userLat = 39.0;
-          _userLon = 35.0;
-        });
-        print('⚠️ Kayıtlı konum yok, Türkiye merkezi kullanılıyor');
+        print('⚠️ History - Konum null, cache kullanılıyor');
+        await _loadCachedLocation();
       }
     } catch (e) {
-      print('⚠️ Konum alınamadı: $e');
+      print('❌ History - Konum hatası: $e, cache kullanılıyor');
+      await _loadCachedLocation();
+    }
+  }
+
+  /// Cache'den konum yükle (fallback)
+  Future<void> _loadCachedLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lat = prefs.getDouble('lastLatitude');
+    final lon = prefs.getDouble('lastLongitude');
+
+    if (lat != null && lon != null) {
       setState(() {
-        _userLat = 39.0;
-        _userLon = 35.0;
+        _userLat = lat;
+        _userLon = lon;
       });
+      print('📦 History - Cache\'den konum yüklendi: $_userLat, $_userLon');
+    } else {
+      // Varsayılan: İstanbul merkezi (Türkiye merkezi DEĞİL!)
+      setState(() {
+        _userLat = 41.0082;
+        _userLon = 28.9784;
+      });
+      print('⚠️ History - Hiç konum yok, İstanbul merkezi kullanılıyor');
     }
   }
 
   double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const R = 6371; // Dünya yarıçapı (km)
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
@@ -99,6 +152,16 @@ class _HistoryPageState extends State<HistoryPage> {
       );
 
       // Magnitude range ve mesafeye göre filtrele
+      print('\n📊 History - Filtreleme başlıyor:');
+      print('   Toplam deprem: ${earthquakes.length}');
+      print('   Kullanıcı konumu: $_userLat, $_userLon');
+      print('   Range: $_notificationRadius km');
+      print('   Magnitude: $_minMagnitude - $_maxMagnitude');
+
+      int magFiltered = 0;
+      int distanceFiltered = 0;
+      int passed = 0;
+
       final filtered = earthquakes
           .where((eq) {
             final mag = (eq['mag'] is int)
@@ -107,6 +170,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
             // Magnitude kontrolü
             if (mag < _minMagnitude || mag > _maxMagnitude) {
+              magFiltered++;
               return false;
             }
 
@@ -126,7 +190,21 @@ class _HistoryPageState extends State<HistoryPage> {
                 lon,
               );
 
-              return distance <= _notificationRadius;
+              if (distance > _notificationRadius) {
+                distanceFiltered++;
+                if (distanceFiltered <= 3) {
+                  print(
+                      '   ❌ Uzak: ${eq['place']} - ${distance.toStringAsFixed(1)} km (>${_notificationRadius} km)');
+                }
+                return false;
+              }
+
+              passed++;
+              if (passed <= 5) {
+                print(
+                    '   ✅ Geçti: ${eq['place']} - ${distance.toStringAsFixed(1)} km (M${mag.toStringAsFixed(1)})');
+              }
+              return true;
             }
 
             return true;
@@ -134,13 +212,20 @@ class _HistoryPageState extends State<HistoryPage> {
           .take(30)
           .toList();
 
+      print('\n📈 History - Filtreleme sonucu:');
+      print('   Magnitude filtresi: $magFiltered elendi');
+      print('   Mesafe filtresi: $distanceFiltered elendi');
+      print('   Geçenler: $passed');
+      print('   Gösterilecek: ${filtered.length}\n');
+
       setState(() {
         _earthquakes = filtered;
         _isLoading = false;
       });
 
       print(
-          '✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)');
+        '✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)',
+      );
     } catch (e) {
       print('❌ Geçmiş depremler yükleme hatası: $e');
       setState(() {
@@ -210,10 +295,7 @@ class _HistoryPageState extends State<HistoryPage> {
             children: [
               Text(
                 'Deprem Detayları',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 24),
 
@@ -237,10 +319,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   SizedBox(width: 8),
                   Text(
                     intensity,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -382,9 +461,7 @@ class _HistoryPageState extends State<HistoryPage> {
         Expanded(
           child: _isLoading
               ? Center(
-                  child: CircularProgressIndicator(
-                    color: Color(0xFFFF3333),
-                  ),
+                  child: CircularProgressIndicator(color: Color(0xFFFF3333)),
                 )
               : _filteredEarthquakes.isEmpty
                   ? Center(
@@ -400,9 +477,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           Text(
                             'Deprem kaydı bulunamadı',
                             style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
+                                fontSize: 16, color: Colors.grey[600]),
                           ),
                           SizedBox(height: 16),
                           ElevatedButton.icon(
@@ -541,11 +616,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(
-                            Icons.layers,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
+                          Icon(Icons.layers, size: 14, color: Colors.grey[600]),
                           SizedBox(width: 4),
                           Text(
                             '${depth.toStringAsFixed(1)} km',
@@ -584,7 +655,9 @@ class _HistoryPageState extends State<HistoryPage> {
                             SizedBox(width: 8),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey[200],
                                 borderRadius: BorderRadius.circular(4),
@@ -606,11 +679,7 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
 
                 // Chevron
-                Icon(
-                  Icons.chevron_right,
-                  color: Colors.grey[400],
-                  size: 24,
-                ),
+                Icon(Icons.chevron_right, color: Colors.grey[400], size: 24),
               ],
             ),
           ),

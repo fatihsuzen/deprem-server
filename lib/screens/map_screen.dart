@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:location/location.dart';
+import 'dart:math' show sin, cos, sqrt, atan2;
 import '../services/auth_service.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
@@ -31,6 +32,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
   bool _showFaultLines = true;
+  int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
 
   // Friends data
   List<Map<String, dynamic>> _friends = [];
@@ -373,32 +375,63 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
     );
 
-    // Önce konum al, sonra haritayı focus et ve verileri yükle
-    _initializeMapWithLocation();
+    // Konum ve verileri yükle
+    _initializeMapData();
   }
 
-  Future<void> _initializeMapWithLocation() async {
-    // Kullanıcı konumunu al
-    await _getUserLocation();
+  Future<void> _initializeMapData() async {
+    // 1. User data'yı yükle (Google Sign-In session)
+    final authService = AuthService();
+    await authService.loadUserData();
+    print('✅ User session yüklendi');
 
-    // Konum alındıktan sonra haritayı konuma focus et
+    // 2. Kayıtlı konum var mı kontrol et (ÖNCE KONUM)
+    await _loadOrFetchLocation();
+
+    // 3. Konum alındıktan sonra haritayı konuma focus et
     if (mounted && !_locationLoading) {
       _mapController.move(_userLocation, 11.0);
-      print('🗺️  Harita kullanıcı konumuna odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+      print(
+          '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
     }
 
-    // Kullanıcı ayarlarını yükle ve depremleri getir
-    _loadUserSettingsAndEarthquakes();
+    // 4. KONUM ALINDIKTAN SONRA ayarları yükle ve depremleri çek
+    await _loadUserSettingsAndEarthquakes();
 
-    // Arkadaş listesini yükle - 3 saniye gecikme ile (kullanıcı girişi için)
-    Future.delayed(Duration(seconds: 3), () async {
-      if (mounted) {
-        // User data'yı yükle (Google Sign-In session)
-        final authService = AuthService();
-        await authService.loadUserData();
-        _loadFriends();
+    // 5. Arkadaş listesini yükle
+    if (mounted) {
+      _loadFriends();
+    }
+  }
+
+  // Kayıtlı konum varsa kullan, yoksa fetch et
+  Future<void> _loadOrFetchLocation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLat = prefs.getDouble('cached_user_lat');
+      final savedLon = prefs.getDouble('cached_user_lon');
+
+      if (savedLat != null && savedLon != null) {
+        // Kayıtlı konum kullan
+        setState(() {
+          _userLocation = LatLng(savedLat, savedLon);
+          _locationLoading = false;
+        });
+        print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
+      } else {
+        // İlk defa, konum çek
+        await _getUserLocation();
+        // Konumu kaydet
+        if (_userLocation.latitude != 39.0) {
+          await prefs.setDouble('cached_user_lat', _userLocation.latitude);
+          await prefs.setDouble('cached_user_lon', _userLocation.longitude);
+          print('💾 Konum kaydedildi');
+        }
       }
-    });
+    } catch (e) {
+      print('❌ Konum yükleme hatası: $e');
+      await _getUserLocation();
+    }
   }
 
   Future<void> _getUserLocation() async {
@@ -431,8 +464,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           _locationLoading = false;
         });
 
+        // SharedPreferences'a kaydet (History ekranı ile senkronize)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('lastLatitude', locationData.latitude!);
+        await prefs.setDouble('lastLongitude', locationData.longitude!);
+
         print(
-            '✅ Kullanıcı konumu alındı: ${locationData.latitude}, ${locationData.longitude}');
+            '✅ Kullanıcı konumu alındı ve kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
       }
     } catch (e) {
       print('❌ Konum alma hatası: $e');
@@ -464,7 +502,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       _notificationRadius = settings['notificationRadius'];
     });
 
-    // Ayarlara göre depremleri yükle
+    print(
+        '⚙️  Ayarlar yüklendi - Radius: $_notificationRadius km, Magnitude: $_minMagnitude-$_maxMagnitude');
+
+    // KONUM HAZIR, şimdi depremleri yükle
     await _loadEarthquakes();
   }
 
@@ -472,6 +513,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     setState(() => _earthquakesLoading = true);
 
     try {
+      print('\n🗺️ Map - Deprem verisi yükleniyor...');
+      print(
+          '   Kullanıcı konumu: ${_userLocation.latitude}, ${_userLocation.longitude}');
+      print('   Range: $_notificationRadius km');
+      print('   Magnitude: $_minMagnitude - $_maxMagnitude');
+
       // Kullanıcının gerçek konumunu kullan
       final earthquakes = await _earthquakeService.getRecentEarthquakes(
         limit: 100,
@@ -483,8 +530,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         region: 'Global', // Global depremler
       );
 
-      // Kullanıcının max magnitude ayarına göre filtrele
-      // Ve son 24 saat içindeki depremler
+      print('   API\'den ${earthquakes.length} deprem çekildi');
+
+      // Kullanıcının ayarlarına göre filtrele:
+      // 1. Max magnitude
+      // 2. 24 saat içinde
+      // NOT: Range filtresi marker rendering'de uygulanıyor
       final filteredEarthquakes = earthquakes.where((eq) {
         final magnitude = (eq['mag'] is int)
             ? (eq['mag'] as int).toDouble()
@@ -501,6 +552,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         return minutesAgo <= 1440; // 24 saat = 1440 dakika
       }).toList();
 
+      print(
+          '   Magnitude/zaman filtresinden sonra: ${filteredEarthquakes.length} deprem');
+      print('   (Range filtresi marker rendering\'de uygulanacak)\n');
+
       setState(() {
         _quakes = filteredEarthquakes;
         _earthquakesLoading = false;
@@ -511,8 +566,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         }
       });
 
-      print(
-          '✅ ${_quakes.length} deprem verisi yüklendi (${_minMagnitude.toStringAsFixed(1)}-${_maxMagnitude.toStringAsFixed(1)} aralığında)');
+      print('✅ Map - ${_quakes.length} deprem yüklendi');
     } catch (e) {
       print('❌ Deprem verisi yükleme hatası: $e');
       setState(() => _earthquakesLoading = false);
@@ -1044,8 +1098,47 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _mapController.move(_userLocation, 10.0);
   }
 
+  // Haversine formülü ile iki nokta arasındaki mesafeyi hesapla (km)
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
+    const double earthRadius = 6371; // km
+    final double dLat = _toRadians(lat2 - lat1);
+    final double dLon = _toRadians(lon2 - lon1);
+
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  double _toRadians(double degrees) {
+    return degrees * 3.141592653589793 / 180;
+  }
+
+  @override
   @override
   Widget build(BuildContext context) {
+    // Marker rendering istatistikleri
+    final earthquakesInRange = _quakes.where((q) {
+      final lat =
+          (q['lat'] is int) ? (q['lat'] as int).toDouble() : q['lat'] as double;
+      final lon =
+          (q['lon'] is int) ? (q['lon'] as int).toDouble() : q['lon'] as double;
+      final distance = _calculateDistance(
+          _userLocation.latitude, _userLocation.longitude, lat, lon);
+      return distance <= _notificationRadius;
+    }).length;
+
+    if (earthquakesInRange != _lastLoggedMarkerCount) {
+      print(
+          '🗺️ Map Rendering: ${_quakes.length} toplam → $earthquakesInRange range içinde ($_showEarthquakes ? "GÖSTER" : "GİZLE")');
+      _lastLoggedMarkerCount = earthquakesInRange;
+    }
+
     return Stack(
       children: [
         FlutterMap(
@@ -1187,10 +1280,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                // Deprem marker'ları
+                // Deprem marker'ları (range filtreli)
                 if (_showEarthquakes)
-                  ..._quakes.asMap().entries.map((entry) {
-                    final q = entry.value;
+                  ..._quakes.where((q) {
+                    // Kullanıcının belirlediği range içinde mi kontrol et
+                    final lat = (q['lat'] is int)
+                        ? (q['lat'] as int).toDouble()
+                        : q['lat'] as double;
+                    final lon = (q['lon'] is int)
+                        ? (q['lon'] as int).toDouble()
+                        : q['lon'] as double;
+
+                    // Kullanıcıya uzaklık hesapla (km)
+                    final distance = _calculateDistance(
+                      _userLocation.latitude,
+                      _userLocation.longitude,
+                      lat,
+                      lon,
+                    );
+
+                    // NotificationRadius (km) içinde mi?
+                    return distance <= _notificationRadius;
+                  }).map((q) {
                     final lat = (q['lat'] is int)
                         ? (q['lat'] as int).toDouble()
                         : q['lat'] as double;
