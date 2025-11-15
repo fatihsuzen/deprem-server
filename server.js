@@ -253,6 +253,17 @@ app.get('/api/p2p/statistics', (req, res) => {
   }
 });
 
+// P2P Stats (kısa yol)
+app.get('/api/p2p/stats', (req, res) => {
+  try {
+    const stats = p2pEarthquakeAnalyzer.getStatistics();
+    res.json(stats);
+  } catch (error) {
+    console.error('❌ P2P istatistik hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Register user endpoint
 app.post('/api/register', async (req, res) => {
   try {
@@ -969,5 +980,6 @@ module.exports = {
   app,
   server,
   deviceManager,
-  notificationService
+  notificationService,
+  earthquakeMonitor
 };

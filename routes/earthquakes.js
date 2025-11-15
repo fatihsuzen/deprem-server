@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
+// Get earthquakeMonitor from server module (will be set after server initializes)
+let earthquakeMonitor = null;
+try {
+  const serverModule = require('../server');
+  earthquakeMonitor = serverModule.earthquakeMonitor;
+} catch (e) {
+  // Server not initialized yet, will be available later
+  console.log('ℹ️  earthquakeMonitor will be initialized by server');
+}
+
 // Mesafe hesaplama (Haversine formülü)
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371; // Dünya yarıçapı (km)
@@ -245,12 +255,49 @@ async function fetchAFADData() {
 }
 
 // Kandilli verilerini çekmek için (Türkiye için detaylı)
-// NOT: Artık eski HTML parser yerine earthquakeMonitor servisini kullanıyoruz
+// NOT: Artık earthquakeMonitor servisinden alıyoruz - doğru parser ile parse edilmiş veri
 async function fetchKandilliData() {
   try {
-    // earthquakeMonitor servisi zaten doğru parser ile Kandilli verilerini çekiyor
-    // Burada sadece bellekteki cache'den alıyoruz
-    return []; // earthquakeMonitor servisi zaten tüm depremleri döndürüyor
+    if (!earthquakeMonitor) {
+      console.log('⚠️  earthquakeMonitor henüz hazır değil');
+      return [];
+    }
+    
+    // earthquakeMonitor'den tüm depremleri al, sadece Kandilli olanları filtrele
+    const allEarthquakes = earthquakeMonitor.getRecentEarthquakes(500);
+    const kandilliEarthquakes = allEarthquakes
+      .filter(eq => eq.source === 'Kandilli')
+      .map(eq => {
+        // Convert to route format
+        const quakeDate = new Date(eq.timestamp);
+        const minutesAgo = Math.floor((Date.now() - quakeDate.getTime()) / (1000 * 60));
+        
+        return {
+          id: eq.id,
+          lat: eq.location.latitude,
+          lon: eq.location.longitude,
+          mag: eq.magnitude,
+          depth: eq.depth,
+          place: eq.place,
+          region: 'Turkey',
+          date: quakeDate.toLocaleDateString('en-US', { 
+            day: 'numeric', 
+            month: 'long', 
+            year: 'numeric' 
+          }),
+          time: quakeDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false
+          }),
+          timestamp: quakeDate.toISOString(),
+          minutesAgo,
+          source: 'Kandilli'
+        };
+      });
+    
+    console.log(`✅ ${kandilliEarthquakes.length} Kandilli deprem verisi hazır`);
+    return kandilliEarthquakes;
   } catch (error) {
     console.error('❌ Kandilli hatası:', error.message);
     return [];
