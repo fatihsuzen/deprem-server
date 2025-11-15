@@ -216,14 +216,16 @@ class P2PEarthquakeAnalyzer {
     else if (stats.count >= 5) probability += 15;
     else probability += (stats.count / 5) * 15;
     
-    // 2. Ortalama olasılık skoru (0-25 puan)
-    probability += (stats.avgProbabilityScore / 100) * 25;
+    // 2. Ortalama olasılık skoru (0-25 puan) - NaN kontrolü
+    const avgScore = stats.avgProbabilityScore || 0;
+    probability += (avgScore / 100) * 25;
     
-    // 3. Ortalama büyüklük (0-20 puan)
-    if (stats.avgAvgMagnitude >= 5.0) probability += 20;
-    else if (stats.avgAvgMagnitude >= 4.0) probability += 15;
-    else if (stats.avgAvgMagnitude >= 3.0) probability += 10;
-    else probability += (stats.avgAvgMagnitude / 5.0) * 20;
+    // 3. Ortalama büyüklük (0-20 puan) - NaN kontrolü
+    const avgMag = stats.avgAvgMagnitude || 0;
+    if (avgMag >= 5.0) probability += 20;
+    else if (avgMag >= 4.0) probability += 15;
+    else if (avgMag >= 3.0) probability += 10;
+    else probability += (avgMag / 5.0) * 20;
     
     // 4. Benzersiz kullanıcı sayısı (0-15 puan)
     // Farklı kullanıcılar = daha güvenilir
@@ -331,7 +333,10 @@ class P2PEarthquakeAnalyzer {
    * Büyüklük tahmin et (Richter benzeri)
    */
   _estimateMagnitude(stats, reports) {
-    if (!stats) return 0;
+    if (!stats || !stats.avgMaxMagnitude || isNaN(stats.avgMaxMagnitude)) {
+      console.log('⚠️ Geçersiz magnitude verisi, 3.0 varsayılan değeri kullanılıyor');
+      return 3.0;
+    }
     
     // İvmeölçer verilerinden Richter tahmini (yaklaşık formül)
     // M = log10(A) + f(distance)
@@ -434,8 +439,8 @@ class P2PEarthquakeAnalyzer {
     // Priority notification sistemini tetikle
     try {
       const priorityNotificationService = require('./priorityNotificationService');
-      if (priorityNotificationService) {
-        await priorityNotificationService.sendPriorityEarthquakeNotifications({
+      if (priorityNotificationService && typeof priorityNotificationService.sendEarthquakeNotifications === 'function') {
+        await priorityNotificationService.sendEarthquakeNotifications({
           eventId: earthquakeId,
           mag: analysis.estimatedMagnitude,
           magnitude: analysis.estimatedMagnitude,
@@ -444,14 +449,20 @@ class P2PEarthquakeAnalyzer {
             latitude: analysis.estimatedEpicenter.latitude,
             longitude: analysis.estimatedEpicenter.longitude
           },
+          coordinates: {
+            type: 'Point',
+            coordinates: [analysis.estimatedEpicenter.longitude, analysis.estimatedEpicenter.latitude]
+          },
           time: new Date(),
           source: 'P2P',
           depth: 10,
         });
         console.log(`✅ Priority notifications gönderildi`);
+      } else {
+        console.log('⚠️ Priority notification servisi bulunamadı veya fonksiyon yok');
       }
     } catch (notifError) {
-      console.error('❌ Notification hatası:', notifError);
+      console.error('❌ Notification hatası:', notifError.message);
     }
   }
 

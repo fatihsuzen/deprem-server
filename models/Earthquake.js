@@ -58,7 +58,7 @@ const earthquakeSchema = new mongoose.Schema({
   // Source
   source: { 
     type: String, 
-    enum: ['AFAD', 'Kandilli', 'USGS'], 
+    enum: ['AFAD', 'Kandilli', 'USGS', 'EMSC', 'P2P'], 
     required: true,
     index: true
   },
