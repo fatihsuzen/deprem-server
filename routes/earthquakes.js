@@ -320,29 +320,38 @@ router.get('/', async (req, res) => {
     const userLon = parseFloat(req.query.lon);
     const radius = parseFloat(req.query.radius) || null; // km cinsinden
     const region = req.query.region; // 'Turkey', 'Japan', 'Global' vs.
+    const source = req.query.source; // 'USGS', 'AFAD', 'Kandilli', 'EMSC' filtresi
 
     console.log(`📡 Deprem verileri çekiliyor...`);
     console.log(`   Limit: ${limit}, MinMag: ${minMag}, Period: ${period}`);
     console.log(`   Konum: ${userLat}, ${userLon}, Radius: ${radius}km`);
-    console.log(`   Bölge: ${region || 'All'}`);
+    console.log(`   Bölge: ${region || 'All'}, Kaynak: ${source || 'All'}`);
 
     let earthquakes = [];
 
-    // USGS'den veri çek (Ana kaynak - Global)
-    const usgsData = await fetchUSGSData(period);
-    earthquakes = earthquakes.concat(usgsData);
+    // Source filtresi yoksa veya USGS ise
+    if (!source || source === 'USGS') {
+      const usgsData = await fetchUSGSData(period);
+      earthquakes = earthquakes.concat(usgsData);
+    }
 
-    // AFAD verilerini her zaman ekle (Türkiye resmi kaynak)
-    const afadData = await fetchAFADData();
-    earthquakes = earthquakes.concat(afadData);
+    // Source filtresi yoksa veya AFAD ise
+    if (!source || source === 'AFAD') {
+      const afadData = await fetchAFADData();
+      earthquakes = earthquakes.concat(afadData);
+    }
 
-    // Kandilli verilerini her zaman ekle (Türkiye için önemli)
-    const kandilliData = await fetchKandilliData();
-    earthquakes = earthquakes.concat(kandilliData);
+    // Source filtresi yoksa veya Kandilli ise
+    if (!source || source === 'Kandilli') {
+      const kandilliData = await fetchKandilliData();
+      earthquakes = earthquakes.concat(kandilliData);
+    }
     
-    // EMSC verilerini her zaman ekle (Akdeniz/Avrupa bölgesi için önemli)
-    const emscData = await fetchEMSCData();
-    earthquakes = earthquakes.concat(emscData);
+    // Source filtresi yoksa veya EMSC ise
+    if (!source || source === 'EMSC') {
+      const emscData = await fetchEMSCData();
+      earthquakes = earthquakes.concat(emscData);
+    }
 
     // Minimum büyüklük filtresi
     earthquakes = earthquakes.filter(eq => eq.mag >= minMag);
