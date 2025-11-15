@@ -99,8 +99,8 @@ class PriorityNotificationService {
         try {
           // Kullanıcının notification settings kontrolü
           const notificationRadius = user.notificationSettings?.notificationRadius || 100; // Default 100 km
-          const minMagnitude = user.notificationSettings?.magnitudeRange?.[0] || 2.5; // Default 2.5
-          const maxMagnitude = user.notificationSettings?.magnitudeRange?.[1] || 10.0; // Default 10.0
+          const minMagnitude = user.notificationSettings?.minMagnitude || 2.5; // Default 2.5
+          const maxMagnitude = user.notificationSettings?.maxMagnitude || 10.0; // Default 10.0
 
           // 1. MESAFE FİLTRESİ: Range dışında mı?
           if (distance > notificationRadius) {
