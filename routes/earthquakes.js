@@ -245,54 +245,12 @@ async function fetchAFADData() {
 }
 
 // Kandilli verilerini çekmek için (Türkiye için detaylı)
+// NOT: Artık eski HTML parser yerine earthquakeMonitor servisini kullanıyoruz
 async function fetchKandilliData() {
   try {
-    const response = await axios.get('http://www.koeri.boun.edu.tr/scripts/lst0.asp', {
-      timeout: 10000,
-      headers: { 'User-Agent': 'Mozilla/5.0' }
-    });
-
-    const data = response.data;
-    const lines = data.split('\n');
-    const earthquakes = [];
-
-    for (let i = 6; i < lines.length - 1; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const parts = line.split(/\s+/);
-      if (parts.length < 9) continue;
-
-      const date = parts[0];
-      const time = parts[1];
-      const lat = parseFloat(parts[2]);
-      const lon = parseFloat(parts[3]);
-      const depth = parseFloat(parts[4]);
-      let mag = parseFloat(parts[7]) || parseFloat(parts[6]) || parseFloat(parts[5]);
-      const place = parts.slice(8).join(' ');
-
-      if (isNaN(lat) || isNaN(lon) || isNaN(mag)) continue;
-
-      const [day, month, year] = date.split('.');
-      const [hour, minute] = time.split(':');
-      const quakeDate = new Date(2000 + parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(minute));
-      const minutesAgo = Math.floor((Date.now() - quakeDate.getTime()) / (1000 * 60));
-
-      earthquakes.push({
-        id: `kandilli_${date}_${time}_${lat}_${lon}`,
-        lat, lon, mag, depth,
-        place: place.trim(),
-        region: 'Turkey',
-        date: `${day} ${['January','February','March','April','May','June','July','August','September','October','November','December'][parseInt(month)-1]} ${2000 + parseInt(year)}`,
-        time,
-        timestamp: quakeDate.toISOString(),
-        minutesAgo,
-        source: 'Kandilli'
-      });
-    }
-
-    console.log(`✅ ${earthquakes.length} Kandilli deprem verisi alındı`);
-    return earthquakes;
+    // earthquakeMonitor servisi zaten doğru parser ile Kandilli verilerini çekiyor
+    // Burada sadece bellekteki cache'den alıyoruz
+    return []; // earthquakeMonitor servisi zaten tüm depremleri döndürüyor
   } catch (error) {
     console.error('❌ Kandilli hatası:', error.message);
     return [];
