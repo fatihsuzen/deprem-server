@@ -40,6 +40,9 @@ class _SettingsPageState extends State<SettingsPage> {
       _shareLocationWithFriends = settings['shareLocation'];
       _isLoading = false;
     });
+    
+    // Ayarlar yüklendikten sonra servera senkronize et
+    await _syncSettingsToServer();
   }
 
   Future<void> _syncSettingsToServer() async {
