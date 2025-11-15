@@ -1094,6 +1094,20 @@ app.get('/api/test/earthquake-notification', async (req, res) => {
     console.log('📍 Test Depremi:', testEarthquake.location);
     console.log('📊 Büyüklük:', testEarthquake.magnitude);
     
+    // 1. WebSocket ile TÜM bağlı cihazlara gönder
+    console.log('📡 WebSocket ile bildirim gönderiliyor...');
+    io.emit('earthquake_alert', {
+      magnitude: testEarthquake.magnitude,
+      location: testEarthquake.location,
+      lat: testEarthquake.lat,
+      lon: testEarthquake.lon,
+      depth: testEarthquake.depth,
+      time: testEarthquake.time,
+      source: 'TEST'
+    });
+    console.log('✅ WebSocket bildirimi gönderildi!');
+    
+    // 2. FCM ile de dene (varsa)
     const PriorityNotificationService = require('./services/priorityNotificationService');
     const priorityService = new PriorityNotificationService(notificationService);
     

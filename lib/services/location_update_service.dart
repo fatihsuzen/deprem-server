@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'user_preferences_service.dart';
 
 class LocationUpdateService {
@@ -100,9 +99,11 @@ class LocationUpdateService {
         return false;
       }
 
-      // Firebase UID al
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      // SharedPreferences'tan user ID al (Firebase yerine)
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      
+      if (userId == null) {
         print('⚠️  Kullanıcı oturum açmamış, konum güncellenemedi');
         return false;
       }
@@ -119,7 +120,6 @@ class LocationUpdateService {
           '📍 Konum alındı: ${locationData.latitude}, ${locationData.longitude}');
 
       // Bildirim ayarlarını al
-      final prefs = await SharedPreferences.getInstance();
       final notificationRadius = prefs.getDouble('notification_radius') ?? 100.0;
       final minMagnitude = prefs.getDouble('min_magnitude') ?? 2.5;
       final maxMagnitude = prefs.getDouble('max_magnitude') ?? 9.7;
@@ -130,7 +130,7 @@ class LocationUpdateService {
             Uri.parse('$baseUrl/users/update-location'),
             headers: {
               'Content-Type': 'application/json',
-              'x-firebase-uid': user.uid,
+              'x-firebase-uid': userId,  // SharedPreferences'tan aldık
             },
             body: jsonEncode({
               'latitude': locationData.latitude,
@@ -180,9 +180,12 @@ class LocationUpdateService {
     bool? shareLocationWithFriends,
   }) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        print('⚠️  Kullanıcı oturum açmamış');
+      // SharedPreferences'tan user ID al (Firebase yerine)
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      
+      if (userId == null) {
+        print('⚠️  Kullanıcı oturum açmamış (user_id bulunamadı)');
         return false;
       }
 
@@ -196,12 +199,14 @@ class LocationUpdateService {
         body['shareLocationWithFriends'] = shareLocationWithFriends;
       }
 
+      print('📤 Ayarlar gönderiliyor: $notificationRadius km, M$minMagnitude-$maxMagnitude');
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/users/notification-settings'),
             headers: {
               'Content-Type': 'application/json',
-              'x-firebase-uid': user.uid,
+              'x-firebase-uid': userId,  // SharedPreferences'tan aldık
             },
             body: jsonEncode(body),
           )
@@ -231,8 +236,11 @@ class LocationUpdateService {
   /// Device token'ı sunucuya gönder (FCM için)
   Future<bool> sendDeviceToken(String token, String platform) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      // SharedPreferences'tan user ID al
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      
+      if (userId == null) {
         print('⚠️  Kullanıcı oturum açmamış');
         return false;
       }
@@ -242,7 +250,7 @@ class LocationUpdateService {
             Uri.parse('$baseUrl/users/device-token'),
             headers: {
               'Content-Type': 'application/json',
-              'x-firebase-uid': user.uid,
+              'x-firebase-uid': userId,
             },
             body: jsonEncode({
               'token': token,
