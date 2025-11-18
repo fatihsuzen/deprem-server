@@ -51,7 +51,7 @@ app.use(express.static('public'));
 
 // Routes
 const settingsRoutes = require('./routes/settings');
-const { router: fcmRoutes } = require('./routes/fcm');
+const { router: fcmRoutes } = require('./server/routes/fcm');
 app.use('/api/friends', friendsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/earthquakes', earthquakesRoutes);
