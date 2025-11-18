@@ -51,10 +51,12 @@ app.use(express.static('public'));
 
 // Routes
 const settingsRoutes = require('./routes/settings');
+const { router: fcmRoutes } = require('./routes/fcm');
 app.use('/api/friends', friendsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/earthquakes', earthquakesRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/fcm', fcmRoutes);
 
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
@@ -1094,7 +1096,18 @@ app.get('/api/test/earthquake-notification', async (req, res) => {
     console.log('📍 Test Depremi:', testEarthquake.location);
     console.log('📊 Büyüklük:', testEarthquake.magnitude);
     
-    // 1. WebSocket ile TÜM bağlı cihazlara gönder
+    // 1. FCM ile bildirim gönder (öncelikli - uygulama kapalıyken çalışır)
+    console.log('🔥 FCM ile bildirim gönderiliyor...');
+    const { sendEarthquakeNotificationToAll } = require('./routes/fcm');
+    const fcmResult = await sendEarthquakeNotificationToAll(testEarthquake);
+    
+    if (fcmResult.success) {
+      console.log('✅ FCM bildirimi gönderildi!');
+    } else {
+      console.log('❌ FCM hatası:', fcmResult.error);
+    }
+    
+    // 2. WebSocket ile TÜM bağlı cihazlara gönder (harita güncellemesi için)
     console.log('📡 WebSocket ile bildirim gönderiliyor...');
     io.emit('earthquake_alert', {
       magnitude: testEarthquake.magnitude,

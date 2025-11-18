@@ -26,6 +26,7 @@ dependencies:
   # Optional / legacy integrations required by some source files
   firebase_core: ^2.4.0
   firebase_auth: ^4.4.0
+  firebase_messaging: ^14.7.9
   cloud_firestore: ^4.6.0
   google_maps_flutter: ^2.4.1
   intl: ^0.18.0

@@ -21,7 +21,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
 
   bool _isMonitoring = false;
   List<String> _logs = [];
-  
+
   // Gerçek zamanlı sensör verileri
   double _currentMagnitude = 0.0;
   double _maxMagnitude = 0.0;
@@ -29,10 +29,20 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   int _reportsSent = 0;
   StreamSubscription<AccelerometerEvent>? _accelerometerSubscription;
   DateTime? _lastShakeTime;
-  
-  // Eşik değerleri - MASA SALLAMA İÇİN OPTİMİZE EDİLMİŞ
-  final double _shakeThreshold = 2.0; // m/s² - Hafif sarsıntı (masaya vurma)
-  final double _reportThreshold = 4.0; // Rapor göndermek için eşik (güçlü sarsıntı)
+
+  // GERÇEKÇİ DEPREM ALGORİTMASI - 3.0 DEPREM TESTİ
+  static const double GRAVITY = 9.8;
+  static const double NOISE_THRESHOLD = 0.3; // m/s² - Normal titreşim
+  static const double SHAKE_THRESHOLD =
+      0.8; // m/s² - 3.0 deprem (hafif sarsıntı)
+  static const double REPORT_THRESHOLD = 1.2; // m/s² - Rapor eşiği
+
+  // Baseline kalibrasyon
+  double _baselineX = 0.0;
+  double _baselineY = 0.0;
+  double _baselineZ = GRAVITY;
+  int _calibrationCount = 0;
+  static const int CALIBRATION_SAMPLES = 20;
 
   @override
   void initState() {
@@ -59,36 +69,71 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     });
 
     _addLog('🟢 İzleme başladı');
-    _addLog('📊 Eşik değeri: ${_shakeThreshold.toStringAsFixed(1)} m/s²');
+    _addLog('📐 Kalibrasyon yapılıyor... (20 örnek)');
+    _addLog('📊 3.0 deprem eşiği: ${SHAKE_THRESHOLD.toStringAsFixed(1)} m/s²');
 
     // P2P servisini başlat
     _p2pService.startMonitoring();
 
+    // Kalibrasyon ve baseline sıfırla
+    _calibrationCount = 0;
+    _baselineX = 0.0;
+    _baselineY = 0.0;
+    _baselineZ = GRAVITY;
+
     // Manuel sensör dinleme (görsel feedback için)
-    _accelerometerSubscription = accelerometerEvents.listen((AccelerometerEvent event) {
-      double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-      
+    _accelerometerSubscription =
+        accelerometerEvents.listen((AccelerometerEvent event) {
+      // 1. KALİBRASYON: İlk 20 örnek
+      if (_calibrationCount < CALIBRATION_SAMPLES) {
+        _baselineX += event.x;
+        _baselineY += event.y;
+        _baselineZ += event.z;
+        _calibrationCount++;
+
+        if (_calibrationCount == CALIBRATION_SAMPLES) {
+          _baselineX /= CALIBRATION_SAMPLES;
+          _baselineY /= CALIBRATION_SAMPLES;
+          _baselineZ /= CALIBRATION_SAMPLES;
+          _addLog(
+              '✅ Kalibrasyon tamamlandı: (${_baselineX.toStringAsFixed(2)}, ${_baselineY.toStringAsFixed(2)}, ${_baselineZ.toStringAsFixed(2)})');
+        }
+        return;
+      }
+
+      // 2. GRAVİTY FİLTRELEME
+      final deltaX = event.x - _baselineX;
+      final deltaY = event.y - _baselineY;
+      final deltaZ = event.z - _baselineZ;
+      double magnitude =
+          sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+
       setState(() {
         _currentMagnitude = magnitude;
-        
+
         if (magnitude > _maxMagnitude) {
           _maxMagnitude = magnitude;
         }
-        
-        // Sarsıntı algılandı
-        if (magnitude > _shakeThreshold) {
+
+        // 3. NOISE FİLTRELEME
+        if (magnitude < NOISE_THRESHOLD) {
+          return; // Çok küçük, normal titreşim
+        }
+
+        // 4. SARSINTIYI ALGILA
+        if (magnitude > SHAKE_THRESHOLD) {
           final now = DateTime.now();
-          
-          // Spam önleme - 0.5 saniyede bir log (daha sık)
-          if (_lastShakeTime == null || 
+
+          // Spam önleme - 0.5 saniyede bir log
+          if (_lastShakeTime == null ||
               now.difference(_lastShakeTime!).inMilliseconds >= 500) {
             _shakeCount++;
             _lastShakeTime = now;
-            _addLog('⚡ Sarsıntı! Şiddet: ${magnitude.toStringAsFixed(2)} m/s²');
-            
-            // Güçlü sarsıntı - rapor gönderilecek
-            if (magnitude > _reportThreshold) {
-              _addLog('📤 GÜÇLÜ! Rapor gönderiliyor... (${magnitude.toStringAsFixed(2)} m/s²)');
+            _addLog('⚡ Sarsıntı! ${magnitude.toStringAsFixed(2)} m/s²');
+
+            // Rapor gönderme eşiği
+            if (magnitude > REPORT_THRESHOLD) {
+              _addLog('📤 RAPOR! ${magnitude.toStringAsFixed(2)} m/s²');
               _reportsSent++;
             }
           }
@@ -103,11 +148,11 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     if (!_isMonitoring) return;
 
     setState(() => _isMonitoring = false);
-    
+
     _accelerometerSubscription?.cancel();
     _accelerometerSubscription = null;
     _p2pService.stopMonitoring();
-    
+
     _addLog('🔴 İzleme durduruldu');
     _addLog('📊 Toplam sarsıntı: $_shakeCount');
     _addLog('📊 Gönderilen rapor: $_reportsSent');
@@ -117,17 +162,20 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   Future<void> _checkServerStats() async {
     try {
       _addLog('🔄 Sunucu istatistikleri kontrol ediliyor...');
-      
-      final response = await http.get(
-        Uri.parse('http://188.132.202.24:3000/api/p2p/stats'),
-      ).timeout(const Duration(seconds: 10));
+
+      final response = await http
+          .get(
+            Uri.parse('http://188.132.202.24:3000/api/p2p/stats'),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final stats = json.decode(response.body);
         _addLog('✅ Sunucu yanıtı alındı');
         _addLog('📊 Toplam rapor: ${stats['totalReports'] ?? 0}');
         _addLog('📊 Son 30sn rapor: ${stats['reportsLast30Sec'] ?? 0}');
-        _addLog('📊 Tespit edilen deprem: ${stats['detectedEarthquakes'] ?? 0}');
+        _addLog(
+            '📊 Tespit edilen deprem: ${stats['detectedEarthquakes'] ?? 0}');
       } else {
         _addLog('❌ Sunucu hatası: ${response.statusCode}');
       }
@@ -139,7 +187,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   Future<void> _sendTestReport() async {
     try {
       _addLog('🧪 Test raporu gönderiliyor...');
-      
+
       final testReport = {
         'userId': 'test_user_${DateTime.now().millisecondsSinceEpoch}',
         'location': {
@@ -160,11 +208,13 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      final response = await http.post(
-        Uri.parse('http://188.132.202.24:3000/api/p2p/shake-report'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(testReport),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse('http://188.132.202.24:3000/api/p2p/shake-report'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode(testReport),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final result = json.decode(response.body);
@@ -172,7 +222,8 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
         _addLog('📊 Analiz: ${result['message']}');
         if (result['analysis'] != null) {
           _addLog('📍 Bölge: ${result['analysis']['region']}');
-          _addLog('📈 Olasılık: ${result['analysis']['earthquakeProbability']}%');
+          _addLog(
+              '📈 Olasılık: ${result['analysis']['earthquakeProbability']}%');
         }
       } else {
         _addLog('❌ Sunucu hatası: ${response.statusCode}');
@@ -196,7 +247,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     setState(() {
       final timestamp = DateTime.now().toString().substring(11, 19);
       _logs.insert(0, '[$timestamp] $message');
-      
+
       // Max 50 log tut
       if (_logs.length > 50) {
         _logs.removeLast();
@@ -205,8 +256,8 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   }
 
   Color _getMagnitudeColor() {
-    if (_currentMagnitude > _reportThreshold) return Colors.red;
-    if (_currentMagnitude > _shakeThreshold) return Colors.orange;
+    if (_currentMagnitude > REPORT_THRESHOLD) return Colors.red;
+    if (_currentMagnitude > SHAKE_THRESHOLD) return Colors.orange;
     return Colors.green;
   }
 
@@ -237,9 +288,11 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
                   width: double.infinity,
                   height: 80,
                   child: ElevatedButton(
-                    onPressed: _isMonitoring ? _stopMonitoring : _startMonitoring,
+                    onPressed:
+                        _isMonitoring ? _stopMonitoring : _startMonitoring,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isMonitoring ? Colors.red : Colors.green,
+                      backgroundColor:
+                          _isMonitoring ? Colors.red : Colors.green,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -263,9 +316,9 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Sensör göstergeleri
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -312,24 +365,29 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
                           ),
                         ],
                       ),
-                      
+
                       const SizedBox(height: 12),
-                      
+
                       // İstatistikler
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatBox('Sarsıntı', _shakeCount.toString(), Icons.vibration),
-                          _buildStatBox('Rapor', _reportsSent.toString(), Icons.send),
-                          _buildStatBox('Max', '${_maxMagnitude.toStringAsFixed(1)}', Icons.arrow_upward),
+                          _buildStatBox('Sarsıntı', _shakeCount.toString(),
+                              Icons.vibration),
+                          _buildStatBox(
+                              'Rapor', _reportsSent.toString(), Icons.send),
+                          _buildStatBox(
+                              'Max',
+                              '${_maxMagnitude.toStringAsFixed(1)}',
+                              Icons.arrow_upward),
                         ],
                       ),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Test butonları
                 Row(
                   children: [
@@ -361,7 +419,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
               ],
             ),
           ),
-          
+
           // Alt panel - Loglar
           Expanded(
             child: Container(

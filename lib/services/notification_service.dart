@@ -93,7 +93,7 @@ class NotificationService {
         final location = parts[2];
         final distance = double.tryParse(parts[3]) ?? 0.0;
 
-        _showAlertScreen(magnitude, location, distance, 'AFAD');
+        showAlertScreen(magnitude, location, distance, 'AFAD');
       }
     }
   }
@@ -467,14 +467,14 @@ class NotificationService {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
 
     // 1. Önce tam ekran bildirim gönder (ekran kapalıyken uyandırmak için)
-    await _showWakeUpNotification(magnitude, location, distance);
+    await showWakeUpNotification(magnitude, location, distance);
 
     // 2. Uygulama açıksa veya bildirime tıklandığında tam ekran göster
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (navigatorKey.currentContext != null) {
       // Uygulama açık - direkt tam ekran göster
-      _showAlertScreen(magnitude, location, distance, source);
+      showAlertScreen(magnitude, location, distance, source);
     } else {
       // Uygulama kapalı - bildiri üstünden açılmasını bekle
       print('Uygulama kapalı - bildirim gönderildi');
@@ -482,7 +482,7 @@ class NotificationService {
   }
 
   // Ekranı uyandıran bildirim
-  Future<void> _showWakeUpNotification(
+  Future<void> showWakeUpNotification(
     double magnitude,
     String location,
     double distance,
@@ -550,7 +550,7 @@ class NotificationService {
   }
 
   // Tam ekran alert göster
-  void _showAlertScreen(
+  void showAlertScreen(
     double magnitude,
     String location,
     double distance,

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
+import '../widgets/background_service_controller.dart';
 import 'p2p_test_screen.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -41,7 +42,12 @@ class _SettingsPageState extends State<SettingsPage> {
       _isLoading = false;
     });
     
+    print('📱 Local ayarlar yüklendi:');
+    print('   Yarıçap: $_notificationRadius km');
+    print('   Büyüklük: $_minimumMagnitude - $_maximumMagnitude');
+    
     // Ayarlar yüklendikten sonra servera senkronize et
+    print('🔄 Ayarlar servera gönderiliyor...');
     await _syncSettingsToServer();
   }
 
@@ -365,6 +371,9 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListView(
       padding: EdgeInsets.all(0),
       children: [
+        // Arka Plan Servisi Kontrolü
+        const BackgroundServiceController(),
+        
         // Bildirimler Bölümü
         _buildSectionHeader('Bildirimler'),
         _buildSettingTile(

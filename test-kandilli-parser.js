@@ -40,8 +40,8 @@ async function testKandilliParser() {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Match the complete pattern in one line
-      const match = line.match(/(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
+      // Match the complete pattern in one line (NEW FORMAT with [XXX] prefix)
+      const match = line.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
       
       if (match) {
         console.log(`✅ Match bulundu [satır ${i}]:`);

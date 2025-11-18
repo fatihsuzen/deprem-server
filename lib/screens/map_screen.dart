@@ -571,11 +571,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 : (b['minutesAgo'] as double).toInt();
             return aMinutes < bMinutes ? a : b;
           });
-          
+
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
-          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+          print(
+              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
 

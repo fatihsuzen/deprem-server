@@ -7,6 +7,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'location_service.dart';
 
 class EarthquakeWebSocketService {
+    // P2P deprem bildirimi gönder
+    void sendP2PEarthquakeReport(Map<String, dynamic> payload) {
+      if (_socket != null && _isConnected) {
+        print('🌍 WebSocket ile P2P deprem bildirimi gönderiliyor: $payload');
+        _socket!.emit('p2p_earthquake_report', payload);
+      } else {
+        print('❌ WebSocket bağlı değil, P2P deprem bildirimi gönderilemedi');
+      }
+    }
   static final EarthquakeWebSocketService _instance =
       EarthquakeWebSocketService._internal();
   factory EarthquakeWebSocketService() => _instance;
@@ -220,8 +229,68 @@ class EarthquakeWebSocketService {
 
   // Deprem alert işle (daha kritik)
   Future<void> _handleEarthquakeAlert(dynamic data) async {
-    // Alert, warning'den daha kritiktir - aynı işlemi uygula
-    await _handleEarthquakeWarning(data);
+    try {
+      print('🚨 Alert data işleniyor: $data');
+      
+      final magnitude = (data['magnitude'] ?? 0.0).toDouble();
+      final location = data['location'] ?? 'Bilinmeyen Konum';
+      
+      // Koordinatlar direkt data'da (epicenter altında değil)
+      final earthquakeLat = (data['lat'] ?? 0.0).toDouble();
+      final earthquakeLon = (data['lon'] ?? 0.0).toDouble();
+
+      // Kullanıcının konumunu al
+      final userLocation = await _getUserLocation();
+      if (userLocation == null) {
+        print('⚠️ Kullanıcı konumu alınamadı, bildirim gönderilemiyor');
+        return;
+      }
+
+      final userLat = userLocation['latitude']!;
+      final userLon = userLocation['longitude']!;
+
+      // Mesafeyi hesapla
+      final distance =
+          _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+
+      print('📍 Deprem mesafesi: ${distance.toStringAsFixed(1)} km');
+
+      // Kullanıcının bildirim ayarlarını kontrol et
+      final prefs = await SharedPreferences.getInstance();
+      final notificationRadius = prefs.getDouble('notification_radius') ?? 100.0;
+      final minMagnitude = prefs.getDouble('min_magnitude') ?? 2.5;
+
+      if (magnitude < minMagnitude) {
+        print(
+            '⚠️ Deprem büyüklüğü minimum eşiğin altında: M$magnitude < M$minMagnitude');
+        return;
+      }
+
+      if (distance > notificationRadius) {
+        print(
+            '⚠️ Deprem yarıçap dışında: ${distance.toStringAsFixed(1)} km > ${notificationRadius.toInt()} km');
+        return;
+      }
+
+      print('✅ Bildirim koşulları sağlandı, tam ekran uyarı gösteriliyor...');
+
+      // TAM EKRAN UYARI GÖSTER
+      await _notificationService.showFullScreenEarthquakeAlert(
+        magnitude: magnitude,
+        location: location,
+        distance: distance,
+        source: data['source'] ?? 'TEST',
+        earthquakeLat: earthquakeLat,
+        earthquakeLon: earthquakeLon,
+        userLat: userLat,
+        userLon: userLon,
+      );
+
+      print('✅ Tam ekran deprem uyarısı gösterildi');
+    } catch (e, stackTrace) {
+      print('❌ Deprem alert işleme hatası: $e');
+      print('Stack trace: $stackTrace');
+    }
   }
 
   // P2P deprem tespiti işle
