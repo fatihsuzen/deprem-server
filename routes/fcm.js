@@ -1,3 +1,41 @@
+// Tüm cihazları ve tokenları listele (test/debug)
+router.get('/list-tokens', async (req, res) => {
+  try {
+    const Device = require('../models/Device');
+    const devices = await Device.find({ token: { $exists: true, $ne: null } });
+    res.json({
+      count: devices.length,
+      tokens: devices.map(d => ({ token: d.token, platform: d.platform, userId: d.userId }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Tek bir cihaza push bildirimi gönder (test)
+router.post('/send-one', async (req, res) => {
+  try {
+    const Device = require('../models/Device');
+    const pushDispatcher = require('../services/pushDispatcher');
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ error: 'Token gerekli' });
+
+    const device = await Device.findOne({ token });
+    if (!device) return res.status(404).json({ error: 'Cihaz bulunamadı' });
+
+    const payload = {
+      notification: {
+        title: req.body.title || 'Test Bildirimi',
+        body: req.body.body || 'Bu bir test mesajıdır'
+      },
+      data: req.body.data || { type: 'test' }
+    };
+    const result = await pushDispatcher.sendPushToDeviceEntries([device], payload);
+    res.json({ success: true, sent: result.sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 const express = require('express');
 const router = express.Router();
 
