@@ -56,7 +56,7 @@ app.use('/api/friends', friendsRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/earthquakes', earthquakesRoutes);
 app.use('/api/settings', settingsRoutes);
-app.use('/api/fcm', fcmRoutes);
+  app.use(fcmRoutes);
 
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
