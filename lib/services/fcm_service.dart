@@ -98,7 +98,7 @@ class FCMService {
       }
 
       // Kullanıcıyı sunucuya kaydet ve token'ı gönder
-      await registerTokenToServer(userId);
+      // Token kaydı artık sadece _sendTokenToServer ile yapılacak
 
       print('✅ FCM Service başlatıldı');
     } else {
@@ -141,19 +141,17 @@ class FCMService {
     // navigatorKey.currentState?.pushNamed('/earthquake-detail', arguments: message.data);
   }
 
-  // FCM Token'ı server'a gönder
+  // FCM Token'ı server'a gönder (her açılışta ve token yenilendiğinde)
   Future<void> _sendTokenToServer(String token) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      
       if (userId == null) {
         print('⚠️  User ID yok, token gönderilemedi');
         return;
       }
-
       final response = await http.post(
-        Uri.parse('http://188.132.202.24:3000/api/fcm/register'),
+        Uri.parse('http://188.132.202.24:3000/register'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'userId': userId,
@@ -161,25 +159,13 @@ class FCMService {
           'platform': 'android',
         }),
       );
-
       if (response.statusCode == 200) {
-        print('✅ FCM Token server\'a gönderildi');
+        print("✅ FCM Token server'a gönderildi");
       } else {
-        print('❌ Token gönderme hatası: ${response.statusCode}');
+        print("❌ Token gönderme hatası: "+response.statusCode.toString());
       }
     } catch (e) {
       print('❌ Token gönderme hatası: $e');
-    }
-  }
-
-  // Kullanıcıyı sunucuya kaydet ve token'ı gönder
-  Future<void> registerTokenToServer(String userId) async {
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null && userId.isNotEmpty) {
-      await http.post(
-        Uri.parse('http://localhost:3000/register-token'), // Sunucu adresini burada güncelle
-        body: {'userId': userId, 'token': token},
-      );
     }
   }
 

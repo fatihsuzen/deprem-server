@@ -8,10 +8,18 @@ router.use((req, res, next) => {
   next();
 });
 const admin = require('firebase-admin');
+const path = require('path');
 // Firebase Admin başlatma
 if (!admin.apps.length) {
+  const serviceAccount = require(path.join(__dirname, '../deprem-app-2f7d5-firebase-adminsdk-fbsvc-0f7c1f6c2d.json'));
   admin.initializeApp({
-    credential: admin.credential.cert(require('../deprem-app-2f7d5-firebase-adminsdk-fbsvc-0f7c1f6c2d.json'))
+<<<<<<< HEAD
+    credential: admin.credential.cert(serviceAccount)
+=======
+    credential: admin.credential.applicationDefault()
+    // Eğer serviceAccountKey.json varsa şunu kullanabilirsin:
+    // credential: admin.credential.cert(require('../../serviceAccountKey.json'))
+>>>>>>> parent of 13d7108 (Firebase Admin serviceAccountKey dosyası eklendi ve FCM başlatma kodu güncellendi)
   });
 }
 const bodyParser = require('body-parser');
