@@ -208,6 +208,25 @@ router.post('/send-push', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+  // Tüm kullanıcılara bildirim gönder
+  router.post('/send-all', async (req, res) => {
+    try {
+      const { title, body, data } = req.body;
+      const tokens = await UserToken.find().distinct('token');
+      if (!tokens.length) return res.status(404).json({ error: 'No tokens found' });
+
+      const message = {
+        notification: { title, body },
+        data: data || {},
+        tokens,
+      };
+
+      const response = await admin.messaging().sendMulticast(message);
+      res.json({ success: true, sent: response.successCount, failed: response.failureCount });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 module.exports = { 
   router, 
