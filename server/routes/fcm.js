@@ -4,6 +4,14 @@
 const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
+// Firebase Admin başlatma
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault()
+    // Eğer serviceAccountKey.json varsa şunu kullanabilirsin:
+    // credential: admin.credential.cert(require('../../serviceAccountKey.json'))
+  });
+}
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
