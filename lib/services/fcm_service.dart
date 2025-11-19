@@ -177,7 +177,7 @@ class FCMService {
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null && userId.isNotEmpty) {
       await http.post(
-        Uri.parse('https://sunucu-adresin.com/api/register-token'),
+        Uri.parse('http://localhost:3000/register-token'), // Sunucu adresini burada güncelle
         body: {'userId': userId, 'token': token},
       );
     }

@@ -7,6 +7,7 @@ const admin = require('firebase-admin');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const UserToken = require('../models/UserToken');
 
 router.use(bodyParser.json());
 router.use(bodyParser.urlencoded({ extended: true }));
@@ -38,33 +39,15 @@ function saveUserToken(userId, token) {
 
 // FCM Token kaydetme
 router.post('/register', async (req, res) => {
-  try {
-    const { userId, fcmToken, platform } = req.body;
-
-    if (!userId || !fcmToken) {
-      return res.status(400).json({ error: 'userId ve fcmToken gerekli' });
-    }
-
-    // Token'ı veritabanına kaydet
-    await db.query(
-      `INSERT INTO user_fcm_tokens (user_id, fcm_token, platform, updated_at) 
-       VALUES (?, ?, ?, NOW())
-       ON DUPLICATE KEY UPDATE 
-       fcm_token = VALUES(fcm_token),
-       platform = VALUES(platform),
-       updated_at = NOW()`,
-      [userId, fcmToken, platform]
-    );
-
-    // Ayrıca dosyaya kaydet
-    saveToken(fcmToken);
-
-    console.log(`✅ FCM Token kaydedildi - User: ${userId}`);
-    res.json({ success: true, message: 'FCM token kaydedildi' });
-  } catch (error) {
-    console.error('❌ FCM token kaydetme hatası:', error);
-    res.status(500).json({ error: 'Token kaydetme hatası' });
+  // Sadece dosya tabanlı kaydetme
+  const { userId, fcmToken, platform } = req.body;
+  if (!userId || !fcmToken) {
+    return res.status(400).json({ error: 'userId ve fcmToken gerekli' });
   }
+  saveUserToken(userId, fcmToken);
+  saveToken(fcmToken);
+  console.log(`✅ FCM Token kaydedildi - User: ${userId}`);
+  res.json({ success: true, message: 'FCM token kaydedildi' });
 });
 
 // Deprem bildirimi gönder (tüm kullanıcılara)
@@ -185,11 +168,19 @@ async function sendEarthquakeNotificationToUsers(earthquakeData, userTokens) {
   }
 }
 
-router.post('/register-token', (req, res) => {
-  const { userId, token } = req.body;
+router.post('/register-token', async (req, res) => {
+  const { userId, token, platform } = req.body;
   if (!userId || !token) return res.status(400).json({ error: 'userId or token missing' });
-  saveUserToken(userId, token);
-  res.json({ success: true });
+  try {
+    await UserToken.findOneAndUpdate(
+      { userId, token },
+      { userId, token, platform, updatedAt: new Date() },
+      { upsert: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post('/send-push', async (req, res) => {
