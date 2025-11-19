@@ -198,8 +198,14 @@ router.post('/send-push', async (req, res) => {
   if (fs.existsSync(USERS_FILE)) {
     users = JSON.parse(fs.readFileSync(USERS_FILE));
   }
-  const tokens = users[userId] || [];
-  if (tokens.length === 0) return res.status(400).json({ error: 'No tokens for user' });
+  let tokens = [];
+  if (userId) {
+    tokens = users[userId] || [];
+  } else {
+    // Tüm kullanıcıların tüm tokenlarını topla
+    Object.values(users).forEach(arr => tokens.push(...arr));
+  }
+  if (tokens.length === 0) return res.status(400).json({ error: 'No tokens found' });
   const message = {
     notification: { title, body },
     tokens: tokens
