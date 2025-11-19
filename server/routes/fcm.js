@@ -224,6 +224,26 @@ router.post('/send-push', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+  // Tek bir tokena push gönderen test endpointi
+  router.post('/send-single', async (req, res) => {
+      const { token } = req.body;
+      if (!token) {
+          return res.status(400).json({ error: 'Token gerekli' });
+      }
+      const message = {
+          notification: {
+              title: 'Test Bildirimi',
+              body: 'Bu bir test FCM bildirimi.'
+          },
+          token: token
+      };
+      try {
+          const response = await admin.messaging().send(message);
+          res.json({ success: true, response });
+      } catch (error) {
+          res.status(500).json({ success: false, error: error.message });
+      }
+  });
   // Tüm kullanıcılara bildirim gönder
   router.post('/send-all', async (req, res) => {
     try {
