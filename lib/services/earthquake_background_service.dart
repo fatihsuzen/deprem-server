@@ -9,12 +9,14 @@ class EarthquakeBackgroundService {
   static void initializeService() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'earthquake_alert_high', 
+        channelId: 'earthquake_alert_high',
         channelName: 'Deprem Acil Uyarıları',
         channelDescription: 'Yüksek öncelikli deprem uyarıları',
-        channelImportance: NotificationChannelImportance.LOW, // Normal takip için LOW
+        channelImportance:
+            NotificationChannelImportance.LOW, // Normal takip için LOW
         priority: NotificationPriority.LOW, // Normal takip için LOW
-        visibility: NotificationVisibility.VISIBILITY_SECRET, // Normal takipte gizli
+        visibility:
+            NotificationVisibility.VISIBILITY_SECRET, // Normal takipte gizli
         playSound: false, // Normal takipte ses yok
         enableVibration: false, // Normal takipte titreşim yok
         showWhen: true,
@@ -31,7 +33,7 @@ class EarthquakeBackgroundService {
         allowWifiLock: true,
       ),
     );
-    
+
     // Ekran uyandırma için wake lock aktif
     FlutterForegroundTask.setOnLockScreenVisibility(true);
   }
@@ -43,13 +45,13 @@ class EarthquakeBackgroundService {
     }
 
     print('Background servis baslatiliyor...');
-    
+
     await FlutterForegroundTask.startService(
       notificationTitle: 'Deprem Takip Aktif',
       notificationText: 'Deprem uyarilari icin bekleniyor...',
       callback: startCallback,
     );
-    
+
     return true;
   }
 
@@ -72,15 +74,15 @@ class EarthquakeTaskHandler extends TaskHandler {
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     print('🔧 Background WebSocket baslaniyor...');
-    
+
     try {
       // WebSocket baglantisi kur
-      _socket = IO.io('http://188.132.202.24:3000', 
-        IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .disableAutoConnect()
-          .build()
-      );
+      _socket = IO.io(
+          'http://188.132.202.24:3000',
+          IO.OptionBuilder()
+              .setTransports(['websocket'])
+              .disableAutoConnect()
+              .build());
 
       _socket?.on('connect', (_) {
         print('✅ Background WebSocket baglandi');
@@ -105,7 +107,6 @@ class EarthquakeTaskHandler extends TaskHandler {
       });
 
       _socket?.connect();
-      
     } catch (e) {
       print('❌ Background WebSocket hatasi: $e');
     }
@@ -114,55 +115,61 @@ class EarthquakeTaskHandler extends TaskHandler {
   Future<void> _handleEarthquakeData(dynamic data, String type) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final notificationRadius = prefs.getDouble('notification_radius') ?? 100.0;
+      final notificationRadius =
+          prefs.getDouble('notification_radius') ?? 100.0;
       final minMagnitude = prefs.getDouble('min_magnitude') ?? 2.5;
-      
+
       final magnitude = (data['magnitude'] ?? 0.0).toDouble();
       final location = data['location'] ?? 'Bilinmeyen';
       final earthquakeLat = (data['lat'] ?? 0.0).toDouble();
       final earthquakeLon = (data['lon'] ?? 0.0).toDouble();
-      
-      print('📍 Deprem: M$magnitude - $location ($earthquakeLat, $earthquakeLon)');
-      print('📏 Filtreler: Min M$minMagnitude, Yaricap ${notificationRadius}km');
-      
+
+      print(
+          '📍 Deprem: M$magnitude - $location ($earthquakeLat, $earthquakeLon)');
+      print(
+          '📏 Filtreler: Min M$minMagnitude, Yaricap ${notificationRadius}km');
+
       // Magnitude filtresi
       if (magnitude < minMagnitude) {
         print('⏭️  Magnitude cok dusuk ($magnitude < $minMagnitude), atlandi');
         return;
       }
-      
+
       // Kullanicinin son bilinen konumunu al (SharedPreferences'tan)
       final userLat = prefs.getDouble('last_latitude');
       final userLon = prefs.getDouble('last_longitude');
-      
+
       if (userLat == null || userLon == null) {
         print('⚠️  Kullanici konumu bilinmiyor, mesafe kontrolu yapilamiyor');
         print('   Bildirim yine de gosteriliyor...');
       } else {
         // Mesafe hesapla
-        final distance = _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+        final distance =
+            _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
         print('📏 Mesafe: ${distance.toStringAsFixed(1)} km');
-        
+
         if (distance > notificationRadius) {
-          print('⏭️  Mesafe cok uzak (${distance.toStringAsFixed(1)} km > $notificationRadius km), atlandi');
+          print(
+              '⏭️  Mesafe cok uzak (${distance.toStringAsFixed(1)} km > $notificationRadius km), atlandi');
           return;
         }
       }
-      
+
       // 🚨 TAM EKRAN ALARM - NotificationService ile
       print('🚨 TAM EKRAN ALARM ACILIYOR...');
-      
+
       try {
         // Mesafe bilgisini hesapla
         final prefs = await SharedPreferences.getInstance();
         final userLat = prefs.getDouble('last_latitude');
         final userLon = prefs.getDouble('last_longitude');
-        
+
         double distance = 0;
         if (userLat != null && userLon != null) {
-          distance = _calculateDistance(userLat, userLon, earthquakeLat, earthquakeLon);
+          distance = _calculateDistance(
+              userLat, userLon, earthquakeLat, earthquakeLon);
         }
-        
+
         // TAM EKRAN ALARM GÖNDER
         final notificationService = NotificationService();
         await notificationService.showFullScreenEarthquakeAlert(
@@ -175,12 +182,12 @@ class EarthquakeTaskHandler extends TaskHandler {
           userLat: userLat,
           userLon: userLon,
         );
-        
+
         print('✅ Tam ekran alarm gonderildi');
       } catch (e) {
         print('❌ Alarm gonderme hatasi: $e');
       }
-      
+
       // Ekranı uyandır
       try {
         FlutterForegroundTask.wakeUpScreen();
@@ -188,34 +195,36 @@ class EarthquakeTaskHandler extends TaskHandler {
       } catch (e) {
         print('⚠️  Ekran uyandirma hatasi: $e');
       }
-      
+
       // Background service notification'ı güncelle
       FlutterForegroundTask.updateService(
         notificationTitle: '🚨 DEPREM! M$magnitude',
         notificationText: '$location - ŞİMDİ OLDU',
       );
-      
+
       print('✅ Background notification gosterildi: M$magnitude - $location');
-      
     } catch (e) {
       print('❌ Deprem data isleme hatasi: $e');
     }
   }
-  
+
   // Mesafe hesaplama (Haversine formulu)
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistance(
+      double lat1, double lon1, double lat2, double lon2) {
     const double earthRadius = 6371; // km
     final dLat = _toRadians(lat2 - lat1);
     final dLon = _toRadians(lon2 - lon1);
-    
+
     final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
-        sin(dLon / 2) * sin(dLon / 2);
-    
+        cos(_toRadians(lat1)) *
+            cos(_toRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+
     final c = 2 * atan2(sqrt(a), sqrt(1 - a));
     return earthRadius * c;
   }
-  
+
   double _toRadians(double degrees) {
     return degrees * (pi / 180.0);
   }

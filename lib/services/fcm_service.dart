@@ -12,15 +12,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('🔥 BACKGROUND FCM MESSAGE: ${message.messageId}');
   print('   Data: ${message.data}');
-  
+
   // Deprem verisi varsa işle
-  if (message.data.containsKey('type') && message.data['type'] == 'earthquake') {
+  if (message.data.containsKey('type') &&
+      message.data['type'] == 'earthquake') {
     final magnitude = double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
     final location = message.data['location'] ?? 'Bilinmeyen';
     final distance = double.tryParse(message.data['distance'] ?? '0') ?? 0.0;
-    
+
     print('🚨 DEPREM ALARMI (Background): M$magnitude - $location');
-    
+
     // Tam ekran bildirim göster
     final notificationService = NotificationService();
     await notificationService.showFullScreenEarthquakeAlert(
@@ -62,16 +63,16 @@ class FCMService {
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('✅ Bildirim izni verildi');
-      
+
       // FCM Token al
       _fcmToken = await _firebaseMessaging.getToken();
       print('🔑 FCM Token: $_fcmToken');
-      
+
       // Token'ı SharedPreferences'a kaydet
       final prefs = await SharedPreferences.getInstance();
       if (_fcmToken != null) {
         await prefs.setString('fcm_token', _fcmToken!);
-        
+
         // Server'a gönder
         await _sendTokenToServer(_fcmToken!);
       }
@@ -91,7 +92,8 @@ class FCMService {
       FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       // Uygulama kapalıyken gelen bildirimleri kontrol et
-      RemoteMessage? initialMessage = await _firebaseMessaging.getInitialMessage();
+      RemoteMessage? initialMessage =
+          await _firebaseMessaging.getInitialMessage();
       if (initialMessage != null) {
         print('📲 Uygulama bildirimden açıldı');
         _handleMessageOpenedApp(initialMessage);
@@ -114,13 +116,15 @@ class FCMService {
     print('   Data: ${message.data}');
 
     // Deprem verisi varsa işle
-    if (message.data.containsKey('type') && message.data['type'] == 'earthquake') {
-      final magnitude = double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
+    if (message.data.containsKey('type') &&
+        message.data['type'] == 'earthquake') {
+      final magnitude =
+          double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
       final location = message.data['location'] ?? 'Bilinmeyen';
       final distance = double.tryParse(message.data['distance'] ?? '0') ?? 0.0;
-      
+
       print('🚨 DEPREM ALARMI (Foreground): M$magnitude - $location');
-      
+
       // Tam ekran bildirim göster
       final notificationService = NotificationService();
       notificationService.showFullScreenEarthquakeAlert(
@@ -136,7 +140,7 @@ class FCMService {
   void _handleMessageOpenedApp(RemoteMessage message) {
     print('📱 Bildirime tıklandı: ${message.messageId}');
     print('   Data: ${message.data}');
-    
+
     // Deprem detay sayfasına yönlendir (opsiyonel)
     // navigatorKey.currentState?.pushNamed('/earthquake-detail', arguments: message.data);
   }
@@ -162,7 +166,7 @@ class FCMService {
       if (response.statusCode == 200) {
         print("✅ FCM Token server'a gönderildi");
       } else {
-        print("❌ Token gönderme hatası: "+response.statusCode.toString());
+        print("❌ Token gönderme hatası: " + response.statusCode.toString());
       }
     } catch (e) {
       print('❌ Token gönderme hatası: $e');

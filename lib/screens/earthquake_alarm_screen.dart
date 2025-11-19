@@ -24,10 +24,10 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
   @override
   void initState() {
     super.initState();
-    
+
     // Tam ekran yap
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    
+
     // Animasyon
     _animationController = AnimationController(
       vsync: this,
@@ -64,9 +64,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 );
               },
             ),
-            
+
             const SizedBox(height: 30),
-            
+
             // DEPREM UYARISI
             const Text(
               '⚠️ DEPREM UYARISI ⚠️',
@@ -78,9 +78,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 40),
-            
+
             // Magnitude
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
@@ -110,9 +110,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 30),
-            
+
             // Konum
             Container(
               padding: const EdgeInsets.all(20),
@@ -149,9 +149,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 50),
-            
+
             // Güvenlik mesajı
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 40),
@@ -190,9 +190,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 ],
               ),
             ),
-            
+
             const Spacer(),
-            
+
             // Kapat butonu
             Padding(
               padding: const EdgeInsets.all(30),
@@ -203,7 +203,8 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.red.shade900,
-                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 50, vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),

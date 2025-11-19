@@ -41,11 +41,11 @@ class _SettingsPageState extends State<SettingsPage> {
       _shareLocationWithFriends = settings['shareLocation'];
       _isLoading = false;
     });
-    
+
     print('📱 Local ayarlar yüklendi:');
     print('   Yarıçap: $_notificationRadius km');
     print('   Büyüklük: $_minimumMagnitude - $_maximumMagnitude');
-    
+
     // Ayarlar yüklendikten sonra servera senkronize et
     print('🔄 Ayarlar servera gönderiliyor...');
     await _syncSettingsToServer();
@@ -373,7 +373,7 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         // Arka Plan Servisi Kontrolü
         const BackgroundServiceController(),
-        
+
         // Bildirimler Bölümü
         _buildSectionHeader('Bildirimler'),
         _buildSettingTile(

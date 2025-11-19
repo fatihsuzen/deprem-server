@@ -22,7 +22,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Firebase initialize
   await Firebase.initializeApp();
   // Kullanıcı ID'sini AuthService üzerinden al
@@ -30,10 +30,10 @@ void main() async {
   await authService.loadUserData();
   final userId = authService.currentUserId ?? "anonymous";
   await FCMService().initialize(userId);
-  
+
   // FCM background handler kaydet
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  
+
   // Background service'i initialize et
   EarthquakeBackgroundService.initializeService();
 
@@ -86,14 +86,15 @@ void _initializeServicesInBackground() async {
     // Background service'i başlat (WebSocket yerine artık FCM kullanılacak)
     // WebSocket sadece gerçek zamanlı harita güncellemeleri için
     print('🚀 Background service başlatılıyor...');
-    final backgroundServiceStarted = await EarthquakeBackgroundService.startService();
+    final backgroundServiceStarted =
+        await EarthquakeBackgroundService.startService();
     if (backgroundServiceStarted) {
       print('✅ Background service started');
       print('   NOT: Deprem bildirimleri artık FCM üzerinden gelecek');
     } else {
       print('❌ Background service başlatılamadı!');
     }
-    
+
     // WebSocket artık sadece harita güncellemeleri için (opsiyonel)
 
     // P2P Deprem Algılama Sistemini Başlat (opsiyonel - sensör tabanlı)
@@ -226,10 +227,11 @@ class _DepremAppState extends State<DepremApp> {
         // Deprem alarm ekranı - URL parametreleri ile
         if (settings.name?.startsWith('/earthquake-alarm') ?? false) {
           final uri = Uri.parse(settings.name!);
-          final magnitude = double.tryParse(uri.queryParameters['magnitude'] ?? '0') ?? 0.0;
+          final magnitude =
+              double.tryParse(uri.queryParameters['magnitude'] ?? '0') ?? 0.0;
           final location = uri.queryParameters['location'] ?? 'Bilinmeyen';
           final time = uri.queryParameters['time'] ?? 'Şimdi';
-          
+
           return MaterialPageRoute(
             builder: (ctx) => EarthquakeAlarmScreen(
               magnitude: magnitude,

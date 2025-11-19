@@ -8,10 +8,12 @@ class BackgroundServiceController extends StatefulWidget {
   const BackgroundServiceController({super.key});
 
   @override
-  State<BackgroundServiceController> createState() => _BackgroundServiceControllerState();
+  State<BackgroundServiceController> createState() =>
+      _BackgroundServiceControllerState();
 }
 
-class _BackgroundServiceControllerState extends State<BackgroundServiceController> {
+class _BackgroundServiceControllerState
+    extends State<BackgroundServiceController> {
   bool _isRunning = false;
 
   @override
@@ -33,7 +35,8 @@ class _BackgroundServiceControllerState extends State<BackgroundServiceControlle
       await EarthquakeBackgroundService.stopService();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Arka plan servisi durduruldu - Bildirimler çalışmayabilir'),
+          content: Text(
+              '⚠️ Arka plan servisi durduruldu - Bildirimler çalışmayabilir'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -43,7 +46,8 @@ class _BackgroundServiceControllerState extends State<BackgroundServiceControlle
       if (started) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Arka plan servisi başlatıldı - Uygulama kapalıyken bile bildirim alacaksınız'),
+            content: Text(
+                '✅ Arka plan servisi başlatıldı - Uygulama kapalıyken bile bildirim alacaksınız'),
             backgroundColor: Colors.green,
           ),
         );
@@ -56,7 +60,7 @@ class _BackgroundServiceControllerState extends State<BackgroundServiceControlle
         );
       }
     }
-    
+
     await _checkServiceStatus();
   }
 
@@ -71,9 +75,9 @@ class _BackgroundServiceControllerState extends State<BackgroundServiceControlle
         ),
         title: const Text('Arka Plan Bildirimleri'),
         subtitle: Text(
-          _isRunning 
-            ? 'Aktif - Uygulama kapalıyken bile bildirim alırsınız'
-            : 'Kapalı - Sadece uygulama açıkken bildirim alırsınız',
+          _isRunning
+              ? 'Aktif - Uygulama kapalıyken bile bildirim alırsınız'
+              : 'Kapalı - Sadece uygulama açıkken bildirim alırsınız',
           style: TextStyle(
             fontSize: 12,
             color: _isRunning ? Colors.green : Colors.orange,

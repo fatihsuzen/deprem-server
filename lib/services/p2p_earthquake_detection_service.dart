@@ -116,7 +116,6 @@ class P2PEarthquakeDetectionService {
     print('📡 Sensörler dinleniyor...');
   }
 
-
   /// İvmeölçer verisi işle
   void _onAccelerometerData(AccelerometerEvent event) {
     final now = DateTime.now();
@@ -372,13 +371,15 @@ class P2PEarthquakeDetectionService {
     if (_lastReportTime != null) {
       final timeSinceLastReport = DateTime.now().difference(_lastReportTime!);
       if (timeSinceLastReport < COOLDOWN_PERIOD) {
-        print('⏳ Cooldown: ${COOLDOWN_PERIOD.inSeconds - timeSinceLastReport.inSeconds}s kaldı');
+        print(
+            '⏳ Cooldown: ${COOLDOWN_PERIOD.inSeconds - timeSinceLastReport.inSeconds}s kaldı');
         return;
       }
     }
 
     try {
-      print('🚨 SERVER\'A RAPOR GÖNDERİLİYOR (Skor: ${score.toStringAsFixed(1)})');
+      print(
+          '🚨 SERVER\'A RAPOR GÖNDERİLİYOR (Skor: ${score.toStringAsFixed(1)})');
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('userId');
       final latitude = prefs.getDouble('last_latitude');

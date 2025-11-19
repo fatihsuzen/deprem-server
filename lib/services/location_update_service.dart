@@ -102,7 +102,7 @@ class LocationUpdateService {
       // SharedPreferences'tan user ID al (Firebase yerine)
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      
+
       if (userId == null) {
         print('⚠️  Kullanıcı oturum açmamış, konum güncellenemedi');
         return false;
@@ -120,7 +120,8 @@ class LocationUpdateService {
           '📍 Konum alındı: ${locationData.latitude}, ${locationData.longitude}');
 
       // Bildirim ayarlarını al
-      final notificationRadius = prefs.getDouble('notification_radius') ?? 100.0;
+      final notificationRadius =
+          prefs.getDouble('notification_radius') ?? 100.0;
       final minMagnitude = prefs.getDouble('min_magnitude') ?? 2.5;
       final maxMagnitude = prefs.getDouble('max_magnitude') ?? 9.7;
 
@@ -130,7 +131,7 @@ class LocationUpdateService {
             Uri.parse('$baseUrl/users/update-location'),
             headers: {
               'Content-Type': 'application/json',
-              'x-firebase-uid': userId,  // SharedPreferences'tan aldık
+              'x-firebase-uid': userId, // SharedPreferences'tan aldık
             },
             body: jsonEncode({
               'latitude': locationData.latitude,
@@ -147,10 +148,11 @@ class LocationUpdateService {
         final data = jsonDecode(response.body);
         print(
             '✅ Konum sunucuya gönderildi: ${data['location']['latitude']}, ${data['location']['longitude']}');
-        
+
         // Bildirim ayarları da güncellendiyse logla
         if (data['notificationSettings'] != null) {
-          print('⚙️  Bildirim ayarları güncellendi: ${data['notificationSettings']['notificationRadius']} km');
+          print(
+              '⚙️  Bildirim ayarları güncellendi: ${data['notificationSettings']['notificationRadius']} km');
         }
 
         // Son güncelleme zamanını kaydet
@@ -183,7 +185,7 @@ class LocationUpdateService {
       // SharedPreferences'tan user ID al (Firebase yerine)
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      
+
       if (userId == null) {
         print('⚠️  Kullanıcı oturum açmamış (user_id bulunamadı)');
         return false;
@@ -199,14 +201,15 @@ class LocationUpdateService {
         body['shareLocationWithFriends'] = shareLocationWithFriends;
       }
 
-      print('📤 Ayarlar gönderiliyor: $notificationRadius km, M$minMagnitude-$maxMagnitude');
+      print(
+          '📤 Ayarlar gönderiliyor: $notificationRadius km, M$minMagnitude-$maxMagnitude');
 
       final response = await http
           .post(
             Uri.parse('$baseUrl/users/notification-settings'),
             headers: {
               'Content-Type': 'application/json',
-              'x-firebase-uid': userId,  // SharedPreferences'tan aldık
+              'x-firebase-uid': userId, // SharedPreferences'tan aldık
             },
             body: jsonEncode(body),
           )
@@ -239,7 +242,7 @@ class LocationUpdateService {
       // SharedPreferences'tan user ID al
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      
+
       if (userId == null) {
         print('⚠️  Kullanıcı oturum açmamış');
         return false;
