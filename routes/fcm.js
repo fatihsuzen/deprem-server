@@ -3,14 +3,15 @@ const router = express.Router();
 
 
 // Tüm kullanıcılara test bildirimi gönder
-const User = require('../models/User');
+
+const Device = require('../models/Device');
 const pushDispatcher = require('../services/pushDispatcher');
 
 router.post('/send-all', async (req, res) => {
   try {
-    // Tüm kullanıcıların cihaz tokenlarını çek
-    const users = await User.find({ token: { $exists: true, $ne: null } });
-    const deviceEntries = users.map(u => ({ token: u.token, platform: u.platform }));
+    // Tüm cihazların tokenlarını çek
+    const devices = await Device.find({ token: { $exists: true, $ne: null } });
+    const deviceEntries = devices.map(d => ({ token: d.token, platform: d.platform }));
     const payload = {
       notification: {
         title: req.body.title || 'Deprem Uyarısı',
