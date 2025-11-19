@@ -116,13 +116,6 @@ class P2PEarthquakeDetectionService {
     print('📡 Sensörler dinleniyor...');
   }
 
-  /// Sensör dinlemeyi durdur
-  void _stopSensorListening() {
-    _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
-    _accelerometerSubscription = null;
-    _gyroscopeSubscription = null;
-  }
 
   /// İvmeölçer verisi işle
   void _onAccelerometerData(AccelerometerEvent event) {
@@ -440,11 +433,6 @@ class P2PEarthquakeDetectionService {
         }
         _lastReportTime = DateTime.now();
       } else {
-        print('❌ Rapor gönderilemedi: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('❌ Server rapor hatası: $e');
-    }
         print('❌ Rapor gönderilemedi: ${response.statusCode}');
       }
     } catch (e) {

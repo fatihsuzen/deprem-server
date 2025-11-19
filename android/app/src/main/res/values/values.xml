@@ -1,0 +1,10 @@
+<resources>
+    <string name="default_web_client_id">1001004199238-78e1t0d41d0ua85r2b7vqb9vh7rf7785.apps.googleusercontent.com</string>
+    <string name="firebase_database_url">https://deprem-app-2f7d5.firebaseio.com</string>
+    <string name="gcm_defaultSenderId">936066754310</string>
+    <string name="google_api_key">AIzaSyCoB04UgbmNXSplrV8Ax32Hfpt4uIguuCo</string>
+    <string name="google_app_id">1:936066754310:android:9a03b7c351abd8b2c36087</string>
+    <string name="google_crash_reporting_api_key">AIzaSyCoB04UgbmNXSplrV8Ax32Hfpt4uIguuCo</string>
+    <string name="google_storage_bucket">deprem-app-2f7d5.appspot.com</string>
+    <string name="project_id">deprem-app-2f7d5</string>
+</resources>
