@@ -4,8 +4,7 @@ REM Tüm kullanıcılara deprem bildirimi gönderir
 setlocal
 set TITLE=Deprem Uyarısı
 set BODY=Bölgenizde deprem algılandı!
-set DATA={"type":"earthquake"}
 
-curl -X POST http://localhost:3000/send-all -H "Content-Type: application/json" -d "{\"title\":\"%TITLE%\",\"body\":\"%BODY%\",\"data\":%DATA%}" 
+curl -X POST http://188.132.202.24:3000/send-all -H "Content-Type: application/json" -d "{\"title\":\"%TITLE%\",\"body\":\"%BODY%\",\"data\":{\"type\":\"earthquake\"}}"
 endlocal
 pause
