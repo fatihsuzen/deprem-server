@@ -1,3 +1,6 @@
+const express = require('express');
+const router = express.Router();
+
 // Tüm cihazları ve tokenları listele (test/debug)
 router.get('/list-tokens', async (req, res) => {
   try {
