@@ -231,14 +231,20 @@ router.post('/send-push', async (req, res) => {
       const tokens = await UserToken.find().distinct('token');
       if (!tokens.length) return res.status(404).json({ error: 'No tokens found' });
 
-      const message = {
+      // Her token için mesaj objesi oluştur
+      const messages = tokens.map(token => ({
+        token,
         notification: { title, body },
-        data: data || {},
-        tokens,
-      };
+        data: data || {}
+      }));
 
-      const response = await admin.messaging().sendMulticast(message);
-      res.json({ success: true, sent: response.successCount, failed: response.failureCount });
+      // sendAll ile toplu gönderim
+      try {
+        const response = await admin.messaging().sendAll(messages);
+        res.json({ success: true, sent: response.successCount, failed: response.failureCount });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
