@@ -25,7 +25,11 @@ void main() async {
   
   // Firebase initialize
   await Firebase.initializeApp();
-  await FCMService().initialize();
+  // Kullanıcı ID'sini AuthService üzerinden al
+  final authService = AuthService();
+  await authService.loadUserData();
+  final userId = authService.currentUserId ?? "anonymous";
+  await FCMService().initialize(userId);
   
   // FCM background handler kaydet
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -75,7 +79,7 @@ void _initializeServicesInBackground() async {
     // FCM Service'i başlat (Firebase Cloud Messaging)
     print('🔥 FCM Service başlatılıyor...');
     final fcmService = FCMService();
-    await fcmService.initialize();
+    // main() fonksiyonunda zaten userId alınıp initialize ediliyor, burada tekrar gerek yok
     await fcmService.subscribeToEarthquakeAlerts();
     print('✅ FCM Service başlatıldı');
 
