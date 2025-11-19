@@ -8,7 +8,7 @@ router.use((req, res, next) => {
   next();
 });
 const admin = require('firebase-admin');
-const path = require('path');
+// Firebase Admin başlatma
 // Firebase Admin başlatma
 if (!admin.apps.length) {
   const serviceAccount = require(path.join(__dirname, '../deprem-app-2f7d5-firebase-adminsdk-fbsvc-0f7c1f6c2d.json'));
