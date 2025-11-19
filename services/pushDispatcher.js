@@ -12,6 +12,8 @@ module.exports = {
 
     for (const d of deviceEntries) {
       if (!d) continue;
+      // Debug: log each device entry
+      console.log('pushDispatcher deviceEntry:', d);
       // Prefer MQTT client id for Android persistent path
       if (d.mqttClientId) targets.push(`mqtt_${d.mqttClientId}`);
       // For iOS, prefix with apn_
