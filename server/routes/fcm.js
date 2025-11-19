@@ -3,6 +3,10 @@
 
 const express = require('express');
 const router = express.Router();
+router.use((req, res, next) => {
+  console.log(`[FCM ROUTER] ${req.method} ${req.originalUrl}`);
+  next();
+});
 const admin = require('firebase-admin');
 // Firebase Admin başlatma
 if (!admin.apps.length) {
