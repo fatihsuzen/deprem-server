@@ -44,7 +44,7 @@ class FCMService {
   String? get fcmToken => _fcmToken;
 
   // Initialize FCM
-  Future<void> initialize() async {
+  Future<void> initialize(String userId) async {
     print('🔥 FCM Service başlatılıyor...');
 
     // İzin iste (iOS ve Android 13+)
@@ -96,6 +96,9 @@ class FCMService {
         print('📲 Uygulama bildirimden açıldı');
         _handleMessageOpenedApp(initialMessage);
       }
+
+      // Kullanıcıyı sunucuya kaydet ve token'ı gönder
+      await registerTokenToServer(userId);
 
       print('✅ FCM Service başlatıldı');
     } else {
@@ -166,6 +169,17 @@ class FCMService {
       }
     } catch (e) {
       print('❌ Token gönderme hatası: $e');
+    }
+  }
+
+  // Kullanıcıyı sunucuya kaydet ve token'ı gönder
+  Future<void> registerTokenToServer(String userId) async {
+    final token = await FirebaseMessaging.instance.getToken();
+    if (token != null && userId.isNotEmpty) {
+      await http.post(
+        Uri.parse('https://sunucu-adresin.com/api/register-token'),
+        body: {'userId': userId, 'token': token},
+      );
     }
   }
 

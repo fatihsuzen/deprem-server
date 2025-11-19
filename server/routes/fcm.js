@@ -4,16 +4,37 @@
 const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
 
-// Firebase Admin SDK initialize (tek seferlik)
-// NOT: Service account key dosyanız olmalı
-// Firebase Console > Project Settings > Service Accounts > Generate New Private Key
-/*
-const serviceAccount = require('./path/to/serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-*/
+router.use(bodyParser.json());
+router.use(bodyParser.urlencoded({ extended: true }));
+
+// Token'ları dosyada tutmak için basit bir örnek (gerçek projede DB kullan)
+const TOKENS_FILE = path.join(__dirname, '../../tokens.json');
+const USERS_FILE = path.join(__dirname, '../../users_tokens.json');
+function saveToken(token) {
+  let tokens = [];
+  if (fs.existsSync(TOKENS_FILE)) {
+    tokens = JSON.parse(fs.readFileSync(TOKENS_FILE));
+  }
+  if (!tokens.includes(token)) {
+    tokens.push(token);
+    fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens));
+  }
+}
+function saveUserToken(userId, token) {
+  let users = {};
+  if (fs.existsSync(USERS_FILE)) {
+    users = JSON.parse(fs.readFileSync(USERS_FILE));
+  }
+  if (!users[userId]) users[userId] = [];
+  if (!users[userId].includes(token)) {
+    users[userId].push(token);
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users));
+  }
+}
 
 // FCM Token kaydetme
 router.post('/register', async (req, res) => {
@@ -34,6 +55,9 @@ router.post('/register', async (req, res) => {
        updated_at = NOW()`,
       [userId, fcmToken, platform]
     );
+
+    // Ayrıca dosyaya kaydet
+    saveToken(fcmToken);
 
     console.log(`✅ FCM Token kaydedildi - User: ${userId}`);
     res.json({ success: true, message: 'FCM token kaydedildi' });
@@ -160,6 +184,33 @@ async function sendEarthquakeNotificationToUsers(earthquakeData, userTokens) {
     return { success: false, error: error.message };
   }
 }
+
+router.post('/register-token', (req, res) => {
+  const { userId, token } = req.body;
+  if (!userId || !token) return res.status(400).json({ error: 'userId or token missing' });
+  saveUserToken(userId, token);
+  res.json({ success: true });
+});
+
+router.post('/send-push', async (req, res) => {
+  const { userId, title, body } = req.body;
+  let users = {};
+  if (fs.existsSync(USERS_FILE)) {
+    users = JSON.parse(fs.readFileSync(USERS_FILE));
+  }
+  const tokens = users[userId] || [];
+  if (tokens.length === 0) return res.status(400).json({ error: 'No tokens for user' });
+  const message = {
+    notification: { title, body },
+    tokens: tokens
+  };
+  try {
+    const response = await admin.messaging().sendMulticast(message);
+    res.json({ success: true, response });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = { 
   router, 
