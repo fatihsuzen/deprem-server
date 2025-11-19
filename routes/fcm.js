@@ -1,3 +1,5 @@
+const express = require('express');
+const router = express.Router();
 
 // Tüm cihazları ve tokenları listele (test/debug)
 router.get('/list-tokens', async (req, res) => {
@@ -37,8 +39,6 @@ router.post('/send-one', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-const express = require('express');
-const router = express.Router();
 
 
 // Tüm kullanıcılara test bildirimi gönder
