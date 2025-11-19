@@ -39,15 +39,23 @@ function saveUserToken(userId, token) {
 
 // FCM Token kaydetme
 router.post('/register', async (req, res) => {
-  // Sadece dosya tabanlı kaydetme
+  // MongoDB'ye kaydet
   const { userId, fcmToken, platform } = req.body;
   if (!userId || !fcmToken) {
     return res.status(400).json({ error: 'userId ve fcmToken gerekli' });
   }
-  saveUserToken(userId, fcmToken);
-  saveToken(fcmToken);
-  console.log(`✅ FCM Token kaydedildi - User: ${userId}`);
-  res.json({ success: true, message: 'FCM token kaydedildi' });
+  try {
+    await UserToken.findOneAndUpdate(
+      { userId, token: fcmToken },
+      { userId, token: fcmToken, platform, updatedAt: new Date() },
+      { upsert: true }
+    );
+    console.log(`✅ FCM Token kaydedildi - User: ${userId}`);
+    res.json({ success: true, message: 'FCM token kaydedildi' });
+  } catch (err) {
+    console.error('❌ Token kaydetme hatası:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Deprem bildirimi gönder (tüm kullanıcılara)
