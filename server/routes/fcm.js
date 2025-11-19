@@ -11,9 +11,7 @@ const admin = require('firebase-admin');
 // Firebase Admin başlatma
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.applicationDefault()
-    // Eğer serviceAccountKey.json varsa şunu kullanabilirsin:
-    // credential: admin.credential.cert(require('../../serviceAccountKey.json'))
+    credential: admin.credential.cert(require('../deprem-app-2f7d5-firebase-adminsdk-fbsvc-0f7c1f6c2d.json'))
   });
 }
 const bodyParser = require('body-parser');
