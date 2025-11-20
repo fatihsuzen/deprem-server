@@ -1,3 +1,15 @@
+
+// Tüm importlar en üstte
+import 'dart:convert';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class AuthService {
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+
   // OneSignal deviceId sunucuya kaydet
   Future<void> saveOneSignalIdToServer(String onesignalId) async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,16 +29,6 @@
       print('❌ OneSignal ID kaydedilemedi: ${response.statusCode}');
     }
   }
-// Tüm importlar en üstte
-import 'dart:convert';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
-class AuthService {
-  static final AuthService _instance = AuthService._internal();
-  factory AuthService() => _instance;
-  AuthService._internal();
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     // Android için scopes yeterli, serverClientId olmadan dene
