@@ -1,24 +1,4 @@
-// OneSignal ID kaydetme endpointi
-app.post('/api/users/onesignal-id', async (req, res) => {
-  try {
-    const { userId, onesignalId } = req.body;
-    if (!userId || !onesignalId) {
-      return res.status(400).json({ error: 'userId ve onesignalId gerekli' });
-    }
-    const User = require('./models/User');
-    const user = await User.findOne({ uid: userId });
-    if (!user) {
-      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-    }
-    user.onesignalId = onesignalId;
-    await user.save();
-    console.log(`✅ OneSignal ID kaydedildi: ${user.displayName} (${onesignalId})`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error('❌ OneSignal ID kaydetme hatası:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
-});
+
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -56,6 +36,40 @@ const io = socketIo(server, {
   },
   pingTimeout: 60000,
   pingInterval: 25000
+});
+
+// Admin: Tüm kullanıcıların OneSignal ID listesini döndür
+app.get('/api/admin/onesignal-ids', async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const users = await User.find({ onesignalId: { $ne: null } }).select('onesignalId');
+    const ids = users.map(u => u.onesignalId);
+    res.json(ids);
+  } catch (error) {
+    console.error('❌ OneSignal ID listesi hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
+// OneSignal ID kaydetme endpointi
+app.post('/api/users/onesignal-id', async (req, res) => {
+  try {
+    const { userId, onesignalId } = req.body;
+    if (!userId || !onesignalId) {
+      return res.status(400).json({ error: 'userId ve onesignalId gerekli' });
+    }
+    const User = require('./models/User');
+    const user = await User.findOne({ uid: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    user.onesignalId = onesignalId;
+    await user.save();
+    console.log(`✅ OneSignal ID kaydedildi: ${user.displayName} (${onesignalId})`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ OneSignal ID kaydetme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
 });
 
 // Middleware
