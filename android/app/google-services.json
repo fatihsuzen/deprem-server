@@ -1,41 +1,49 @@
 {
   "project_info": {
-    "project_number": "547050242420",
-    "project_id": "depremapp-8764c",
-    "storage_bucket": "depremapp-8764c.firebasestorage.app"
+    "project_number": "936066754310",
+    "project_id": "deprem-app-2f7d5",
+    "storage_bucket": "deprem-app-2f7d5.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:547050242420:android:9668692521fd4e9060ec21",
+        "mobilesdk_app_id": "1:936066754310:android:9a03b7c351abd8b2c36087",
         "android_client_info": {
-          "package_name": "com.depremhatti"
+          "package_name": "com.example.deprem_app"
         }
       },
       "oauth_client": [
         {
-          "client_id": "547050242420-1vel1ecctlsomr1h1aipacelf9c8dm52.apps.googleusercontent.com",
+          "client_id": "936066754310-j39r4sg03leht4kmqf185t0qmrhh021t.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.depremhatti",
-            "certificate_hash": "10b8d415c8296ee2df115d537efd27700a737b85"
+            "package_name": "com.example.deprem_app",
+            "certificate_hash": "a31233648851bca19b5c2b0c2b6b006d549435b1"
           }
         },
         {
-          "client_id": "547050242420-2l4eo0asaatio48fm358aa7b2v9b23o2.apps.googleusercontent.com",
+          "client_id": "936066754310-v8emeigg3u9vplq9f7sio5gb0gh61rbk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.deprem_app",
+            "certificate_hash": "6e7fa1507ebddb4c0c697b32fdd35d07caa13e15"
+          }
+        },
+        {
+          "client_id": "936066754310-s0ar9an5gol5qt85bhigu0lf033u58nu.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyD0kcT0dRTeVaOETKQxX2sKBjaz_65uNHQ"
+          "current_key": "AIzaSyCoB04UgbmNXSplrV8Ax32Hfpt4uIguuCo"
         }
       ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "547050242420-2l4eo0asaatio48fm358aa7b2v9b23o2.apps.googleusercontent.com",
+              "client_id": "936066754310-s0ar9an5gol5qt85bhigu0lf033u58nu.apps.googleusercontent.com",
               "client_type": 3
             }
           ]

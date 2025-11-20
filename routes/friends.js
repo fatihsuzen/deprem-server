@@ -5,18 +5,18 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// Middleware to validate Firebase UID in header
-const validateFirebaseUID = (req, res, next) => {
-  const uid = req.headers['x-firebase-uid'];
+// Middleware to validate userId in header (GoogleSignIn)
+const validateUserId = (req, res, next) => {
+  const uid = req.headers['x-user-id'];
   if (!uid) {
-    return res.status(401).json({ error: 'Firebase UID gerekli' });
+    return res.status(401).json({ error: 'Kullanıcı ID gerekli' });
   }
   req.userUID = uid;
   next();
 };
 
 // Get or create user profile
-router.post('/profile', validateFirebaseUID, [
+router.post('/profile', validateUserId, [
   body('email').isEmail().normalizeEmail(),
   body('displayName').trim().isLength({ min: 1, max: 50 }),
   body('photoURL').optional({ nullable: true, checkFalsy: true }).custom((value) => {
@@ -71,7 +71,7 @@ router.post('/profile', validateFirebaseUID, [
     res.json({
       success: true,
       user: {
-        uid: user.uid,
+        userId: user.uid,
         email: user.email,
         displayName: user.displayName,
         photoURL: user.photoURL,

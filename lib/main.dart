@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'screens/splash_screen.dart';
 import 'screens/root.dart';
 import 'screens/login_screen.dart';
@@ -23,16 +22,9 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Firebase initialize
-  await Firebase.initializeApp();
-  // Kullanıcı ID'sini AuthService üzerinden al
-  final authService = AuthService();
-  await authService.loadUserData();
-  final userId = authService.currentUserId ?? "anonymous";
-  await FCMService().initialize(userId);
-
-  // FCM background handler kaydet
-  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  // OneSignal başlat
+  OneSignal.initialize("37c0591e-7d1c-4754-b65c-1328feafd933");
+  OneSignal.Notifications.requestPermission(true);
 
   // Background service'i initialize et
   EarthquakeBackgroundService.initializeService();
@@ -76,12 +68,8 @@ void _initializeServicesInBackground() async {
     // Kullanıcı ayarlarını sunucuya gönder
     await _syncUserSettings();
 
-    // FCM Service'i başlat (Firebase Cloud Messaging)
-    print('🔥 FCM Service başlatılıyor...');
-    final fcmService = FCMService();
-    // main() fonksiyonunda zaten userId alınıp initialize ediliyor, burada tekrar gerek yok
-    await fcmService.subscribeToEarthquakeAlerts();
-    print('✅ FCM Service başlatıldı');
+    // OneSignal başlatıldı
+    print('✅ OneSignal başlatıldı');
 
     // Background service'i başlat (WebSocket yerine artık FCM kullanılacak)
     // WebSocket sadece gerçek zamanlı harita güncellemeleri için

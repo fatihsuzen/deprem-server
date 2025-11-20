@@ -1,7 +1,26 @@
+  // OneSignal deviceId sunucuya kaydet
+  Future<void> saveOneSignalIdToServer(String onesignalId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+    if (userId == null) return;
+    final response = await http.post(
+      Uri.parse('${AuthService.baseUrl}/users/onesignal-id'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'userId': userId,
+        'onesignalId': onesignalId,
+      }),
+    );
+    if (response.statusCode == 200) {
+      print('✅ OneSignal ID sunucuya kaydedildi');
+    } else {
+      print('❌ OneSignal ID kaydedilemedi: ${response.statusCode}');
+    }
+  }
+// Tüm importlar en üstte
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
-import 'mqtt_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
@@ -46,42 +65,22 @@ class AuthService {
     try {
       print('🔑 Google Sign-In başlatılıyor...');
 
-      // Önce mevcut oturumu kontrol et
-      final bool isSignedIn = await _googleSignIn.isSignedIn();
-      print('📱 Mevcut Google oturum durumu: $isSignedIn');
-
-      // Eğer zaten giriş yapılmışsa, mevcut kullanıcıyı al
-      GoogleSignInAccount? googleUser;
-      if (isSignedIn) {
-        googleUser = _googleSignIn.currentUser;
-        print('♻️ Mevcut Google kullanıcısı kullanılıyor');
-      }
-
-      // Eğer mevcut kullanıcı yoksa, yeni giriş yap
-      if (googleUser == null) {
-        print('🆕 Yeni Google girişi başlatılıyor...');
-        try {
-          googleUser = await _googleSignIn.signIn();
-        } catch (signInError) {
-          print('❌ Google Sign-In hatası: $signInError');
-          print('❌ Hata tipi: ${signInError.runtimeType}');
-          throw Exception('Google Sign-In başarısız: $signInError');
-        }
-      }
-
+      // Sadece Google ile giriş (Firebase olmadan)
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         print('❌ Kullanıcı Google girişini iptal etti veya hata oluştu');
         return null;
       }
 
-      print('✅ Google kullanıcısı alındı: ${googleUser.email}');
-      print('🔗 Google ID: ${googleUser.id}');
-      print('👤 Display Name: ${googleUser.displayName}');
+      _currentUserId = googleUser.id;
+      _currentUserEmail = googleUser.email;
+      _currentUserName = googleUser.displayName;
+      _currentUserPhotoUrl = googleUser.photoUrl;
 
       final userData = {
         'uid': googleUser.id,
-        'displayName': googleUser.displayName ?? 'Google Kullanıcı',
         'email': googleUser.email,
+        'displayName': googleUser.displayName ?? 'Google Kullanıcı',
         'photoURL': googleUser.photoUrl,
       };
 
@@ -90,71 +89,16 @@ class AuthService {
 
       try {
         await _createOrUpdateUserInDatabase(userData);
-        print('✅ Kullanıcı server\'a kaydedildi');
-        // After successful server user creation, ensure device mqttClientId is registered
-        try {
-          if (_currentUserId != null)
-            await _registerDeviceWithServer(_currentUserId!);
-          print('✅ Cihaz mqttClientId server\'a kaydedildi (auto)');
-          // Auto-start foreground MQTT service if user preference allows
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            final autoStart = prefs.getBool('auto_start_mqtt_service') ?? true;
-            if (autoStart) {
-              final running = await MqttService.instance.isServiceRunning();
-              if (!running) {
-                await MqttService.instance.startForegroundTask();
-              }
-            }
-          } catch (e) {
-            print('⚠️ Auto-start check failed: $e');
-          }
-        } catch (regErr) {
-          print('⚠️ Cihaz kayıt hatası (ignore): $regErr');
-        }
+        print("✅ Kullanıcı sunucuya kaydedildi");
       } catch (dbError) {
         print('⚠️ Server kayıt hatası: $dbError');
-        // Server hatası olsa da kullanıcı girişi başarılı sayılsın
       }
 
       return userData;
     } catch (e) {
       print('❌ Google Sign-In hatası: $e');
       print('🔍 Hata tipi: ${e.runtimeType}');
-
-      // Gerçek hatalar için null döndür, demo fallback kaldırıldı
       return null;
-    }
-  }
-
-  // Ensure mqtt client id exists in prefs and register device to server
-  Future<void> _registerDeviceWithServer(String userUid) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      String? mqttClientId = prefs.getString('mqtt_client_id');
-      if (mqttClientId == null) {
-        mqttClientId = 'android_${DateTime.now().millisecondsSinceEpoch}';
-        await prefs.setString('mqtt_client_id', mqttClientId);
-      }
-
-      final url = Uri.parse('${AuthService.baseUrl}/devices/register');
-      final body = jsonEncode({
-        'userId': userUid,
-        'deviceId': mqttClientId,
-        'mqttClientId': mqttClientId,
-        'platform': 'android'
-      });
-
-      final resp = await http
-          .post(url, headers: {'Content-Type': 'application/json'}, body: body)
-          .timeout(const Duration(seconds: 8));
-      if (resp.statusCode == 200) {
-        print('Device register success: ${resp.body}');
-      } else {
-        print('Device register failed: ${resp.statusCode} ${resp.body}');
-      }
-    } catch (e) {
-      print('Device register exception: $e');
     }
   }
 

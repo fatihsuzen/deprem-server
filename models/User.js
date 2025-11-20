@@ -1,3 +1,8 @@
+  onesignalId: {
+    type: String,
+    default: null,
+    index: true
+  },
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({

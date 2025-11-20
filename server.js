@@ -1,3 +1,24 @@
+// OneSignal ID kaydetme endpointi
+app.post('/api/users/onesignal-id', async (req, res) => {
+  try {
+    const { userId, onesignalId } = req.body;
+    if (!userId || !onesignalId) {
+      return res.status(400).json({ error: 'userId ve onesignalId gerekli' });
+    }
+    const User = require('./models/User');
+    const user = await User.findOne({ uid: userId });
+    if (!user) {
+      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    user.onesignalId = onesignalId;
+    await user.save();
+    console.log(`✅ OneSignal ID kaydedildi: ${user.displayName} (${onesignalId})`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ OneSignal ID kaydetme hatası:', error);
+    res.status(500).json({ error: 'Sunucu hatası' });
+  }
+});
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
