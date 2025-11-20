@@ -5,6 +5,16 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
+// Middleware to validate Firebase UID in header
+const validateFirebaseUID = (req, res, next) => {
+  const uid = req.headers['x-firebase-uid'];
+  if (!uid) {
+    return res.status(401).json({ error: 'Firebase UID gerekli' });
+  }
+  req.userUID = uid;
+  next();
+};
+
 // Middleware to validate userId in header (GoogleSignIn)
 const validateUserId = (req, res, next) => {
   const uid = req.headers['x-user-id'];
