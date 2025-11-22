@@ -1,7 +1,7 @@
-
 // Tüm importlar en üstte
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -18,10 +18,7 @@ class AuthService {
     final response = await http.post(
       Uri.parse('${AuthService.baseUrl}/users/onesignal-id'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'userId': userId,
-        'onesignalId': onesignalId,
-      }),
+      body: jsonEncode({'userId': userId, 'onesignalId': onesignalId}),
     );
     if (response.statusCode == 200) {
       print('✅ OneSignal ID sunucuya kaydedildi');
@@ -62,27 +59,33 @@ class AuthService {
   // Kullanıcı giriş yapılmış mı kontrol et
   bool get isLoggedIn => _currentUserId != null;
 
-  // Google ile giriş yap
-  Future<Map<String, dynamic>?> signInWithGoogle() async {
+  // Firebase ile Google Sign-In
+  Future<Map<String, dynamic>?> signInWithGoogleFirebase() async {
     try {
-      print('🔑 Google Sign-In başlatılıyor...');
-
-      // Sadece Google ile giriş (Firebase olmadan)
+      print('🔑 Google Sign-In (Firebase) başlatılıyor...');
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) {
         print('❌ Kullanıcı Google girişini iptal etti veya hata oluştu');
         return null;
       }
-
-      _currentUserId = googleUser.id;
-      _currentUserEmail = googleUser.email;
-      _currentUserName = googleUser.displayName;
-      _currentUserPhotoUrl = googleUser.photoUrl;
-
+      final GoogleSignInAuthentication? googleAuth =
+          await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth?.accessToken,
+        idToken: googleAuth?.idToken,
+      );
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+      if (user == null) return null;
+      _currentUserId = user.uid;
+      _currentUserEmail = user.email;
+      _currentUserName = user.displayName;
+      _currentUserPhotoUrl = user.photoURL;
       final userData = {
-        'uid': googleUser.id,
-        'email': googleUser.email,
-        'displayName': googleUser.displayName ?? 'Google Kullanıcı',
+        'uid': user.uid,
+        'email': user.email,
+        'displayName': user.displayName ?? 'Google Kullanıcı',
         'photoURL': googleUser.photoUrl,
       };
 
@@ -129,7 +132,8 @@ class AuthService {
 
   // Server'a kaydet
   Future<Map<String, dynamic>?> _createOrUpdateUserInDatabase(
-      Map<String, dynamic> userData) async {
+    Map<String, dynamic> userData,
+  ) async {
     try {
       final response = await http.post(
         Uri.parse('${AuthService.baseUrl}/register'),
@@ -207,10 +211,7 @@ class AuthService {
       final response = await http.put(
         Uri.parse('${AuthService.baseUrl}/users/update-location'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'latitude': latitude,
-          'longitude': longitude,
-        }),
+        body: jsonEncode({'latitude': latitude, 'longitude': longitude}),
       );
 
       if (response.statusCode == 200) {

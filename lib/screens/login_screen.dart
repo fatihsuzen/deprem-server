@@ -21,7 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       print('🔄 Login screen: Giriş başlatılıyor...');
-      final user = await _authService.signInWithGoogle();
+      final user = await _authService.signInWithGoogleFirebase();
 
       if (user != null && mounted) {
         print('✅ Login screen: Giriş başarılı, ana sayfaya yönlendiriliyor');

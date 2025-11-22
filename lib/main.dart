@@ -15,6 +15,11 @@ import 'services/location_update_service.dart';
 import 'services/user_preferences_service.dart';
 import 'services/earthquake_background_service.dart';
 import 'services/fcm_service.dart';
+import 'firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // Global navigation key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -22,9 +27,21 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Firebase başlat
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   // OneSignal başlat
   OneSignal.initialize("37c0591e-7d1c-4754-b65c-1328feafd933");
   OneSignal.Notifications.requestPermission(true);
+
+  // FCM notification setup
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print(
+        '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
+    // Burada local notification veya özel işlem başlatabilirsin
+  });
 
   // Background service'i initialize et
   EarthquakeBackgroundService.initializeService();
@@ -144,9 +161,7 @@ class _DepremAppState extends State<DepremApp> {
       return MaterialApp(
         home: Scaffold(
           body: Center(
-            child: CircularProgressIndicator(
-              color: Color(0xFFFF3A3D),
-            ),
+            child: CircularProgressIndicator(color: Color(0xFFFF3A3D)),
           ),
         ),
       );

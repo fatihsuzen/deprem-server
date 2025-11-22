@@ -1,5 +1,7 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+// Tile caching import kaldırıldı
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,6 +20,36 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+      // ...existing code...
+    final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+    @override
+    void initState() {
+      super.initState();
+      _firebaseMessaging.requestPermission();
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        if (message.notification != null) {
+          final title = message.notification!.title ?? 'Deprem Uyarısı';
+          final body = message.notification!.body ?? '';
+          // Uygulama açıkken push bildirimi için basit bir dialog göster
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text(title),
+              content: Text(body),
+              actions: [
+                TextButton(
+                  child: Text('Kapat'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          );
+        }
+      });
+    }
+  // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
+  bool _earthquakesLoading = false;
   late MapController _mapController;
   LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
   bool _locationLoading = true;
@@ -39,7 +71,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Earthquake data
   List<Map<String, dynamic>> _quakes = [];
-  bool _earthquakesLoading = true;
+  // Kaldırıldı, kullanılmıyor
 
   final FriendsService _friendsService = FriendsService();
   final EarthquakeService _earthquakeService = EarthquakeService();
@@ -360,21 +392,39 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _firebaseMessaging.requestPermission();
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (message.notification != null) {
+        final title = message.notification!.title ?? 'Deprem Uyarısı';
+        final body = message.notification!.body ?? '';
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(body),
+            actions: [
+              TextButton(
+                child: Text('Kapat'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+    // Harita tile cache başlat
+    // Tile caching kodu kaldırıldı
     _mapController = MapController();
-
     // Toggle durumlarını yükle
     _loadToggleStates();
-
     // Dalga animasyonu için
     _waveController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat();
-
     _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
     );
-
     // Konum ve verileri yükle
     _initializeMapData();
   }
@@ -559,8 +609,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       setState(() {
         _quakes = filteredEarthquakes;
         _earthquakesLoading = false;
-
-        // EN YENİ depremi bul (minutesAgo en küçük olan)
         if (_quakes.isNotEmpty) {
           _latestQuake = _quakes.reduce((a, b) {
             final aMinutes = (a['minutesAgo'] is int)
@@ -571,12 +619,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 : (b['minutesAgo'] as double).toInt();
             return aMinutes < bMinutes ? a : b;
           });
-
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
-          print(
-              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
 
@@ -1101,11 +1147,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   void _zoomIn() {
-    _mapController.move(_mapController.center, _mapController.zoom + 1);
+    _mapController.move(
+        _mapController.camera.center, _mapController.camera.zoom + 1);
   }
 
   void _zoomOut() {
-    _mapController.move(_mapController.center, _mapController.zoom - 1);
+    _mapController.move(
+        _mapController.camera.center, _mapController.camera.zoom - 1);
   }
 
   void _focusUserLocation() {
@@ -1157,12 +1205,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       children: [
         FlutterMap(
           mapController: _mapController,
-          options: MapOptions(center: _userLocation, zoom: 6.0),
+          options: MapOptions(
+            initialCenter: _userLocation,
+            initialZoom: 6.0,
+          ),
           children: [
             TileLayer(
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
               subdomains: ['a', 'b', 'c'],
               userAgentPackageName: 'dev.deprem_bildirim',
+                // tileProvider kaldırıldı, default tileProvider kullanılacak
             ),
             // Fay hatları katmanı
             if (_showFaultLines)
