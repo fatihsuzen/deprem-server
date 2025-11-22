@@ -6,13 +6,10 @@ const SCOPES = ['https://www.googleapis.com/auth/firebase.messaging'];
 const PROJECT_ID = 'depremapp2-ffb95';
 
 async function getAccessToken() {
-  const jwtClient = new google.auth.JWT(
-    key.client_email,
-    null,
-    key.private_key,
-    SCOPES,
-    null
-  );
+  const jwtClient = new google.auth.JWT();
+  jwtClient.email = key.client_email;
+  jwtClient.key = key.private_key;
+  jwtClient.scopes = SCOPES;
   const tokens = await jwtClient.authorize();
   return tokens.access_token;
 }
