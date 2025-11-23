@@ -132,15 +132,9 @@ app.post('/api/users/update-location', async (req, res) => {
 
     // FCM token kaydetme
       if (fcmToken) {
-        if (!user.deviceTokens) user.deviceTokens = [];
-        if (!user.deviceTokens.some(dt => dt.token === fcmToken)) {
-          user.deviceTokens.push({ token: fcmToken, platform: platform || 'android', addedAt: new Date() });
-          await user.save();
-          console.log('FCM token başarıyla kaydedildi (update-location):', fcmToken);
-        } else {
-          console.log('FCM token zaten kayıtlı (update-location):', fcmToken);
-        }
-    }
+        await user.addDeviceToken(fcmToken, platform || 'android');
+        console.log('FCM token kaydedildi/güncellendi (update-location):', fcmToken);
+      }
 
     // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
     if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
