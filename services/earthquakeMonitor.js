@@ -1,3 +1,12 @@
+// Dosya doğrudan çalıştırılırsa Kandilli test fonksiyonu
+if (require.main === module) {
+  const monitor = new EarthquakeMonitor();
+  monitor.checkKandilli().then(result => {
+    console.log('Kandilli parse sonucu:', result);
+  }).catch(err => {
+    console.error('Kandilli test hatası:', err);
+  });
+}
 const axios = require('axios');
 
 class EarthquakeMonitor {
@@ -349,9 +358,9 @@ class EarthquakeMonitor {
         // IMPORTANT: trim() is required because lines have \r at the end
         const trimmedLine = line.trim();
         
-        // NEW REGEX: Match lines starting with [XXX] followed by earthquake data
-        // [600] 2025.11.13 06:29:49  39.2547   28.0957  10.0  -.-  2.2  -.-  LOCATION
-        const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.-\s+([\d.]+)\s+-\.-\s+(.+)$/);
+        // Esnek REGEX: Birden fazla boşluk ve sütun varyasyonları için
+        // [600] 2025.11.13 06:29:49  39.2547   28.0957   10.0   -.-   2.2   -.-   LOCATION
+        const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.\-\s+([\d.]+)\s+-\.\-\s+(.+)$/);
         
         if (match) {
           try {
