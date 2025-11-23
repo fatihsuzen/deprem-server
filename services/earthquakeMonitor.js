@@ -357,74 +357,59 @@ class EarthquakeMonitor {
     // [600] 2025.11.13 06:29:49  39.2547   28.0957       10.0      -.-  2.2  -.-   KARAGUR-SINDIRGI (BALIKESIR)                      İlksel
     // Format: [NUM] DATE TIME LAT LON DEPTH -.- MAG -.- LOCATION
     try {
-      const lines = htmlData.split('\n');
-      const earthquakes = [];
-        
-      for (const line of lines) {
-        // IMPORTANT: trimEnd() is required because lines have \r at the end
-        const trimmedLine = line.trimEnd();
-            
-        // Esnek REGEX: Birden fazla boşluk ve sütun varyasyonları için
-        // [600] 2025.11.13 06:29:49  39.2547   28.0957   10.0   -.-   2.2   -.-   LOCATION
-        const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.\-\s+([\d.]+)\s+-\.\-\s+(.+)$/);
-            
-        if (match) {
-          try {
-            const [_, dateStr, timeStr, latStr, lonStr, depthStr, magStr, place] = match;
-                    
-            const lat = parseFloat(latStr);
-            const lon = parseFloat(lonStr);
-            const depth = parseFloat(depthStr);
-            const mag = parseFloat(magStr);
-                    
-            // Validate values
-            if (isNaN(lat) || isNaN(lon) || isNaN(mag) || mag <= 0 || mag > 10) {
-              continue;
-            }
-                    
-            // Parse date: 2025.11.15 05:55:23 → Date object
-            const [year, month, day] = dateStr.split('.').map(Number);
-            const [hour, minute, second] = timeStr.split(':').map(Number);
-                    
-            // Kandilli uses Turkey time (UTC+3) - create as local time
-            const timestamp = new Date(year, month - 1, day, hour, minute, second);
-                    
-            // Validate date is reasonable (not in future, not too old)
-            const now = new Date();
-            const ageHours = (now - timestamp) / (1000 * 60 * 60);
-                    
-            if (ageHours >= -1 && ageHours <= 72) { // Allow 1 hour in future (clock skew), up to 3 days old
-              earthquakes.push({
-                id: `kandilli_${dateStr.replace(/\./g, '')}_${timeStr.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
-                source: 'Kandilli',
-                magnitude: mag,
-                location: {
-                  latitude: lat,
-                  longitude: lon
-                },
-                depth: isNaN(depth) ? 0 : depth,
-                place: place.trim() || 'Turkey',
-                timestamp: timestamp,
-                type: 'earthquake',
-                rawDate: dateStr,
-                rawTime: timeStr
-              });
-            }
-          } catch (parseError) {
-            // Skip malformed lines
-            console.error('Kandilli parse error:', parseError.message);
-            continue;
-          }
-        }
+      // <pre> bloğundaki satırları bul
+      const preMatch = htmlData.match(/<pre>([\s\S]*?)<\/pre>/);
+      if (!preMatch) {
+        console.log('Kandilli <pre> bloğu bulunamadı!');
+        return [];
       }
-        
+      const preText = preMatch[1];
+      const lines = preText.split('\n').map(l => l.trimEnd());
+      const earthquakes = [];
+      for (const line of lines) {
+        // Sadece tarih ile başlayan satırları al
+        if (!/^\d{4}\.\d{2}\.\d{2}/.test(line)) continue;
+        // Sabit genişlikli alanlar
+        const tarih = line.substring(0, 10).trim();
+        const saat = line.substring(11, 19).trim();
+        const enlem = line.substring(20, 29).trim();
+        const boylam = line.substring(30, 39).trim();
+        const derinlik = line.substring(40, 52).trim();
+        const md = line.substring(53, 57).trim();
+        const ml = line.substring(58, 62).trim();
+        const mw = line.substring(63, 67).trim();
+        const yer = line.substring(68, 108).trim();
+        const cozum = line.substring(109).trim();
+        // Sayısal değerleri parse et
+        const lat = parseFloat(enlem);
+        const lon = parseFloat(boylam);
+        const depth = parseFloat(derinlik);
+        const mag = parseFloat(ml);
+        // Tarih ve saat birleştir
+        const [year, month, day] = tarih.split('.').map(Number);
+        const [hour, minute, second] = saat.split(':').map(Number);
+        const timestamp = new Date(year, month - 1, day, hour, minute, second);
+        // Mantıklı değer kontrolü
+        if (isNaN(lat) || isNaN(lon) || isNaN(mag) || mag <= 0 || mag > 10) continue;
+        earthquakes.push({
+          id: `kandilli_${tarih.replace(/\./g, '')}_${saat.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
+          source: 'Kandilli',
+          magnitude: mag,
+          location: {
+            latitude: lat,
+            longitude: lon
+          },
+          depth: isNaN(depth) ? 0 : depth,
+          place: yer || 'Turkey',
+          timestamp: timestamp,
+          type: 'earthquake',
+          rawDate: tarih,
+          rawTime: saat,
+          cozum
+        });
+      }
       console.log(`📊 Kandilli: ${earthquakes.length} deprem parse edildi`);
-        
-      // Return latest 20 earthquakes
-      return earthquakes
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 20);
-        
+      return earthquakes.sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
     } catch (error) {
       console.error('❌ Kandilli parsing hatası:', error);
       return [];
