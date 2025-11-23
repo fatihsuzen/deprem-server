@@ -101,70 +101,70 @@ app.post('/api/users/update-location', async (req, res) => {
     console.log('--- [DEBUG] /api/users/update-location ---');
     console.log('Headers:', JSON.stringify(req.headers, null, 2));
     console.log('Body:', JSON.stringify(req.body, null, 2));
-    console.log('Gelen UID header sunucu:', req.headers['x-firebase-uid'], 'Body userId:', req.body.userId);
-  try {
-      const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, uid, fcmToken, platform } = req.body;
-    const userUid = req.headers['x-firebase-uid'] || uid;
+    // Yeni format: { uid, fcmToken, location: { latitude, longitude, address }, settings: { notificationRadius, minMagnitude, maxMagnitude }, platform }
+    const body = req.body || {};
+    const userUid = req.headers['x-firebase-uid'] || body.uid;
+    const fcmToken = body.fcmToken;
+    const platform = body.platform || 'android';
+    const location = body.location || {};
+    const settings = body.settings || {};
+    const latitude = location.latitude;
+    const longitude = location.longitude;
+    const address = location.address || '';
+    const notificationRadius = settings.notificationRadius;
+    const minMagnitude = settings.minMagnitude;
+    const maxMagnitude = settings.maxMagnitude;
 
-    if (!userUid) {
-      return res.status(401).json({ error: 'Firebase UID gerekli' });
+    console.log('Gelen UID header sunucu:', req.headers['x-firebase-uid'], 'Body uid:', body.uid);
+    try {
+        if (!userUid) {
+            return res.status(401).json({ error: 'Firebase UID gerekli' });
+        }
+        if (latitude === undefined || longitude === undefined) {
+            return res.status(400).json({ error: 'Latitude ve longitude gerekli' });
+        }
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            return res.status(400).json({ error: 'Geçersiz koordinatlar' });
+        }
+        const User = require('./models/User');
+        console.log('Aranan UID:', userUid);
+        const user = await User.findOne({ uid: userUid });
+        console.log('Bulunan user:', user);
+        if (!user) {
+            return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+        }
+        await user.updateLocation(latitude, longitude, address);
+        // FCM token kaydetme
+        if (fcmToken) {
+            await user.addDeviceToken(fcmToken, platform);
+            console.log('FCM token kaydedildi/güncellendi (update-location):', fcmToken);
+        }
+        // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
+        if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
+            if (!user.notificationSettings) {
+                user.notificationSettings = {};
+            }
+            if (notificationRadius !== undefined) user.notificationSettings.notificationRadius = notificationRadius;
+            if (minMagnitude !== undefined) user.notificationSettings.minMagnitude = minMagnitude;
+            if (maxMagnitude !== undefined) user.notificationSettings.maxMagnitude = maxMagnitude;
+            await user.save();
+            console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${notificationRadius}km, M${minMagnitude}-${maxMagnitude}`);
+        }
+        console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
+        res.json({
+            success: true,
+            location: {
+                latitude,
+                longitude,
+                address,
+                lastUpdate: user.location.lastUpdate
+            },
+            notificationSettings: user.notificationSettings
+        });
+    } catch (error) {
+        console.error('❌ Location update hatası:', error);
+        res.status(500).json({ error: 'Sunucu hatası' });
     }
-
-    if (!latitude || !longitude) {
-      return res.status(400).json({ error: 'Latitude ve longitude gerekli' });
-    }
-
-    // Koordinat validasyonu
-    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-      return res.status(400).json({ error: 'Geçersiz koordinatlar' });
-    }
-
-    const User = require('./models/User');
-    console.log('Aranan UID:', userUid);
-    const user = await User.findOne({ uid: userUid });
-    console.log('Bulunan user:', user);
-    
-    if (!user) {
-      return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
-    }
-
-    await user.updateLocation(latitude, longitude, address || '');
-
-    // FCM token kaydetme
-      if (fcmToken) {
-        await user.addDeviceToken(fcmToken, platform || 'android');
-        console.log('FCM token kaydedildi/güncellendi (update-location):', fcmToken);
-      }
-
-    // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
-    if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
-      if (!user.notificationSettings) {
-        user.notificationSettings = {};
-      }
-      if (notificationRadius !== undefined) user.notificationSettings.notificationRadius = notificationRadius;
-      if (minMagnitude !== undefined) user.notificationSettings.minMagnitude = minMagnitude;
-      if (maxMagnitude !== undefined) user.notificationSettings.maxMagnitude = maxMagnitude;
-      await user.save();
-      console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${notificationRadius}km, M${minMagnitude}-${maxMagnitude}`);
-    }
-
-    console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
-
-    res.json({
-      success: true,
-      location: {
-        latitude,
-        longitude,
-        address: address || '',
-        lastUpdate: user.location.lastUpdate
-      },
-      notificationSettings: user.notificationSettings
-    });
-
-  } catch (error) {
-    console.error('❌ Location update hatası:', error);
-    res.status(500).json({ error: 'Sunucu hatası' });
-  }
 });
 
 // User notification settings update
