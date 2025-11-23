@@ -469,6 +469,8 @@ class EarthquakeMonitor {
         enabled: this.sources[key].enabled,
         url: this.sources[key].url
       }))
-    };
 
-module.exports = EarthquakeMonitor;
+    };
+  }
+
+  module.exports = EarthquakeMonitor;
