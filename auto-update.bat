@@ -1,4 +1,7 @@
 @echo off
+REM --- Merge/rebase işlemi yarım kaldıysa otomatik temizle ---
+git merge --abort 2>NUL
+git rebase --abort 2>NUL
 echo ========================================
 echo    DEPREM SERVER AUTO UPDATE
 echo ========================================
