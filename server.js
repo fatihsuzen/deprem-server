@@ -30,6 +30,7 @@ const usersRouter = require('./routes/users');
 
 const app = express();
 const server = http.createServer(app);
+app.use(express.json());
 app.use('/api/users', usersRouter);
 const io = socketIo(server, {
   cors: {
