@@ -120,7 +120,9 @@ app.post('/api/users/update-location', async (req, res) => {
     }
 
     const User = require('./models/User');
+    console.log('Aranan UID:', userUid);
     const user = await User.findOne({ uid: userUid });
+    console.log('Bulunan user:', user);
     
     if (!user) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
