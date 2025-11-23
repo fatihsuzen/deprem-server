@@ -12,6 +12,7 @@ import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -21,28 +22,49 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-    // FCM token'ı sunucuya gönder
-    Future<void> _sendFcmTokenToServer(String token) async {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      if (userId == null) return;
-      final url = '${AuthService.baseUrl}/users/fcm-token';
-      try {
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: '{"userId": "$userId", "fcmToken": "$token"}',
-        );
-        if (response.statusCode == 200) {
-          print('✅ FCM token sunucuya kaydedildi');
-        } else {
-          print('❌ FCM token kaydedilemedi: ${response.statusCode}');
-        }
-      } catch (e) {
-        print('❌ FCM token gönderim hatası: $e');
-      }
-    }
+  final Location _location = Location();
+  bool _locationLoading = true;
+  LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
+  bool _showEarthquakes = true;
+  bool _showFriends = true;
+  bool _showAssemblyAreas = true;
+  bool _showFaultLines = true;
+  int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
+  List<Map<String, dynamic>> _friends = [];
+  List<Map<String, dynamic>> _quakes = [];
+  Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
+  late AnimationController _waveController;
+  late Animation<double> _waveAnimation;
+  final UserPreferencesService _prefsService = UserPreferencesService();
+  final EarthquakeService _earthquakeService = EarthquakeService();
+  final FriendsService _friendsService = FriendsService();
+  double _minMagnitude = UserPreferencesService.defaultMinMagnitude;
+  double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
+  double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
+  @override
   // ...existing code...
+
+  // FCM token'ı sunucuya gönder
+  Future<void> _sendFcmTokenToServer(String token) async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('user_id');
+    if (userId == null) return;
+    final url = '${AuthService.baseUrl}/users/fcm-token';
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"userId": userId, "fcmToken": token}),
+      );
+      if (response.statusCode == 200) {
+        print('✅ FCM token sunucuya kaydedildi');
+      } else {
+        print('❌ FCM token kaydedilemedi: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❌ FCM token gönderim hatası: $e');
+    }
+  }
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   @override
@@ -51,9 +73,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _firebaseMessaging.requestPermission().then((value) {
       print('✅ Bildirim izni istendi: $value');
     });
-    // FCM token logla
+    // FCM token logla ve sunucuya gönder
     _firebaseMessaging.getToken().then((token) {
       print('🔑 FCM Token: $token');
+      if (token != null) {
+        _sendFcmTokenToServer(token);
+      }
+    });
+    // Token yenilendiğinde sunucuya gönder
+    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+      print('🔄 FCM Token yenilendi: $token');
+      _sendFcmTokenToServer(token);
     });
     // Topic aboneliği logla
     _firebaseMessaging.subscribeToTopic('all').then((_) {
@@ -100,36 +130,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
   bool _earthquakesLoading = false;
   late MapController _mapController;
-  LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
-  bool _locationLoading = true;
-  final Location _location = Location();
   bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
-  Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
-  late AnimationController _waveController;
-  late Animation<double> _waveAnimation;
-
-  // Toggle states
-  bool _showEarthquakes = true;
-  bool _showFriends = true;
-  bool _showAssemblyAreas = true;
-  bool _showFaultLines = true;
-  int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
-
-  // Friends data
-  List<Map<String, dynamic>> _friends = [];
-
-  // Earthquake data
-  List<Map<String, dynamic>> _quakes = [];
-  // Kaldırıldı, kullanılmıyor
-
-  final FriendsService _friendsService = FriendsService();
-  final EarthquakeService _earthquakeService = EarthquakeService();
-  final UserPreferencesService _prefsService = UserPreferencesService();
-
-  // Kullanıcı filtreleme ayarları
-  double _minMagnitude = UserPreferencesService.defaultMinMagnitude;
-  double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
-  double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
 
   // Fay hatları - Dünya genelinde önemli aktif faylar (Global coverage)
   final List<Map<String, dynamic>> _faultLines = [
@@ -465,105 +466,66 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // Kayıtlı konum varsa kullan, yoksa fetch et
   Future<void> _loadOrFetchLocation() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedLat = prefs.getDouble('cached_user_lat');
-      final savedLon = prefs.getDouble('cached_user_lon');
+    final prefs = await SharedPreferences.getInstance();
+    final savedLat = prefs.getDouble('cached_user_lat');
+    final savedLon = prefs.getDouble('cached_user_lon');
 
-      if (savedLat != null && savedLon != null) {
-        // Kayıtlı konum kullan
-        setState(() {
-          _userLocation = LatLng(savedLat, savedLon);
-          _locationLoading = false;
-        });
-        print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
-      } else {
-        // İlk defa, konum çek
-            _firebaseMessaging.getToken().then((token) {
-              print('🔑 FCM Token: $token');
-              if (token != null) {
-                _sendFcmTokenToServer(token);
-              }
-            });
-            // Token yenilendiğinde sunucuya gönder
-            FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-              print('🔄 FCM Token yenilendi: $token');
-              _sendFcmTokenToServer(token);
-            });
-          await prefs.setDouble('cached_user_lat', _userLocation.latitude);
-          await prefs.setDouble('cached_user_lon', _userLocation.longitude);
-          print('💾 Konum kaydedildi');
-        }
+    if (savedLat != null && savedLon != null) {
+      // Kayıtlı konum kullan
+      setState(() {
+        _userLocation = LatLng(savedLat, savedLon);
+        _locationLoading = false;
+      });
+      print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
+    } else {
+      // İlk defa, konum çek
+      try {
+        await _getUserLocation();
+        await prefs.setDouble('cached_user_lat', _userLocation.latitude);
+        await prefs.setDouble('cached_user_lon', _userLocation.longitude);
+        print('💾 Konum kaydedildi');
+      } catch (e) {
+        print('❌ Konum yükleme hatası: $e');
       }
-    } catch (e) {
-      print('❌ Konum yükleme hatası: $e');
-      await _getUserLocation();
     }
   }
 
   Future<void> _getUserLocation() async {
-    try {
-      print('📍 Kullanıcı konumu alınıyor...');
-      bool serviceEnabled = await _location.serviceEnabled();
+    print('📍 Kullanıcı konumu alınıyor...');
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
       if (!serviceEnabled) {
-        serviceEnabled = await _location.requestService();
-        if (!serviceEnabled) {
-          setState(() => _locationLoading = false);
-          print('❌ Konum servisi kapalı');
-          return;
-        }
+        setState(() => _locationLoading = false);
+        print('❌ Konum servisi kapalı');
+        return;
       }
+    }
 
-      PermissionStatus permissionGranted = await _location.hasPermission();
-          }
-
-          // FCM token'ı sunucuya gönder
-          Future<void> _sendFcmTokenToServer(String token) async {
-            final prefs = await SharedPreferences.getInstance();
-            final userId = prefs.getString('user_id');
-            if (userId == null) return;
-            final url = '${AuthService.baseUrl}/users/fcm-token';
-            try {
-              final response = await http.post(
-                Uri.parse(url),
-                headers: {'Content-Type': 'application/json'},
-                body: '{"userId": "$userId", "fcmToken": "$token"}',
-              );
-              if (response.statusCode == 200) {
-                print('✅ FCM token sunucuya kaydedildi');
-              } else {
-                print('❌ FCM token kaydedilemedi: ${response.statusCode}');
-              }
-            } catch (e) {
-              print('❌ FCM token gönderim hatası: $e');
-            }
-      if (permissionGranted == PermissionStatus.denied) {
-        permissionGranted = await _location.requestPermission();
-        if (permissionGranted != PermissionStatus.granted) {
-          setState(() => _locationLoading = false);
-          return;
-        }
+    PermissionStatus permissionGranted = await _location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await _location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        setState(() => _locationLoading = false);
+        return;
       }
+    }
 
-      final locationData = await _location.getLocation();
-      if (locationData.latitude != null && locationData.longitude != null) {
-        setState(() {
-          _userLocation =
-              LatLng(locationData.latitude!, locationData.longitude!);
-          _locationLoading = false;
-        });
+    final locationData = await _location.getLocation();
+    if (locationData.latitude != null && locationData.longitude != null) {
+      setState(() {
+        _userLocation =
+            LatLng(locationData.latitude!, locationData.longitude!);
+        _locationLoading = false;
+      });
 
-        // SharedPreferences'a kaydet (History ekranı ile senkronize)
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setDouble('lastLatitude', locationData.latitude!);
-        await prefs.setDouble('lastLongitude', locationData.longitude!);
+      // SharedPreferences'a kaydet (History ekranı ile senkronize)
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('lastLatitude', locationData.latitude!);
+      await prefs.setDouble('lastLongitude', locationData.longitude!);
 
-        print(
-            '✅ Kullanıcı konumu alındı ve kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
-      }
-    } catch (e) {
-      print('❌ Konum alma hatası: $e');
-      setState(() => _locationLoading = false);
+      print(
+          '✅ Kullanıcı konumu alındı ve kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
     }
   }
 
@@ -1819,7 +1781,6 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
         .toList();
   }
 
-  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
