@@ -464,14 +464,11 @@ class EarthquakeMonitor {
       lastChecked: this.lastChecked,
       recentEarthquakes: this.recentEarthquakes.size,
       processedEarthquakes: this.processedEarthquakes.size,
-        for (const line of lines) {
-          // IMPORTANT: trim() is required because lines have \r at the end
-          const trimmedLine = line.trim();
-          // Esnek REGEX: Birden fazla boşluk ve sütun varyasyonları için
-          // [600] 2025.11.13 06:29:49  39.2547   28.0957   10.0   -.-   2.2   -.-   LOCATION
-          const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.\-\s+([\d.]+)\s+-\.\-\s+(.+)$/);
-          if (match) {
-            console.log('✔️ Kandilli parse edilen satır:', trimmedLine);
-            try {
+      sources: Object.keys(this.sources).map(key => ({
+        name: key,
+        enabled: this.sources[key].enabled,
+        url: this.sources[key].url
+      }))
+    };
 
 module.exports = EarthquakeMonitor;
