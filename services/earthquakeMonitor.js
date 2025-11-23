@@ -359,40 +359,40 @@ class EarthquakeMonitor {
     try {
       const lines = htmlData.split('\n');
       const earthquakes = [];
-      
-      for (const line of lines) {
-        // IMPORTANT: trim() is required because lines have \r at the end
-        const trimmedLine = line.trim();
         
+      for (const line of lines) {
+        // IMPORTANT: trimEnd() is required because lines have \r at the end
+        const trimmedLine = line.trimEnd();
+            
         // Esnek REGEX: Birden fazla boşluk ve sütun varyasyonları için
         // [600] 2025.11.13 06:29:49  39.2547   28.0957   10.0   -.-   2.2   -.-   LOCATION
         const match = trimmedLine.match(/\[\d+\]\s+(\d{4}\.\d{2}\.\d{2})\s+(\d{2}:\d{2}:\d{2})\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+-\.\-\s+([\d.]+)\s+-\.\-\s+(.+)$/);
-        
+            
         if (match) {
           try {
             const [_, dateStr, timeStr, latStr, lonStr, depthStr, magStr, place] = match;
-            
+                    
             const lat = parseFloat(latStr);
             const lon = parseFloat(lonStr);
             const depth = parseFloat(depthStr);
             const mag = parseFloat(magStr);
-            
+                    
             // Validate values
             if (isNaN(lat) || isNaN(lon) || isNaN(mag) || mag <= 0 || mag > 10) {
               continue;
             }
-            
+                    
             // Parse date: 2025.11.15 05:55:23 → Date object
             const [year, month, day] = dateStr.split('.').map(Number);
             const [hour, minute, second] = timeStr.split(':').map(Number);
-            
+                    
             // Kandilli uses Turkey time (UTC+3) - create as local time
             const timestamp = new Date(year, month - 1, day, hour, minute, second);
-            
+                    
             // Validate date is reasonable (not in future, not too old)
             const now = new Date();
             const ageHours = (now - timestamp) / (1000 * 60 * 60);
-            
+                    
             if (ageHours >= -1 && ageHours <= 72) { // Allow 1 hour in future (clock skew), up to 3 days old
               earthquakes.push({
                 id: `kandilli_${dateStr.replace(/\./g, '')}_${timeStr.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
@@ -417,14 +417,14 @@ class EarthquakeMonitor {
           }
         }
       }
-      
+        
       console.log(`📊 Kandilli: ${earthquakes.length} deprem parse edildi`);
-      
+        
       // Return latest 20 earthquakes
       return earthquakes
         .sort((a, b) => b.timestamp - a.timestamp)
         .slice(0, 20);
-      
+        
     } catch (error) {
       console.error('❌ Kandilli parsing hatası:', error);
       return [];
