@@ -98,6 +98,9 @@ app.use('/api/settings', settingsRoutes);
 
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
+    console.log('--- [DEBUG] /api/users/update-location ---');
+    console.log('Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('Body:', JSON.stringify(req.body, null, 2));
     console.log('Gelen UID header sunucu:', req.headers['x-firebase-uid'], 'Body userId:', req.body.userId);
   try {
     const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, userId } = req.body;
