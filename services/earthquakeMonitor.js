@@ -472,5 +472,5 @@ class EarthquakeMonitor {
 
     };
   }
-
+module.exports = EarthquakeMonitor;
 module.exports = EarthquakeMonitor;
