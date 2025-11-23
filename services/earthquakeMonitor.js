@@ -409,7 +409,8 @@ class EarthquakeMonitor {
         });
       }
       console.log(`📊 Kandilli: ${earthquakes.length} deprem parse edildi`);
-      return earthquakes.sort((a, b) => b.timestamp - a.timestamp).slice(0, 20);
+      // Tüm depremleri döndür (slice kaldırıldı)
+      return earthquakes.sort((a, b) => b.timestamp - a.timestamp);
     } catch (error) {
       console.error('❌ Kandilli parsing hatası:', error);
       return [];
