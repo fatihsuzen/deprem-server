@@ -14,12 +14,14 @@ module.exports = {
       if (!d) continue;
       // Debug: log each device entry
       console.log('pushDispatcher deviceEntry:', d);
-      // Prefer MQTT client id for Android persistent path
-      if (d.mqttClientId) targets.push(`mqtt_${d.mqttClientId}`);
-      // For iOS, prefix with apn_
-      else if (d.platform === 'ios' && d.token) targets.push(`apn_${d.token}`);
-      // Fallback: raw token (legacy) — still send but without prefix
-      else if (d.token) targets.push(d.token);
+      // FCM HTTP v1: Eğer token varsa ve platform android/ios ise, FCM ile gönderilecek
+      if (d.token && (d.platform === 'android' || d.platform === 'ios')) {
+        targets.push({ type: 'fcm', token: d.token });
+      }
+      // MQTT client id (Android için)
+      else if (d.mqttClientId) targets.push({ type: 'mqtt', id: d.mqttClientId });
+      // APNs (iOS için)
+      else if (d.platform === 'ios' && d.token) targets.push({ type: 'apn', token: d.token });
     }
 
     if (targets.length === 0) {
@@ -36,17 +38,37 @@ module.exports = {
       return chunks;
     }
 
-  const chunks = chunkArray(targets, concurrency);
-  let totalSent = 0;
+    const chunks = chunkArray(targets, concurrency);
+    let totalSent = 0;
     const start = Date.now();
+    const { sendFcmHttpV1Notification } = require('./fcmHttpV1');
 
     for (const chunk of chunks) {
-      // send this chunk in parallel
-      const promises = chunk.map(target => {
+      const promises = chunk.map(async target => {
         const tStart = Date.now();
-        return notificationService.sendPush(target, payload)
-          .then(res => ({ target, ok: !!res, latency: Date.now() - tStart }))
-          .catch(err => ({ target, ok: false, err: String(err), latency: Date.now() - tStart }));
+        try {
+          if (target.type === 'fcm') {
+            await sendFcmHttpV1Notification({
+              title: payload.notification?.title,
+              body: payload.notification?.body,
+              token: target.token,
+              data: payload.data
+            });
+            return { target, ok: true, latency: Date.now() - tStart };
+          } else if (target.type === 'mqtt') {
+            return notificationService.sendPush(`mqtt_${target.id}`, payload)
+              .then(res => ({ target, ok: !!res, latency: Date.now() - tStart }))
+              .catch(err => ({ target, ok: false, err: String(err), latency: Date.now() - tStart }));
+          } else if (target.type === 'apn') {
+            return notificationService.sendPush(`apn_${target.token}`, payload)
+              .then(res => ({ target, ok: !!res, latency: Date.now() - tStart }))
+              .catch(err => ({ target, ok: false, err: String(err), latency: Date.now() - tStart }));
+          } else {
+            return { target, ok: false, latency: Date.now() - tStart };
+          }
+        } catch (err) {
+          return { target, ok: false, err: String(err), latency: Date.now() - tStart };
+        }
       });
 
       const results = await Promise.allSettled(promises);
@@ -56,7 +78,7 @@ module.exports = {
     }
 
     const took = Date.now() - start;
-    console.log(`pushDispatcher: completed sending to ${tokens.length} tokens, success: ${totalSent}, took ${took} ms`);
-    return { attempted: tokens.length, sent: totalSent, tookMs: took };
+    console.log(`pushDispatcher: completed sending to ${targets.length} tokens, success: ${totalSent}, took ${took} ms`);
+    return { attempted: targets.length, sent: totalSent, tookMs: took };
   }
 };
