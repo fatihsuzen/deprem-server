@@ -123,7 +123,19 @@ app.post('/api/users/update-location', async (req, res) => {
     }
 
     await user.updateLocation(latitude, longitude, address || '');
-    
+
+    // FCM token kaydetme
+    if (req.body.fcmToken) {
+      if (!user.deviceTokens) user.deviceTokens = [];
+      if (!user.deviceTokens.some(dt => dt.token === req.body.fcmToken)) {
+        user.deviceTokens.push({ token: req.body.fcmToken, platform: 'android', addedAt: new Date() });
+        await user.save();
+        console.log('FCM token başarıyla kaydedildi (update-location):', req.body.fcmToken);
+      } else {
+        console.log('FCM token zaten kayıtlı (update-location):', req.body.fcmToken);
+      }
+    }
+
     // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
     if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
       if (!user.notificationSettings) {
@@ -135,7 +147,7 @@ app.post('/api/users/update-location', async (req, res) => {
       await user.save();
       console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${notificationRadius}km, M${minMagnitude}-${maxMagnitude}`);
     }
-    
+
     console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
 
     res.json({
