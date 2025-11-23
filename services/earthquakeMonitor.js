@@ -1,12 +1,7 @@
-// Dosya doğrudan çalıştırılırsa Kandilli test fonksiyonu
-if (require.main === module) {
-  const monitor = new EarthquakeMonitor();
-  monitor.checkKandilli().then(result => {
-    console.log('Kandilli parse sonucu:', result);
-  }).catch(err => {
-    console.error('Kandilli test hatası:', err);
-  });
-}
+
+
+
+
 const axios = require('axios');
 
 class EarthquakeMonitor {
@@ -174,24 +169,34 @@ class EarthquakeMonitor {
 
   async checkKandilli() {
     try {
-      // Note: Kandilli often has CORS issues, so this might fail in browser
-      // For production, you'd need a proxy or server-side scraping
+      console.log('🔍 Kandilli veri çekiliyor...');
       const response = await axios.get(this.sources.kandilli.url, {
         timeout: this.sources.kandilli.timeout,
         headers: {
           'User-Agent': 'DepremApp/1.0'
         }
       });
-
-      // Parse Kandilli's HTML response (simplified)
+      console.log('✅ Kandilli veri çekildi, veri uzunluğu:', response.data.length);
       const earthquakes = this.parseKandilliData(response.data);
+      console.log('✅ Kandilli parse edilen deprem sayısı:', earthquakes.length);
       return earthquakes;
-
     } catch (error) {
       console.warn('⚠️ Kandilli API failed:', error.message);
-      // Don't use mock data - rely on other sources
       return [];
     }
+  // Dosya doğrudan çalıştırılırsa Kandilli test fonksiyonu
+  if (require.main === module) {
+    console.log('--- Kandilli Test Başlatılıyor ---');
+    const monitor = new EarthquakeMonitor();
+    monitor.checkKandilli().then(result => {
+      console.log('Kandilli parse sonucu:', result);
+      console.log('--- Kandilli Test Bitti ---');
+      process.exit(0);
+    }).catch(err => {
+      console.error('Kandilli test hatası:', err);
+      process.exit(1);
+    });
+  }
   }
 
   async checkUSGS() {

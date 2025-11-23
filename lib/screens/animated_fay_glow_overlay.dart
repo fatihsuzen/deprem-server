@@ -5,7 +5,8 @@ import 'dart:ui';
 
 class AnimatedFayGlowOverlay extends StatefulWidget {
   final List<LatLng> points;
-  const AnimatedFayGlowOverlay({Key? key, required this.points}) : super(key: key);
+  const AnimatedFayGlowOverlay({Key? key, required this.points})
+      : super(key: key);
 
   @override
   State<AnimatedFayGlowOverlay> createState() => _AnimatedFayGlowOverlayState();
@@ -95,8 +96,7 @@ class FayGlowPainter extends CustomPainter {
         ..color = Colors.yellowAccent.withOpacity(0.7)
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 16);
       canvas.drawCircle(glowOffset, 18, glowPaint);
-      final corePaint = Paint()
-        ..color = Colors.orangeAccent.withOpacity(0.9);
+      final corePaint = Paint()..color = Colors.orangeAccent.withOpacity(0.9);
       canvas.drawCircle(glowOffset, 8, corePaint);
     }
   }

@@ -57,7 +57,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
       print('📩 Bekleyen istekler getiriliyor...');
       await _friendsService.fetchPendingRequests();
-      print('📊 Bekleyen istek sayısı: ${_friendsService.friendRequests.length}');
+      print(
+          '📊 Bekleyen istek sayısı: ${_friendsService.friendRequests.length}');
 
       print('🗺️ Konumlar güncelleniyor...');
       await _friendsService.updateFriendsLocations();

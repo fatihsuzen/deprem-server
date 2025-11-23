@@ -24,8 +24,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-    late AnimationController _fayPulseController;
-    late Animation<double> _fayPulseAnimation;
+  late AnimationController _fayPulseController;
+  late Animation<double> _fayPulseAnimation;
   // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
@@ -84,7 +84,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         print('✅ Konum, ayarlar ve FCM token sunucuya kaydedildi');
       } else {
-        print('❌ Sunucuya kaydedilemedi: ${response.statusCode} - ${response.body}');
+        print(
+            '❌ Sunucuya kaydedilemedi: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Sunucuya gönderim hatası: $e');
@@ -93,12 +94,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void initState() {
-        _fayPulseController = AnimationController(
-          vsync: this,
-          duration: const Duration(seconds: 1),
-        )..repeat(reverse: true);
-        _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0)
-            .animate(CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
+    _fayPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+    _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+        CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
     super.initState();
     _firebaseMessaging.requestPermission().then((value) {
       print('✅ Bildirim izni istendi: $value');
@@ -509,10 +510,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         _locationLoading = false;
       });
       print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
-        // Konum güncellendiğinde FCM token varsa sunucuya gönder
-        if (_userFcmToken != null) {
-          await _sendLocationAndSettingsToServer();
-        }
+      // Konum güncellendiğinde FCM token varsa sunucuya gönder
+      if (_userFcmToken != null) {
+        await _sendLocationAndSettingsToServer();
+      }
     } else {
       // İlk defa, konum çek
       try {
@@ -520,10 +521,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         await prefs.setDouble('cached_user_lat', _userLocation.latitude);
         await prefs.setDouble('cached_user_lon', _userLocation.longitude);
         print('💾 Konum kaydedildi');
-          // Konum güncellendiğinde FCM token varsa sunucuya gönder
-          if (_userFcmToken != null) {
-            await _sendLocationAndSettingsToServer();
-          }
+        // Konum güncellendiğinde FCM token varsa sunucuya gönder
+        if (_userFcmToken != null) {
+          await _sendLocationAndSettingsToServer();
+        }
       } catch (e) {
         print('❌ Konum yükleme hatası: $e');
       }
@@ -728,7 +729,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-      _fayPulseController.dispose();
+    _fayPulseController.dispose();
     _waveController.dispose();
     super.dispose();
   }
@@ -1275,7 +1276,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       return Polyline(
                         points: fault['points'] as List<LatLng>,
                         strokeWidth: 4.0,
-                        color: Colors.redAccent.withOpacity(_fayPulseAnimation.value),
+                        color: Colors.redAccent
+                            .withOpacity(_fayPulseAnimation.value),
                         borderStrokeWidth: 2.0,
                         borderColor: Colors.yellow.withOpacity(0.7),
                       );

@@ -127,28 +127,27 @@ class LocationUpdateService {
 
       // Sunucuya gönder (konum + bildirim ayarları)
       final fcmToken = prefs.getString('fcm_token');
-        final response = await http
-            .post(
-              Uri.parse('$baseUrl/users/update-location'),
-            headers: {
-              'Content-Type': 'application/json',
-              'x-firebase-uid': userId,
-            },
-            body: jsonEncode({
-              'uid': userId,
-              'fcmToken': fcmToken,
-              'location': {
-                'latitude': locationData.latitude,
-                'longitude': locationData.longitude,
-                'address': '',
-              },
-              'settings': {
-                'notificationRadius': notificationRadius,
-                'minMagnitude': minMagnitude,
-                'maxMagnitude': maxMagnitude,
-              },
-            }),
-          );
+      final response = await http.post(
+        Uri.parse('$baseUrl/users/update-location'),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-firebase-uid': userId,
+        },
+        body: jsonEncode({
+          'uid': userId,
+          'fcmToken': fcmToken,
+          'location': {
+            'latitude': locationData.latitude,
+            'longitude': locationData.longitude,
+            'address': '',
+          },
+          'settings': {
+            'notificationRadius': notificationRadius,
+            'minMagnitude': minMagnitude,
+            'maxMagnitude': maxMagnitude,
+          },
+        }),
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
