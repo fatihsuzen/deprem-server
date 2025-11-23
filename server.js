@@ -103,7 +103,7 @@ app.post('/api/users/update-location', async (req, res) => {
     console.log('Body:', JSON.stringify(req.body, null, 2));
     console.log('Gelen UID header sunucu:', req.headers['x-firebase-uid'], 'Body userId:', req.body.userId);
   try {
-    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, uid, fcmToken } = req.body;
+      const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, uid, fcmToken, platform } = req.body;
     const userUid = req.headers['x-firebase-uid'] || uid;
 
     if (!userUid) {
@@ -131,15 +131,15 @@ app.post('/api/users/update-location', async (req, res) => {
     await user.updateLocation(latitude, longitude, address || '');
 
     // FCM token kaydetme
-    if (fcmToken) {
-      if (!user.deviceTokens) user.deviceTokens = [];
-      if (!user.deviceTokens.some(dt => dt.token === fcmToken)) {
-        user.deviceTokens.push({ token: fcmToken, platform: 'android', addedAt: new Date() });
-        await user.save();
-        console.log('FCM token başarıyla kaydedildi (update-location):', fcmToken);
-      } else {
-        console.log('FCM token zaten kayıtlı (update-location):', fcmToken);
-      }
+      if (fcmToken) {
+        if (!user.deviceTokens) user.deviceTokens = [];
+        if (!user.deviceTokens.some(dt => dt.token === fcmToken)) {
+          user.deviceTokens.push({ token: fcmToken, platform: platform || 'android', addedAt: new Date() });
+          await user.save();
+          console.log('FCM token başarıyla kaydedildi (update-location):', fcmToken);
+        } else {
+          console.log('FCM token zaten kayıtlı (update-location):', fcmToken);
+        }
     }
 
     // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
