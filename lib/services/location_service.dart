@@ -326,16 +326,23 @@ class LocationService {
         return;
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      final fcmToken = prefs.getString('fcm_token');
       final response = await http.post(
-        Uri.parse('$baseUrl/users/update-location'),
+        Uri.parse('http://188.132.202.24:3000/api/users/update-location'),
         headers: {
           'Content-Type': 'application/json',
+          'x-firebase-uid': userId,
         },
         body: jsonEncode({
-          'userId': userId,
-          'latitude': latitude,
-          'longitude': longitude,
-          'address': address,
+          'uid': userId,
+          'fcmToken': fcmToken,
+          'location': {
+            'latitude': latitude,
+            'longitude': longitude,
+            'address': address,
+          },
+          'settings': {},
         }),
       );
 
