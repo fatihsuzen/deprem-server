@@ -26,9 +26,11 @@ const Device = require('./models/Device');
 const friendsRoutes = require('./routes/friends');
 const chatRoutes = require('./routes/chat');
 const earthquakesRoutes = require('./routes/earthquakes');
+const usersRouter = require('./routes/users');
 
 const app = express();
 const server = http.createServer(app);
+app.use('/api/users', usersRouter);
 const io = socketIo(server, {
   cors: {
     origin: "*",

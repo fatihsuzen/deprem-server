@@ -11,6 +11,7 @@ import '../services/auth_service.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
+import 'package:http/http.dart' as http;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -20,34 +21,82 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-      // ...existing code...
-    final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-
-    @override
-    void initState() {
-      super.initState();
-      _firebaseMessaging.requestPermission();
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        if (message.notification != null) {
-          final title = message.notification!.title ?? 'Deprem Uyarısı';
-          final body = message.notification!.body ?? '';
-          // Uygulama açıkken push bildirimi için basit bir dialog göster
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(title),
-              content: Text(body),
-              actions: [
-                TextButton(
-                  child: Text('Kapat'),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-          );
+    // FCM token'ı sunucuya gönder
+    Future<void> _sendFcmTokenToServer(String token) async {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      if (userId == null) return;
+      final url = '${AuthService.baseUrl}/users/fcm-token';
+      try {
+        final response = await http.post(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: '{"userId": "$userId", "fcmToken": "$token"}',
+        );
+        if (response.statusCode == 200) {
+          print('✅ FCM token sunucuya kaydedildi');
+        } else {
+          print('❌ FCM token kaydedilemedi: ${response.statusCode}');
         }
-      });
+      } catch (e) {
+        print('❌ FCM token gönderim hatası: $e');
+      }
     }
+  // ...existing code...
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _firebaseMessaging.requestPermission().then((value) {
+      print('✅ Bildirim izni istendi: $value');
+    });
+    // FCM token logla
+    _firebaseMessaging.getToken().then((token) {
+      print('🔑 FCM Token: $token');
+    });
+    // Topic aboneliği logla
+    _firebaseMessaging.subscribeToTopic('all').then((_) {
+      print('✅ Topic "all" abonesi olundu');
+    });
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print(
+          '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
+      if (message.notification != null) {
+        final title = message.notification!.title ?? 'Deprem Uyarısı';
+        final body = message.notification!.body ?? '';
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(title),
+            content: Text(body),
+            actions: [
+              TextButton(
+                child: Text('Kapat'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        );
+      }
+    });
+    // Harita tile cache başlat
+    // Tile caching kodu kaldırıldı
+    _mapController = MapController();
+    // Toggle durumlarını yükle
+    _loadToggleStates();
+    // Dalga animasyonu için
+    _waveController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat();
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
+    );
+    // Konum ve verileri yükle
+    _initializeMapData();
+  }
+
   // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
   bool _earthquakesLoading = false;
   late MapController _mapController;
@@ -389,46 +438,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     },
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _firebaseMessaging.requestPermission();
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      if (message.notification != null) {
-        final title = message.notification!.title ?? 'Deprem Uyarısı';
-        final body = message.notification!.body ?? '';
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(body),
-            actions: [
-              TextButton(
-                child: Text('Kapat'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        );
-      }
-    });
-    // Harita tile cache başlat
-    // Tile caching kodu kaldırıldı
-    _mapController = MapController();
-    // Toggle durumlarını yükle
-    _loadToggleStates();
-    // Dalga animasyonu için
-    _waveController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat();
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
-    );
-    // Konum ve verileri yükle
-    _initializeMapData();
-  }
-
   Future<void> _initializeMapData() async {
     // 1. User data'yı yükle (Google Sign-In session)
     final authService = AuthService();
@@ -470,9 +479,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
       } else {
         // İlk defa, konum çek
-        await _getUserLocation();
-        // Konumu kaydet
-        if (_userLocation.latitude != 39.0) {
+            _firebaseMessaging.getToken().then((token) {
+              print('🔑 FCM Token: $token');
+              if (token != null) {
+                _sendFcmTokenToServer(token);
+              }
+            });
+            // Token yenilendiğinde sunucuya gönder
+            FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+              print('🔄 FCM Token yenilendi: $token');
+              _sendFcmTokenToServer(token);
+            });
           await prefs.setDouble('cached_user_lat', _userLocation.latitude);
           await prefs.setDouble('cached_user_lon', _userLocation.longitude);
           print('💾 Konum kaydedildi');
@@ -498,6 +515,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       }
 
       PermissionStatus permissionGranted = await _location.hasPermission();
+          }
+
+          // FCM token'ı sunucuya gönder
+          Future<void> _sendFcmTokenToServer(String token) async {
+            final prefs = await SharedPreferences.getInstance();
+            final userId = prefs.getString('user_id');
+            if (userId == null) return;
+            final url = '${AuthService.baseUrl}/users/fcm-token';
+            try {
+              final response = await http.post(
+                Uri.parse(url),
+                headers: {'Content-Type': 'application/json'},
+                body: '{"userId": "$userId", "fcmToken": "$token"}',
+              );
+              if (response.statusCode == 200) {
+                print('✅ FCM token sunucuya kaydedildi');
+              } else {
+                print('❌ FCM token kaydedilemedi: ${response.statusCode}');
+              }
+            } catch (e) {
+              print('❌ FCM token gönderim hatası: $e');
+            }
       if (permissionGranted == PermissionStatus.denied) {
         permissionGranted = await _location.requestPermission();
         if (permissionGranted != PermissionStatus.granted) {
@@ -622,7 +661,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
-          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+          print(
+              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
 
@@ -1214,7 +1254,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
               subdomains: ['a', 'b', 'c'],
               userAgentPackageName: 'dev.deprem_bildirim',
-                // tileProvider kaldırıldı, default tileProvider kullanılacak
+              // tileProvider kaldırıldı, default tileProvider kullanılacak
             ),
             // Fay hatları katmanı
             if (_showFaultLines)
