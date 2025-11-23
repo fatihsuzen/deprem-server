@@ -103,10 +103,10 @@ app.post('/api/users/update-location', async (req, res) => {
     console.log('Body:', JSON.stringify(req.body, null, 2));
     console.log('Gelen UID header sunucu:', req.headers['x-firebase-uid'], 'Body userId:', req.body.userId);
   try {
-    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, userId } = req.body;
-    const uid = req.headers['x-firebase-uid'] || userId;
+    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, uid, fcmToken } = req.body;
+    const userUid = req.headers['x-firebase-uid'] || uid;
 
-    if (!uid) {
+    if (!userUid) {
       return res.status(401).json({ error: 'Firebase UID gerekli' });
     }
 
@@ -120,7 +120,7 @@ app.post('/api/users/update-location', async (req, res) => {
     }
 
     const User = require('./models/User');
-    const user = await User.findOne({ uid });
+    const user = await User.findOne({ uid: userUid });
     
     if (!user) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
@@ -129,14 +129,14 @@ app.post('/api/users/update-location', async (req, res) => {
     await user.updateLocation(latitude, longitude, address || '');
 
     // FCM token kaydetme
-    if (req.body.fcmToken) {
+    if (fcmToken) {
       if (!user.deviceTokens) user.deviceTokens = [];
-      if (!user.deviceTokens.some(dt => dt.token === req.body.fcmToken)) {
-        user.deviceTokens.push({ token: req.body.fcmToken, platform: 'android', addedAt: new Date() });
+      if (!user.deviceTokens.some(dt => dt.token === fcmToken)) {
+        user.deviceTokens.push({ token: fcmToken, platform: 'android', addedAt: new Date() });
         await user.save();
-        console.log('FCM token başarıyla kaydedildi (update-location):', req.body.fcmToken);
+        console.log('FCM token başarıyla kaydedildi (update-location):', fcmToken);
       } else {
-        console.log('FCM token zaten kayıtlı (update-location):', req.body.fcmToken);
+        console.log('FCM token zaten kayıtlı (update-location):', fcmToken);
       }
     }
 
