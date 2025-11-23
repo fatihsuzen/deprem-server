@@ -80,7 +80,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       if (response.statusCode == 200) {
         print('✅ Konum, ayarlar ve FCM token sunucuya kaydedildi');
       } else {
-        print('❌ Sunucuya kaydedilemedi: ${response.statusCode}');
+        print('❌ Sunucuya kaydedilemedi: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('❌ Sunucuya gönderim hatası: $e');
