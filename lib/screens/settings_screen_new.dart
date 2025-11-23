@@ -14,6 +14,33 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _locationServicesEnabled = true;
   bool _backgroundRefreshEnabled = true;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+      _backgroundRefreshEnabled = prefs.getBool('background_refresh_enabled') ?? true;
+      _soundEnabled = prefs.getBool('sound_enabled') ?? true;
+      _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
+      _locationServicesEnabled = prefs.getBool('location_services_enabled') ?? true;
+      _minimumMagnitude = prefs.getDouble('minimum_magnitude') ?? 3.0;
+    });
+  }
+
+  Future<void> _savePref(String key, dynamic value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is double) {
+      await prefs.setDouble(key, value);
+    }
+  }
+
   void _showMagnitudeDialog() {
     showDialog(
       context: context,
@@ -194,10 +221,11 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _notificationsEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 _notificationsEnabled = value;
               });
+              await _savePref('notifications_enabled', value);
             },
           ),
         ),
@@ -218,10 +246,11 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _soundEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: _notificationsEnabled ? (value) {
+            onChanged: _notificationsEnabled ? (value) async {
               setState(() {
                 _soundEnabled = value;
               });
+              await _savePref('sound_enabled', value);
             } : null,
           ),
           enabled: _notificationsEnabled,
@@ -234,10 +263,11 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _vibrationEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: _notificationsEnabled ? (value) {
+            onChanged: _notificationsEnabled ? (value) async {
               setState(() {
                 _vibrationEnabled = value;
               });
+              await _savePref('vibration_enabled', value);
             } : null,
           ),
           enabled: _notificationsEnabled,
@@ -254,10 +284,11 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _locationServicesEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 _locationServicesEnabled = value;
               });
+              await _savePref('location_services_enabled', value);
             },
           ),
         ),
@@ -269,10 +300,11 @@ class _SettingsPageState extends State<SettingsPage> {
           trailing: CupertinoSwitch(
             value: _backgroundRefreshEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 _backgroundRefreshEnabled = value;
               });
+              await _savePref('background_refresh_enabled', value);
             },
           ),
         ),
@@ -397,19 +429,20 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 32),
 
         // Versiyon Numarası
-        Center(
-          child: Text(
-            'Versiyon 1.0.0',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
+            Slider(
+              value: _minimumMagnitude,
+              min: 1.0,
+              max: 7.0,
+              divisions: 60,
+              activeColor: Color(0xFFFF3333),
+              label: '${_minimumMagnitude.toStringAsFixed(1)}+',
+              onChanged: (value) async {
+                setState(() {
+                  _minimumMagnitude = value;
+                });
+                await _savePref('minimum_magnitude', value);
+              },
             ),
-          ),
-        ),
-        SizedBox(height: 8),
-        Center(
-          child: Text(
-            'Build 2024110601',
             style: TextStyle(
               fontSize: 10,
               color: Colors.grey[400],
