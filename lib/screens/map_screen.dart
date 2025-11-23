@@ -22,7 +22,7 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-    // ...existing code...
+  // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
   LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
@@ -44,7 +44,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
   @override
   // ...existing code...
-
 
   String? _userFcmToken;
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
@@ -532,8 +531,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final locationData = await _location.getLocation();
     if (locationData.latitude != null && locationData.longitude != null) {
       setState(() {
-        _userLocation =
-            LatLng(locationData.latitude!, locationData.longitude!);
+        _userLocation = LatLng(locationData.latitude!, locationData.longitude!);
         _locationLoading = false;
       });
 
