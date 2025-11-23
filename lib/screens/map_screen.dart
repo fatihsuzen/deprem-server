@@ -22,38 +22,7 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-    String? _userFcmToken;
-    final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
-
-    Future<void> _sendLocationAndSettingsToServer() async {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      if (userId == null || _userFcmToken == null) return;
-      final url = '${AuthService.baseUrl}/api/users/update-location';
-      try {
-        final body = {
-          "userId": userId,
-          "latitude": _userLocation.latitude,
-          "longitude": _userLocation.longitude,
-          "notificationRadius": _notificationRadius,
-          "minMagnitude": _minMagnitude,
-          "maxMagnitude": _maxMagnitude,
-          "fcmToken": _userFcmToken,
-        };
-        final response = await http.post(
-          Uri.parse(url),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(body),
-        );
-        if (response.statusCode == 200) {
-          print('✅ Konum, ayarlar ve FCM token sunucuya kaydedildi');
-        } else {
-          print('❌ Sunucuya kaydedilemedi: ${response.statusCode}');
-        }
-      } catch (e) {
-        print('❌ Sunucuya gönderim hatası: $e');
-      }
-    }
+    // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
   LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
@@ -83,6 +52,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Future<void> _sendLocationAndSettingsToServer() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('user_id');
+    print('Kullanıcı UID header Flutter: $userId');
     if (userId == null || _userFcmToken == null) return;
     final url = '${AuthService.baseUrl}/api/users/update-location';
     try {
@@ -97,7 +67,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       };
       final response = await http.post(
         Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'x-firebase-uid': userId,
+        },
         body: jsonEncode(body),
       );
       if (response.statusCode == 200) {
@@ -130,37 +103,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       _userFcmToken = token;
       _sendLocationAndSettingsToServer();
     });
-      String? _userFcmToken;
-
-      Future<void> _sendLocationAndSettingsToServer() async {
-        final prefs = await SharedPreferences.getInstance();
-        final userId = prefs.getString('user_id');
-        if (userId == null || _userFcmToken == null) return;
-        final url = '${AuthService.baseUrl}/api/users/update-location';
-        try {
-          final body = {
-            "userId": userId,
-            "latitude": _userLocation.latitude,
-            "longitude": _userLocation.longitude,
-            "notificationRadius": _notificationRadius,
-            "minMagnitude": _minMagnitude,
-            "maxMagnitude": _maxMagnitude,
-            "fcmToken": _userFcmToken,
-          };
-          final response = await http.post(
-            Uri.parse(url),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
-          );
-          if (response.statusCode == 200) {
-            print('✅ Konum, ayarlar ve FCM token sunucuya kaydedildi');
-          } else {
-            print('❌ Sunucuya kaydedilemedi: ${response.statusCode}');
-          }
-        } catch (e) {
-          print('❌ Sunucuya gönderim hatası: $e');
-        }
-      }
     // Topic aboneliği logla
     _firebaseMessaging.subscribeToTopic('all').then((_) {
       print('✅ Topic "all" abonesi olundu');
