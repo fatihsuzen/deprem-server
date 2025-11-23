@@ -99,8 +99,8 @@ app.use('/api/settings', settingsRoutes);
 // User routes for location updates
 app.post('/api/users/update-location', async (req, res) => {
   try {
-    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude } = req.body;
-    const uid = req.headers['x-firebase-uid'];
+    const { latitude, longitude, address, notificationRadius, minMagnitude, maxMagnitude, userId } = req.body;
+    const uid = req.headers['x-firebase-uid'] || userId;
 
     if (!uid) {
       return res.status(401).json({ error: 'Firebase UID gerekli' });
