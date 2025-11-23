@@ -31,9 +31,13 @@ class FriendsService {
     try {
       print('📋 Profile alınıyor/oluşturuluyor: $displayName');
 
+      final userId = _authService.currentUserId;
       final response = await http.post(
         Uri.parse('$baseUrl/profile'),
-        headers: _getHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': userId ?? '',
+        },
         body: jsonEncode({
           'email': email,
           'displayName': displayName,

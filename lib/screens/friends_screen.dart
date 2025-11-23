@@ -42,9 +42,14 @@ class _FriendsScreenState extends State<FriendsScreen>
     });
 
     try {
-      print('📱 Share code oluşturuluyor...');
-      _myShareCode = _authService.generateShareCode();
-      print('🔑 Share code: $_myShareCode');
+      print('📋 Profil sunucudan alınıyor...');
+      final userProfile = await _friendsService.getOrCreateProfile(
+        email: _authService.currentUserEmail ?? '',
+        displayName: _authService.currentUserName ?? '',
+        photoURL: _authService.currentUserPhotoUrl,
+      );
+      _myShareCode = userProfile['shareCode'] ?? '';
+      print('🔑 Share code (gerçek): $_myShareCode');
 
       print('👥 Arkadaş listesi getiriliyor...');
       await _friendsService.fetchFriends();
@@ -52,8 +57,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
       print('📩 Bekleyen istekler getiriliyor...');
       await _friendsService.fetchPendingRequests();
-      print(
-          '📊 Bekleyen istek sayısı: ${_friendsService.friendRequests.length}');
+      print('📊 Bekleyen istek sayısı: ${_friendsService.friendRequests.length}');
 
       print('🗺️ Konumlar güncelleniyor...');
       await _friendsService.updateFriendsLocations();

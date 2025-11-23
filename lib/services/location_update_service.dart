@@ -127,9 +127,9 @@ class LocationUpdateService {
 
       // Sunucuya gönder (konum + bildirim ayarları)
       final fcmToken = prefs.getString('fcm_token');
-      final response = await http
-          .post(
-            Uri.parse('baseUrl/users/update-location'),
+        final response = await http
+            .post(
+              Uri.parse('$baseUrl/users/update-location'),
             headers: {
               'Content-Type': 'application/json',
               'x-firebase-uid': userId,

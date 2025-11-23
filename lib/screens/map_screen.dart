@@ -13,6 +13,8 @@ import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'animated_fay_line.dart';
+import 'animated_fay_glow_overlay.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -22,6 +24,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+    late AnimationController _fayPulseController;
+    late Animation<double> _fayPulseAnimation;
   // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
@@ -53,7 +57,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final userId = prefs.getString('user_id');
     print('Kullanıcı UID header Flutter: $userId');
     if (userId == null || _userFcmToken == null) return;
-    final url = '${AuthService.baseUrl}/api/users/update-location';
+    final url = '${AuthService.baseUrl}/users/update-location';
     try {
       final body = {
         "uid": userId,
@@ -89,6 +93,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void initState() {
+        _fayPulseController = AnimationController(
+          vsync: this,
+          duration: const Duration(seconds: 1),
+        )..repeat(reverse: true);
+        _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0)
+            .animate(CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
     super.initState();
     _firebaseMessaging.requestPermission().then((value) {
       print('✅ Bildirim izni istendi: $value');
@@ -641,19 +651,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           '   Magnitude/zaman filtresinden sonra: ${filteredEarthquakes.length} deprem');
       print('   (Range filtresi marker rendering\'de uygulanacak)\n');
 
+      // Zamansal olarak sırala (en yeni en üstte)
+      filteredEarthquakes.sort((a, b) {
+        final aMinutes = (a['minutesAgo'] is int)
+            ? a['minutesAgo'] as int
+            : (a['minutesAgo'] as double).toInt();
+        final bMinutes = (b['minutesAgo'] is int)
+            ? b['minutesAgo'] as int
+            : (b['minutesAgo'] as double).toInt();
+        return aMinutes.compareTo(bMinutes);
+      });
       setState(() {
         _quakes = filteredEarthquakes;
         _earthquakesLoading = false;
         if (_quakes.isNotEmpty) {
-          _latestQuake = _quakes.reduce((a, b) {
-            final aMinutes = (a['minutesAgo'] is int)
-                ? a['minutesAgo'] as int
-                : (a['minutesAgo'] as double).toInt();
-            final bMinutes = (b['minutesAgo'] is int)
-                ? b['minutesAgo'] as int
-                : (b['minutesAgo'] as double).toInt();
-            return aMinutes < bMinutes ? a : b;
-          });
+          _latestQuake = _quakes.first;
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
@@ -716,6 +728,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+      _fayPulseController.dispose();
     _waveController.dispose();
     super.dispose();
   }
@@ -1254,17 +1267,23 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
             // Fay hatları katmanı
             if (_showFaultLines)
-              PolylineLayer(
-                polylines: _faultLines.map((fault) {
-                  return Polyline(
-                    points: fault['points'] as List<LatLng>,
-                    strokeWidth: 1.5,
-                    color: (fault['color'] as Color).withOpacity(0.7),
-                    borderStrokeWidth: 0.3,
-                    borderColor: Colors.white.withOpacity(0.9),
+              AnimatedBuilder(
+                animation: _fayPulseAnimation,
+                builder: (context, child) {
+                  return PolylineLayer(
+                    polylines: _faultLines.map((fault) {
+                      return Polyline(
+                        points: fault['points'] as List<LatLng>,
+                        strokeWidth: 4.0,
+                        color: Colors.redAccent.withOpacity(_fayPulseAnimation.value),
+                        borderStrokeWidth: 2.0,
+                        borderColor: Colors.yellow.withOpacity(0.7),
+                      );
+                    }).toList(),
                   );
-                }).toList(),
+                },
               ),
+            // AnimatedFayGlowOverlay topları kaldırıldı
             // Arkadaş marker'ları
             if (_showFriends)
               MarkerLayer(
