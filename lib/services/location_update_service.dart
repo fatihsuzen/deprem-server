@@ -129,7 +129,7 @@ class LocationUpdateService {
       final fcmToken = prefs.getString('fcm_token');
       final response = await http
           .post(
-            Uri.parse('http://188.132.202.24:3000/api/users/update-location'),
+            Uri.parse('baseUrl/users/update-location'),
             headers: {
               'Content-Type': 'application/json',
               'x-firebase-uid': userId,
@@ -149,7 +149,6 @@ class LocationUpdateService {
               },
             }),
           );
-          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
