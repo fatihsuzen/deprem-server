@@ -14,8 +14,8 @@ router.post('/fcm-token', async (req, res) => {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }
     if (!user.deviceTokens) user.deviceTokens = [];
-    if (!user.deviceTokens.includes(fcmToken)) {
-      user.deviceTokens.push(fcmToken);
+    if (!user.deviceTokens.some(dt => dt.token === fcmToken)) {
+      user.deviceTokens.push({ token: fcmToken, platform: 'android', addedAt: new Date() });
       await user.save();
     }
     return res.json({ success: true });
