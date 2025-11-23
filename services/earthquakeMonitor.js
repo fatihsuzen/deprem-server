@@ -84,12 +84,33 @@ class EarthquakeMonitor {
         try {
           const EarthquakeModel = require('../models/Earthquake');
           for (const eq of processedEarthquakes) {
-            // Upsert by eventId or generated unique id
-            await EarthquakeModel.updateOne(
-              { eventId: eq.eventId || eq.id },
-              { $setOnInsert: eq },
-              { upsert: true }
-            );
+            // Duplicate önleme: Zaman, konum ve büyüklük ile arama
+            const timeWindowStart = new Date(eq.timestamp.getTime() - 60 * 1000); // -1 dakika
+            const timeWindowEnd = new Date(eq.timestamp.getTime() + 60 * 1000);   // +1 dakika
+            const magMin = eq.magnitude - 0.2;
+            const magMax = eq.magnitude + 0.2;
+            const latMin = eq.location.latitude - 0.1;
+            const latMax = eq.location.latitude + 0.1;
+            const lonMin = eq.location.longitude - 0.1;
+            const lonMax = eq.location.longitude + 0.1;
+            const existing = await EarthquakeModel.findOne({
+              time: { $gte: timeWindowStart, $lte: timeWindowEnd },
+              mag: { $gte: magMin, $lte: magMax },
+              'location.latitude': { $gte: latMin, $lte: latMax },
+              'location.longitude': { $gte: lonMin, $lte: lonMax }
+            });
+            if (existing) {
+              // Kaynak ekle (varsa), güncelle
+              if (!existing.source.includes(eq.source)) {
+                existing.source += ',' + eq.source;
+                await existing.save();
+              }
+              console.log(`🔁 Duplicate deprem: ${eq.magnitude} ${eq.place} (${eq.source})`);
+            } else {
+              // Yeni deprem kaydı
+              await EarthquakeModel.create(eq);
+              console.log(`✅ Yeni deprem kaydedildi: ${eq.magnitude} ${eq.place} (${eq.source})`);
+            }
           }
         } catch (err) {
           console.warn('DB persist skipped (no DB available or error):', err.message);
