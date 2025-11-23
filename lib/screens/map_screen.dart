@@ -56,14 +56,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final url = '${AuthService.baseUrl}/api/users/update-location';
     try {
       final body = {
-        "userId": userId,
-        "latitude": _userLocation.latitude,
-        "longitude": _userLocation.longitude,
-        "notificationRadius": _notificationRadius,
-        "minMagnitude": _minMagnitude,
-        "maxMagnitude": _maxMagnitude,
-        "fcmToken": _userFcmToken,
-      };
+          "uid": userId,
+          "latitude": _userLocation.latitude,
+          "longitude": _userLocation.longitude,
+          "notificationRadius": _notificationRadius,
+          "minMagnitude": _minMagnitude,
+          "maxMagnitude": _maxMagnitude,
+          "fcmToken": _userFcmToken,
+        };
       final response = await http.post(
         Uri.parse(url),
         headers: {
