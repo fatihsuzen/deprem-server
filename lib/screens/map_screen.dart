@@ -56,14 +56,19 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final url = '${AuthService.baseUrl}/api/users/update-location';
     try {
       final body = {
-          "uid": userId,
+        "uid": userId,
+        "fcmToken": _userFcmToken,
+        "location": {
           "latitude": _userLocation.latitude,
           "longitude": _userLocation.longitude,
+          "address": "${_userLocation.latitude}, ${_userLocation.longitude}"
+        },
+        "settings": {
           "notificationRadius": _notificationRadius,
           "minMagnitude": _minMagnitude,
-          "maxMagnitude": _maxMagnitude,
-          "fcmToken": _userFcmToken,
-        };
+          "maxMagnitude": _maxMagnitude
+        }
+      };
       final response = await http.post(
         Uri.parse(url),
         headers: {
@@ -494,6 +499,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         _locationLoading = false;
       });
       print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
+        // Konum güncellendiğinde FCM token varsa sunucuya gönder
+        if (_userFcmToken != null) {
+          await _sendLocationAndSettingsToServer();
+        }
     } else {
       // İlk defa, konum çek
       try {
@@ -501,6 +510,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         await prefs.setDouble('cached_user_lat', _userLocation.latitude);
         await prefs.setDouble('cached_user_lon', _userLocation.longitude);
         print('💾 Konum kaydedildi');
+          // Konum güncellendiğinde FCM token varsa sunucuya gönder
+          if (_userFcmToken != null) {
+            await _sendLocationAndSettingsToServer();
+          }
       } catch (e) {
         print('❌ Konum yükleme hatası: $e');
       }
@@ -574,6 +587,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     // KONUM HAZIR, şimdi depremleri yükle
     await _loadEarthquakes();
+
+    // Ayarlar güncellendiğinde FCM token varsa sunucuya gönder
+    if (_userFcmToken != null) {
+      await _sendLocationAndSettingsToServer();
+    }
   }
 
   Future<void> _loadEarthquakes() async {
