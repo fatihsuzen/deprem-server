@@ -9,7 +9,7 @@ router.post('/fcm-token', async (req, res) => {
     return res.status(400).json({ error: 'userId ve fcmToken gerekli' });
   }
   try {
-    const user = await User.findById(userId);
+    const user = await User.findOne({ uid: userId });
     if (!user) {
       return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     }

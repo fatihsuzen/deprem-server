@@ -270,6 +270,35 @@ router.get('/friend-requests', validateFirebaseUID, async (req, res) => {
           sentAt: request.sentAt,
           status: request.status
         };
+  // Yeni endpoint: Arkadaşlar listesini shareCode ile getir
+  router.get('/by-share-code/:shareCode', async (req, res) => {
+    try {
+      const { shareCode } = req.params;
+      const user = await User.findOne({ shareCode });
+      if (!user) {
+        return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+      }
+      const friendUIDs = user.friends || [];
+      const friendUsers = await User.find({ uid: { $in: friendUIDs } });
+      // Arkadaşları formatla
+      const friends = friendUsers.map(friend => ({
+        uid: friend.uid,
+        displayName: friend.displayName,
+        email: friend.email,
+        photoURL: friend.photoURL,
+        location: friend.location,
+        shareCode: friend.shareCode
+      }));
+      res.json({
+        success: true,
+        friends,
+        count: friends.length
+      });
+    } catch (error) {
+      console.error('❌ by-share-code arkadaşlar hatası:', error);
+      res.status(500).json({ error: 'Sunucu hatası' });
+    }
+  });
       })
     );
 
