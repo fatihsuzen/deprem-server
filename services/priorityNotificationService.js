@@ -138,9 +138,22 @@ class PriorityNotificationService {
 
           // FCM token varsa gönder
           if (user.deviceTokens && user.deviceTokens.length > 0) {
-            await this.notificationService.sendToUser(user.uid, notificationData);
-            console.log(`✅ ${user.displayName}: ${distanceText} (bildirim gönderildi)`);
-            sentCount++;
+            let pushSent = 0;
+            for (const token of user.deviceTokens) {
+              try {
+                await this.notificationService.sendPush(token, notificationData);
+                pushSent++;
+              } catch (pushErr) {
+                console.error(`❌ Push gönderilemedi: ${user.displayName} - Token: ${token} - Hata:`, pushErr.message);
+              }
+            }
+            if (pushSent > 0) {
+              console.log(`✅ ${user.displayName}: ${distanceText} (bildirim gönderildi)`);
+              sentCount++;
+            } else {
+              console.log(`❌ ${user.displayName}: Hiçbir tokena push gönderilemedi`);
+              errorCount++;
+            }
           } else {
             console.log(`⚠️  ${user.displayName}: Device token yok`);
             skippedCount++;
