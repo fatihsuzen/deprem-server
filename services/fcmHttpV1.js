@@ -31,14 +31,25 @@ async function sendFcmHttpV1Notification({ title, body, token, topic, data }) {
   if (token) message.message.token = token;
   if (topic) message.message.topic = topic;
 
-  const res = await axios.post(url, message, {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
+  console.log('FCM HTTP v1 gönderilen payload:', JSON.stringify(message, null, 2));
 
-  return res.data;
+  try {
+    const res = await axios.post(url, message, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('FCM HTTP v1 yanıt:', res.data);
+    return res.data;
+  } catch (err) {
+    if (err.response) {
+      console.error('FCM HTTP v1 hata yanıtı:', err.response.data);
+    } else {
+      console.error('FCM HTTP v1 hata:', err.message);
+    }
+    throw err;
+  }
 }
 
 module.exports = { sendFcmHttpV1Notification };
