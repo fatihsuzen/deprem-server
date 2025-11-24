@@ -236,7 +236,7 @@ class EarthquakeMonitor {
         }
       });
       console.log('✅ Kandilli veri çekildi, veri uzunluğu:', response.data.length);
-      console.log('🔎 Kandilli ham veri (ilk 500 karakter):\n', response.data.slice(0, 500));
+      // Kandilli ham veri logu kaldırıldı
       const earthquakes = this.parseKandilliData(response.data);
       console.log('✅ Kandilli parse edilen deprem sayısı:', earthquakes.length);
       return earthquakes;
