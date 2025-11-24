@@ -18,13 +18,20 @@ async function sendFcmHttpV1Notification({ title, body, token, topic, data }) {
   const accessToken = await getAccessToken();
   const url = `https://fcm.googleapis.com/v1/projects/${PROJECT_ID}/messages:send`;
 
+  // FCM data alanındaki tüm değerler string olmalı
+  const stringifiedData = {};
+  if (data) {
+    for (const [key, value] of Object.entries(data)) {
+      stringifiedData[key] = value === undefined || value === null ? '' : String(value);
+    }
+  }
   const message = {
     message: {
       notification: {
         title: title || 'Deprem Uyarısı',
         body: body || 'Yeni deprem algılandı! Lütfen güvenli bir yere geçin.'
       },
-      data: data || {},
+      data: stringifiedData,
     }
   };
 
