@@ -83,12 +83,50 @@ class EarthquakeMonitor {
         // Persist earthquakes to DB if model available
         try {
           const EarthquakeModel = require('../models/Earthquake');
-          for (const eq of processedEarthquakes) {
+          // Deprem verisini Earthquake schema'ya uygun normalize et
+          function normalizeEarthquake(eq) {
+            // eventId
+            const eventId = eq.eventId || eq.id || `${eq.source}_${eq.timestamp ? eq.timestamp.getTime() : Date.now()}_${eq.location?.latitude}_${eq.location?.longitude}`;
+            // mag
+            const mag = typeof eq.mag === 'number' ? eq.mag : (typeof eq.magnitude === 'number' ? eq.magnitude : parseFloat(eq.ml || eq.mw || eq.md || 0));
+            // time
+            const time = eq.time || eq.timestamp || new Date();
+            // coordinates
+            const longitude = eq.location?.longitude || (eq.coordinates?.coordinates?.[0]);
+            const latitude = eq.location?.latitude || (eq.coordinates?.coordinates?.[1]);
+            const coordinates = {
+              type: 'Point',
+              coordinates: [longitude, latitude]
+            };
+            return {
+              eventId,
+              mag,
+              magnitude: mag,
+              depth: eq.depth || 0,
+              coordinates,
+              location: {
+                latitude,
+                longitude
+              },
+              place: eq.place || 'Unknown',
+              region: eq.region || '',
+              time,
+              timestamp: time,
+              source: eq.source || 'Unknown',
+              url: eq.url || '',
+              type: eq.type || 'earthquake',
+              magnitude_type: eq.magnitude_type || '',
+              notificationSent: eq.notificationSent || false,
+              notificationStats: eq.notificationStats || undefined
+            };
+          }
+          for (const eqRaw of processedEarthquakes) {
+            const eq = normalizeEarthquake(eqRaw);
             // Duplicate önleme: Zaman, konum ve büyüklük ile arama
-            const timeWindowStart = new Date(eq.timestamp.getTime() - 60 * 1000); // -1 dakika
-            const timeWindowEnd = new Date(eq.timestamp.getTime() + 60 * 1000);   // +1 dakika
-            const magMin = eq.magnitude - 0.2;
-            const magMax = eq.magnitude + 0.2;
+            const timeWindowStart = new Date(eq.time.getTime() - 60 * 1000); // -1 dakika
+            const timeWindowEnd = new Date(eq.time.getTime() + 60 * 1000);   // +1 dakika
+            const magMin = eq.mag - 0.2;
+            const magMax = eq.mag + 0.2;
             const latMin = eq.location.latitude - 0.1;
             const latMax = eq.location.latitude + 0.1;
             const lonMin = eq.location.longitude - 0.1;
@@ -105,11 +143,11 @@ class EarthquakeMonitor {
                 existing.source += ',' + eq.source;
                 await existing.save();
               }
-              console.log(`🔁 Duplicate deprem: ${eq.magnitude} ${eq.place} (${eq.source})`);
+              console.log(`🔁 Duplicate deprem: ${eq.mag} ${eq.place} (${eq.source})`);
             } else {
               // Yeni deprem kaydı
               await EarthquakeModel.create(eq);
-              console.log(`✅ Yeni deprem kaydedildi: ${eq.magnitude} ${eq.place} (${eq.source})`);
+              console.log(`✅ Yeni deprem kaydedildi: ${eq.mag} ${eq.place} (${eq.source})`);
             }
           }
         } catch (err) {
