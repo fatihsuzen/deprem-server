@@ -139,10 +139,28 @@ class PriorityNotificationService {
           // FCM token varsa gönder
           if (user.deviceTokens && user.deviceTokens.length > 0) {
             let pushSent = 0;
-            for (const token of user.deviceTokens) {
+            const { sendFcmHttpV1Notification } = require('./fcmHttpV1');
+            for (const tokenObj of user.deviceTokens) {
+              // tokenObj: string veya obje olabilir, normalize et
+              let token = tokenObj;
+              let platform = 'android';
+              if (typeof tokenObj === 'object') {
+                token = tokenObj.token;
+                platform = tokenObj.platform || 'android';
+              }
               try {
-                await this.notificationService.sendPush(token, notificationData);
-                pushSent++;
+                if (platform === 'android' || platform === 'ios') {
+                  await sendFcmHttpV1Notification({
+                    title: notificationData.title,
+                    body: notificationData.body,
+                    token,
+                    data: notificationData
+                  });
+                  pushSent++;
+                } else {
+                  await this.notificationService.sendPush(token, notificationData);
+                  pushSent++;
+                }
               } catch (pushErr) {
                 console.error(`❌ Push gönderilemedi: ${user.displayName} - Token: ${token} - Hata:`, pushErr.message);
               }
