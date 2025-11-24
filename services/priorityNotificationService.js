@@ -123,7 +123,7 @@ class PriorityNotificationService {
 
           const notificationData = {
             title: `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
-            body: `M${earthquake.magnitude} - ${earthquake.location}\nDerinlik: ${earthquake.depth}km\nMesafe: ${distanceText}`,
+            body: `Mw ${earthquake.magnitude} - ${earthquake.location}\nDerinlik: ${earthquake.depth}km\nMesafe: ${distanceText}`,
             magnitude: earthquake.magnitude,
             location: earthquake.location,
             depth: earthquake.depth,
