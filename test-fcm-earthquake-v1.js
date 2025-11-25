@@ -38,7 +38,8 @@ async function sendFCM() {
         epicenter_lat: '37.0',
         epicenter_lon: '27.0',
         region: 'Muğla',
-        message: 'Deprem M5.7 (tahmini) size 473 km uzaklıkta. 25 saniyede sismik dalga.'
+        message: 'Deprem M5.7 (tahmini) size 473 km uzaklıkta. 25 saniyede sismik dalga.',
+        source: 'P2P'
       }
     }
   };
