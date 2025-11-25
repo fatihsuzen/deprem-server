@@ -25,10 +25,6 @@ async function sendFCM() {
   const message = {
     message: {
       token: DEVICE_TOKEN,
-      notification: {
-        title: 'Deprem Uyarısı',
-        body: 'Deprem M5.7 (tahmini) size 473 km uzaklıkta. 25 saniyede sismik dalga.'
-      },
       data: {
         type: 'earthquake_alert',
         magnitude: '5.7',
