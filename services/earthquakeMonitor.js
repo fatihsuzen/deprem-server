@@ -444,16 +444,16 @@ class EarthquakeMonitor {
         const lon = parseFloat(boylam);
         const depth = parseFloat(derinlik);
         // Magnitude fallback: ml, mw, md
-        // Magnitude fallback: ml, mw, md
+        // Magnitude fallback: ml > mw > md
         let mag = null;
-        const mags = [ml, mw, md];
-        for (const m of mags) {
-          if (!m || m === '-.-') continue;
-          // String ise, float'a çevirmeye çalış
-          const num = typeof m === 'string' ? parseFloat(m.replace(/[^0-9.]/g, '')) : parseFloat(m);
-          if (!isNaN(num) && num > 0) {
-            mag = num;
-            break;
+        const magCandidates = [ml, mw, md];
+        for (const m of magCandidates) {
+          if (m && m !== '-.-') {
+            const num = parseFloat(m);
+            if (!isNaN(num) && num > 0 && num <= 10) {
+              mag = num;
+              break;
+            }
           }
         }
         // Debug: Satırı ve seçilen mag değerini logla
