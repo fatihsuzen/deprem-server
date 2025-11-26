@@ -444,25 +444,18 @@ class EarthquakeMonitor {
         const lon = parseFloat(boylam);
         const depth = parseFloat(derinlik);
         // Magnitude fallback: ml, mw, md
-        let mag = parseFloat(ml);
-        if (isNaN(mag) || mag <= 0) {
-          mag = parseFloat(mw);
-        }
-        if (isNaN(mag) || mag <= 0) {
-          mag = parseFloat(md);
-        }
-        // Eğer ml, mw, md string olarak 'M1' gibi gelirse, başındaki harfleri atıp float'a çevir
-        if (typeof ml === 'string' && ml.match(/^M/)) {
-          const magNum = parseFloat(ml.replace(/[^0-9.]/g, ''));
-          if (!isNaN(magNum) && magNum > 0) mag = magNum;
-        }
-        if (typeof mw === 'string' && mw.match(/^M/)) {
-          const magNum = parseFloat(mw.replace(/[^0-9.]/g, ''));
-          if (!isNaN(magNum) && magNum > 0) mag = magNum;
-        }
-        if (typeof md === 'string' && md.match(/^M/)) {
-          const magNum = parseFloat(md.replace(/[^0-9.]/g, ''));
-          if (!isNaN(magNum) && magNum > 0) mag = magNum;
+        // Magnitude fallback: ml, mw, md
+        let mag = null;
+        const mags = [ml, mw, md];
+        for (const m of mags) {
+          // '-.-' veya boş ise atla
+          if (!m || m === '-.-') continue;
+          // Sayısal ise kullan
+          const num = parseFloat(m);
+          if (!isNaN(num) && num > 0) {
+            mag = num;
+            break;
+          }
         }
         const [year, month, day] = tarih.split('.').map(Number);
         const [hour, minute, second] = saat.split(':').map(Number);
