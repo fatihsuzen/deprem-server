@@ -22,35 +22,37 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
-    // Dinamik (GeoJSON'dan) fay hatları
-    List<Polyline> _dynamicFaultLines = [];
-    // Harita hareketini dinlemek için listener
-    void _onMapMoved() {
-      final center = _mapController.camera.center;
-      final zoom = _mapController.camera.zoom;
-      // Range'i zoom'a göre dinamik ayarlayabilirsiniz, şimdilik notificationRadius kullanılıyor
-      loadFaultLines(_notificationRadius, center).then((lines) {
-        if (mounted) {
-          setState(() {
-            _dynamicFaultLines = lines;
-          });
-          print('🔄 Harita hareket etti, fay hatları güncellendi: ${lines.length} polyline');
-        }
-      });
-    }
+  // Dinamik (GeoJSON'dan) fay hatları
+  List<Polyline> _dynamicFaultLines = [];
+  // Harita hareketini dinlemek için listener
+  void _onMapMoved() {
+    final center = _mapController.camera.center;
+    final zoom = _mapController.camera.zoom;
+    // Range'i zoom'a göre dinamik ayarlayabilirsiniz, şimdilik notificationRadius kullanılıyor
+    loadFaultLines(_notificationRadius, center).then((lines) {
+      if (mounted) {
+        setState(() {
+          _dynamicFaultLines = lines;
+        });
+        print(
+            '🔄 Harita hareket etti, fay hatları güncellendi: ${lines.length} polyline');
+      }
+    });
+  }
+
   late AnimationController _fayPulseController;
   late Animation<double> _fayPulseAnimation;
   // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
-  LatLng _userLocation = LatLng(39.0, 35.0); // Türkiye merkezi (başlangıç)
+  LatLng _userLocation = LatLng(0, 0); // Başlangıçta boş, gerçek GPS ile dolacak
   bool _showEarthquakes = true;
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
   bool _showFaultLines = true;
   int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
   List<Map<String, dynamic>> _friends = [];
-  List<Map<String, dynamic>> _quakes = [];
+  List<Map<String, dynamic>> _quakes = []; // Sadece serverdan gelen deprem verisi
   Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
@@ -638,44 +640,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       print('   Range: $_notificationRadius km');
       print('   Magnitude: $_minMagnitude - $_maxMagnitude');
 
-      // Kullanıcının gerçek konumunu kullan
+      // Deprem verisi tamamen serverdan geliyor, markerlar da buna göre
       final earthquakes = await _earthquakeService.getRecentEarthquakes(
         limit: 100,
         minMagnitude: _minMagnitude,
         period: 'day',
         userLat: _userLocation.latitude,
         userLon: _userLocation.longitude,
-        radius: 5000, // 5000 km yarıçap (global)
-        region: 'Global', // Global depremler
+        radius: 5000,
+        region: 'Global',
       );
-
       print('   API\'den ${earthquakes.length} deprem çekildi');
-
-      // Kullanıcının ayarlarına göre filtrele:
-      // 1. Max magnitude
-      // 2. 24 saat içinde
-      // NOT: Range filtresi marker rendering'de uygulanıyor
+      // Filtreleme ve marker rendering serverdan gelen veriye göre
       final filteredEarthquakes = earthquakes.where((eq) {
         final magnitude = (eq['mag'] is int)
             ? (eq['mag'] as int).toDouble()
             : eq['mag'] as double;
-
-        // Magnitude kontrolü
         if (magnitude > _maxMagnitude) return false;
-
-        // 24 saat (1440 dakika) kontrolü
         final minutesAgo = (eq['minutesAgo'] is int)
             ? eq['minutesAgo'] as int
             : (eq['minutesAgo'] as double).toInt();
-
-        return minutesAgo <= 1440; // 24 saat = 1440 dakika
+        return minutesAgo <= 1440;
       }).toList();
-
-      print(
-          '   Magnitude/zaman filtresinden sonra: ${filteredEarthquakes.length} deprem');
-      print('   (Range filtresi marker rendering\'de uygulanacak)\n');
-
-      // Zamansal olarak sırala (en yeni en üstte)
       filteredEarthquakes.sort((a, b) {
         final aMinutes = (a['minutesAgo'] is int)
             ? a['minutesAgo'] as int
@@ -693,11 +679,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
-          print(
-              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
-
       print('✅ Map - ${_quakes.length} deprem yüklendi');
     } catch (e) {
       print('❌ Deprem verisi yükleme hatası: $e');
@@ -1307,12 +1291,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   return PolylineLayer(
                     polylines: [
                       ..._dynamicFaultLines.map((poly) => Polyline(
-                        points: poly.points,
-                        strokeWidth: 5.0, // Daha kalın
-                        color: Colors.red.withOpacity(_fayPulseAnimation.value), // Daha belirgin renk
-                        borderStrokeWidth: 2.0,
-                        borderColor: Colors.yellowAccent.withOpacity(0.8),
-                      )),
+                            points: poly.points,
+                            strokeWidth: 5.0, // Daha kalın
+                            color: Colors.red.withOpacity(
+                                _fayPulseAnimation.value), // Daha belirgin renk
+                            borderStrokeWidth: 2.0,
+                            borderColor: Colors.yellowAccent.withOpacity(0.8),
+                          )),
                     ],
                   );
                 },
@@ -1781,10 +1766,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
   }
 
-  Future<List<Polyline>> loadFaultLines(double rangeKm, LatLng userLocation) async {
+  Future<List<Polyline>> loadFaultLines(
+      double rangeKm, LatLng userLocation) async {
     // 700km radius, mor renk ve ince çizgi
     final double limitedRadius = 700.0;
-    final geojson = await rootBundle.loadString('assets/gem_active_faults_harmonized.geojson');
+    final geojson = await rootBundle
+        .loadString('assets/gem_active_faults_harmonized.geojson');
     final data = json.decode(geojson);
     List<Polyline> lines = [];
     for (var feature in data['features']) {
@@ -1793,7 +1780,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         List<LatLng> points = [];
         for (var c in coords) {
           final lat = c[1], lon = c[0];
-          final dist = Distance().as(LengthUnit.Kilometer, userLocation, LatLng(lat, lon));
+          final dist = Distance()
+              .as(LengthUnit.Kilometer, userLocation, LatLng(lat, lon));
           if (dist <= limitedRadius) {
             points.add(LatLng(lat, lon));
           }
