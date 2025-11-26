@@ -451,7 +451,20 @@ class EarthquakeMonitor {
         if (isNaN(mag) || mag <= 0) {
           mag = parseFloat(md);
         }
-        // Tarih ve saat birleştir
+          // 'M1' gibi string ise, başındaki harfleri atıp float'a çevir
+          if (typeof mag === 'string') {
+            const magNum = parseFloat(mag.replace(/[^0-9.]/g, ''));
+            mag = isNaN(magNum) ? null : magNum;
+          }
+          // Eğer mag null veya 0 ise, diğer alanlardan fallback
+          if (!mag || mag === 0) {
+            if (typeof raw.mag === 'string') {
+              const magNum = parseFloat(raw.mag.replace(/[^0-9.]/g, ''));
+              mag = isNaN(magNum) ? null : magNum;
+            } else {
+              mag = raw.mag || null;
+            }
+          }
         const [year, month, day] = tarih.split('.').map(Number);
         const [hour, minute, second] = saat.split(':').map(Number);
         const timestamp = new Date(year, month - 1, day, hour, minute, second);
