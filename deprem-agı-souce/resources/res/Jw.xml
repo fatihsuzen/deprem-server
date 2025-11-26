@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:paddingLeft="15dp" android:paddingTop="15dp" android:paddingRight="15dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingHorizontal="15dp">
+    <LinearLayout android:orientation="vertical" android:id="@+id/ll_content_deep_link_availables" android:background="@drawable/shape_bg" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_primary" android:id="@+id/tv_title_deep_link_availables" android:focusable="true" android:focusableInTouchMode="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="@dimen/margin_l" android:layout_marginTop="@dimen/margin_l" android:layout_marginRight="@dimen/margin_l" android:text="@string/deep_links_popup_title" android:textAlignment="center" android:layout_marginHorizontal="@dimen/margin_l"/>
+        <android.widget.ProgressBar android:layout_gravity="center" android:id="@+id/pb_loaging_deep_links" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_l" android:indeterminateTint="@color/main_blue" style="?android:attr/progressBarStyleSmall"/>
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_deep_link_availables" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="@dimen/margin_l"/>
+        <LinearLayout android:gravity="center_horizontal" android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_l">
+            <TextView android:id="@+id/tv_cancel_deep_link_availables" android:background="@drawable/ripple_blue_primary_button" android:text="@string/option_button_cancel" android:textAllCaps="true" style="@style/DialogButtonsStyle"/>
+            <TextView android:id="@+id/tv_download_deep_link_availables" android:background="@drawable/ripple_blue_primary_button" android:text="@string/updates_button_download_app" android:textAllCaps="true" android:layout_marginStart="@dimen/margin_l" style="@style/DialogButtonsStyle"/>
+        </LinearLayout>
+    </LinearLayout>
+</RelativeLayout>

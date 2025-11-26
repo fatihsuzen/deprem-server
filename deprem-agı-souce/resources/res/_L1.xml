@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.uptodown.views.FullHeightImageView xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:id="@+id/iv_screenshot" android:background="@drawable/shape_bg_placeholder" android:padding="0.5dp" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="@dimen/gallery_height" android:foreground="@drawable/shape_stroke_screenshots" android:contentDescription="@string/screenshot"/>

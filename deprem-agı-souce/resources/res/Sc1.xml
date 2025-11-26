@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:orientation="vertical" android:id="@+id/rl_app_info_item" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="wrap_content">
+    <androidx.appcompat.widget.Toolbar android:theme="@style/UptodownToolbarTheme" android:id="@+id/toolbar_advanced_preferences" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize" app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight">
+        <TextView android:id="@+id/tv_toolbar_title_advanced_preferences" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/UptodownToolbarStyle"/>
+    </androidx.appcompat.widget.Toolbar>
+    <ScrollView android:layout_width="match_parent" android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_advanced_preferences_list" android:paddingBottom="@dimen/margin_l" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true"/>
+    </ScrollView>
+</LinearLayout>

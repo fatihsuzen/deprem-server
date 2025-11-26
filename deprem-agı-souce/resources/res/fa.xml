@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:id="@+id/fl_parent_category_fragment" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+    <include android:layout_gravity="center" android:id="@+id/loading_view_games_category_fragment" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="80dp" layout="@layout/core_loading_view"/>
+    <LinearLayout android:gravity="center_horizontal" android:layout_gravity="center" android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="60dp">
+        <TextView android:textColor="@color/text_secundary" android:gravity="center" android:layout_gravity="center" android:id="@+id/tv_no_data_games_category_fragment" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/data_loading_error" android:layout_marginStart="20dp" android:layout_marginEnd="20dp"/>
+        <TextView android:textColor="@color/white" android:gravity="center" android:id="@+id/tv_reload_games_category_fragment" android:background="@drawable/ripple_blue_primary_button" android:padding="@dimen/margin_m" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_l" android:text="@string/refresh_enc" android:maxLines="1" android:textAllCaps="true"/>
+    </LinearLayout>
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/recycler_view" android:paddingBottom="@dimen/bottom_bar_height" android:layout_width="match_parent" android:layout_height="match_parent"/>
+</FrameLayout>

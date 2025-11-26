@@ -1,0 +1,264 @@
+package androidx.appcompat.widget;
+
+import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.text.InputFilter;
+import android.util.AttributeSet;
+import android.view.inspector.PropertyMapper;
+import android.view.inspector.PropertyReader;
+import android.widget.CheckBox;
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
+import androidx.annotation.RestrictTo;
+import androidx.appcompat.R;
+import androidx.appcompat.content.res.AppCompatResources;
+import androidx.core.view.TintableBackgroundView;
+import androidx.core.widget.TintableCompoundButton;
+import androidx.core.widget.TintableCompoundDrawablesView;
+
+public class AppCompatCheckBox extends CheckBox implements TintableCompoundButton, TintableBackgroundView, EmojiCompatConfigurationView, TintableCompoundDrawablesView {
+    private AppCompatEmojiTextHelper mAppCompatEmojiTextHelper;
+    private final AppCompatBackgroundHelper mBackgroundTintHelper;
+    private final AppCompatCompoundButtonHelper mCompoundButtonHelper;
+    private final AppCompatTextHelper mTextHelper;
+
+    @RequiresApi(29)
+    @RestrictTo({RestrictTo.Scope.LIBRARY})
+    public final class InspectionCompanion implements android.view.inspector.InspectionCompanion {
+        private int mBackgroundTintId;
+        private int mBackgroundTintModeId;
+        private int mButtonTintId;
+        private int mButtonTintModeId;
+        private int mDrawableTintId;
+        private int mDrawableTintModeId;
+        private boolean mPropertiesMapped = false;
+
+        public void mapProperties(@NonNull PropertyMapper propertyMapper) {
+            this.mBackgroundTintId = propertyMapper.mapObject("backgroundTint", R.attr.backgroundTint);
+            this.mBackgroundTintModeId = propertyMapper.mapObject("backgroundTintMode", R.attr.backgroundTintMode);
+            this.mButtonTintId = propertyMapper.mapObject("buttonTint", R.attr.buttonTint);
+            this.mButtonTintModeId = propertyMapper.mapObject("buttonTintMode", R.attr.buttonTintMode);
+            this.mDrawableTintId = propertyMapper.mapObject("drawableTint", R.attr.drawableTint);
+            this.mDrawableTintModeId = propertyMapper.mapObject("drawableTintMode", R.attr.drawableTintMode);
+            this.mPropertiesMapped = true;
+        }
+
+        public void readProperties(@NonNull AppCompatCheckBox appCompatCheckBox, @NonNull PropertyReader propertyReader) {
+            if (this.mPropertiesMapped) {
+                propertyReader.readObject(this.mBackgroundTintId, appCompatCheckBox.getBackgroundTintList());
+                propertyReader.readObject(this.mBackgroundTintModeId, appCompatCheckBox.getBackgroundTintMode());
+                propertyReader.readObject(this.mButtonTintId, appCompatCheckBox.getButtonTintList());
+                propertyReader.readObject(this.mButtonTintModeId, appCompatCheckBox.getButtonTintMode());
+                propertyReader.readObject(this.mDrawableTintId, appCompatCheckBox.getCompoundDrawableTintList());
+                propertyReader.readObject(this.mDrawableTintModeId, appCompatCheckBox.getCompoundDrawableTintMode());
+                return;
+            }
+            throw c.a();
+        }
+    }
+
+    public AppCompatCheckBox(@NonNull Context context) {
+        this(context, (AttributeSet) null);
+    }
+
+    @NonNull
+    private AppCompatEmojiTextHelper getEmojiTextViewHelper() {
+        if (this.mAppCompatEmojiTextHelper == null) {
+            this.mAppCompatEmojiTextHelper = new AppCompatEmojiTextHelper(this);
+        }
+        return this.mAppCompatEmojiTextHelper;
+    }
+
+    /* access modifiers changed from: protected */
+    public void drawableStateChanged() {
+        super.drawableStateChanged();
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            appCompatBackgroundHelper.applySupportBackgroundTint();
+        }
+        AppCompatTextHelper appCompatTextHelper = this.mTextHelper;
+        if (appCompatTextHelper != null) {
+            appCompatTextHelper.applyCompoundDrawablesTints();
+        }
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public ColorStateList getSupportBackgroundTintList() {
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            return appCompatBackgroundHelper.getSupportBackgroundTintList();
+        }
+        return null;
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public PorterDuff.Mode getSupportBackgroundTintMode() {
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            return appCompatBackgroundHelper.getSupportBackgroundTintMode();
+        }
+        return null;
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public ColorStateList getSupportButtonTintList() {
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = this.mCompoundButtonHelper;
+        if (appCompatCompoundButtonHelper != null) {
+            return appCompatCompoundButtonHelper.getSupportButtonTintList();
+        }
+        return null;
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public PorterDuff.Mode getSupportButtonTintMode() {
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = this.mCompoundButtonHelper;
+        if (appCompatCompoundButtonHelper != null) {
+            return appCompatCompoundButtonHelper.getSupportButtonTintMode();
+        }
+        return null;
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public ColorStateList getSupportCompoundDrawablesTintList() {
+        return this.mTextHelper.getCompoundDrawableTintList();
+    }
+
+    @Nullable
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public PorterDuff.Mode getSupportCompoundDrawablesTintMode() {
+        return this.mTextHelper.getCompoundDrawableTintMode();
+    }
+
+    public boolean isEmojiCompatEnabled() {
+        return getEmojiTextViewHelper().isEnabled();
+    }
+
+    public void setAllCaps(boolean z4) {
+        super.setAllCaps(z4);
+        getEmojiTextViewHelper().setAllCaps(z4);
+    }
+
+    public void setBackgroundDrawable(@Nullable Drawable drawable) {
+        super.setBackgroundDrawable(drawable);
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            appCompatBackgroundHelper.onSetBackgroundDrawable(drawable);
+        }
+    }
+
+    public void setBackgroundResource(@DrawableRes int i5) {
+        super.setBackgroundResource(i5);
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            appCompatBackgroundHelper.onSetBackgroundResource(i5);
+        }
+    }
+
+    public void setButtonDrawable(Drawable drawable) {
+        super.setButtonDrawable(drawable);
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = this.mCompoundButtonHelper;
+        if (appCompatCompoundButtonHelper != null) {
+            appCompatCompoundButtonHelper.onSetButtonDrawable();
+        }
+    }
+
+    public void setCompoundDrawables(@Nullable Drawable drawable, @Nullable Drawable drawable2, @Nullable Drawable drawable3, @Nullable Drawable drawable4) {
+        super.setCompoundDrawables(drawable, drawable2, drawable3, drawable4);
+        AppCompatTextHelper appCompatTextHelper = this.mTextHelper;
+        if (appCompatTextHelper != null) {
+            appCompatTextHelper.onSetCompoundDrawables();
+        }
+    }
+
+    public void setCompoundDrawablesRelative(@Nullable Drawable drawable, @Nullable Drawable drawable2, @Nullable Drawable drawable3, @Nullable Drawable drawable4) {
+        super.setCompoundDrawablesRelative(drawable, drawable2, drawable3, drawable4);
+        AppCompatTextHelper appCompatTextHelper = this.mTextHelper;
+        if (appCompatTextHelper != null) {
+            appCompatTextHelper.onSetCompoundDrawables();
+        }
+    }
+
+    public void setEmojiCompatEnabled(boolean z4) {
+        getEmojiTextViewHelper().setEnabled(z4);
+    }
+
+    public void setFilters(@NonNull InputFilter[] inputFilterArr) {
+        super.setFilters(getEmojiTextViewHelper().getFilters(inputFilterArr));
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportBackgroundTintList(@Nullable ColorStateList colorStateList) {
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            appCompatBackgroundHelper.setSupportBackgroundTintList(colorStateList);
+        }
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportBackgroundTintMode(@Nullable PorterDuff.Mode mode) {
+        AppCompatBackgroundHelper appCompatBackgroundHelper = this.mBackgroundTintHelper;
+        if (appCompatBackgroundHelper != null) {
+            appCompatBackgroundHelper.setSupportBackgroundTintMode(mode);
+        }
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportButtonTintList(@Nullable ColorStateList colorStateList) {
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = this.mCompoundButtonHelper;
+        if (appCompatCompoundButtonHelper != null) {
+            appCompatCompoundButtonHelper.setSupportButtonTintList(colorStateList);
+        }
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportButtonTintMode(@Nullable PorterDuff.Mode mode) {
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = this.mCompoundButtonHelper;
+        if (appCompatCompoundButtonHelper != null) {
+            appCompatCompoundButtonHelper.setSupportButtonTintMode(mode);
+        }
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportCompoundDrawablesTintList(@Nullable ColorStateList colorStateList) {
+        this.mTextHelper.setCompoundDrawableTintList(colorStateList);
+        this.mTextHelper.applyCompoundDrawablesTints();
+    }
+
+    @RestrictTo({RestrictTo.Scope.LIBRARY_GROUP_PREFIX})
+    public void setSupportCompoundDrawablesTintMode(@Nullable PorterDuff.Mode mode) {
+        this.mTextHelper.setCompoundDrawableTintMode(mode);
+        this.mTextHelper.applyCompoundDrawablesTints();
+    }
+
+    public AppCompatCheckBox(@NonNull Context context, @Nullable AttributeSet attributeSet) {
+        this(context, attributeSet, R.attr.checkboxStyle);
+    }
+
+    public AppCompatCheckBox(@NonNull Context context, @Nullable AttributeSet attributeSet, int i5) {
+        super(TintContextWrapper.wrap(context), attributeSet, i5);
+        ThemeUtils.checkAppCompatTheme(this, getContext());
+        AppCompatCompoundButtonHelper appCompatCompoundButtonHelper = new AppCompatCompoundButtonHelper(this);
+        this.mCompoundButtonHelper = appCompatCompoundButtonHelper;
+        appCompatCompoundButtonHelper.loadFromAttributes(attributeSet, i5);
+        AppCompatBackgroundHelper appCompatBackgroundHelper = new AppCompatBackgroundHelper(this);
+        this.mBackgroundTintHelper = appCompatBackgroundHelper;
+        appCompatBackgroundHelper.loadFromAttributes(attributeSet, i5);
+        AppCompatTextHelper appCompatTextHelper = new AppCompatTextHelper(this);
+        this.mTextHelper = appCompatTextHelper;
+        appCompatTextHelper.loadFromAttributes(attributeSet, i5);
+        getEmojiTextViewHelper().loadFromAttributes(attributeSet, i5);
+    }
+
+    public void setButtonDrawable(@DrawableRes int i5) {
+        setButtonDrawable(AppCompatResources.getDrawable(getContext(), i5));
+    }
+}

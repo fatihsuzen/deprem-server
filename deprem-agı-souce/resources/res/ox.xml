@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+    <androidx.appcompat.widget.Toolbar android:id="@+id/toolbar_downloads" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize">
+        <TextView android:id="@+id/tv_toolbar_title_downloads" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/settings_category_downloads" style="@style/UptodownToolbarStyle"/>
+    </androidx.appcompat.widget.Toolbar>
+    <androidx.core.widget.NestedScrollView android:id="@+id/nsv_my_downloads" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_below="@+id/toolbar_downloads">
+        <LinearLayout android:orientation="vertical" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent" android:animateLayoutChanges="true">
+            <androidx.appcompat.widget.SearchView android:id="@+id/search_view_my_downloads" android:visibility="gone" android:layout_marginLeft="@dimen/margin_m" android:layout_marginRight="@dimen/margin_m" android:layout_marginHorizontal="@dimen/margin_m" app:queryHint="@string/my_apps_search_hint" style="@style/UptodownSearchView"/>
+            <include android:id="@+id/my_downloads_filters" android:visibility="invisible" android:layout_width="match_parent" android:layout_height="wrap_content" layout="@layout/my_downloads_filters"/>
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/recyclerview" android:layout_width="match_parent" android:layout_height="match_parent"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+    <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_secundary" android:gravity="center" android:id="@+id/tv_no_items" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="10dp" android:text="@string/msg_sin_descargas" android:layout_centerInParent="true"/>
+    <include android:id="@+id/loading_view_my_downloads" layout="@layout/core_loading_view"/>
+</RelativeLayout>

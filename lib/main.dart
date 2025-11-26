@@ -1,7 +1,9 @@
+import 'services/fcm_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
+// ...existing code...
 import 'screens/splash_screen.dart';
 import 'screens/root.dart';
 import 'screens/login_screen.dart';
@@ -14,19 +16,51 @@ import 'services/notification_service.dart';
 import 'services/location_update_service.dart';
 import 'services/user_preferences_service.dart';
 import 'services/earthquake_background_service.dart';
-import 'services/fcm_service.dart';
 import 'firebase_options.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// ...existing code...
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'screens/earthquake_alert_screen.dart';
 
 // Global navigation key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+// ...existing code...
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Native deprem alert activity'den gelen parametreyi kontrol et
+  final MethodChannel paramsChannel =
+      const MethodChannel('deprem_app/earthquake_params');
+  final earthquakeParams =
+      await paramsChannel.invokeMethod('getEarthquakeParams');
+  debugPrint('[DepremApp] main.dart: earthquakeParams = $earthquakeParams');
+  if (earthquakeParams == null) {
+    debugPrint(
+        '[DepremApp] main.dart: earthquakeParams NULL, ana ekran açılacak!');
+  } else {
+    debugPrint(
+        '[DepremApp] main.dart: earthquakeParams mevcut, circle ekran açılacak!');
+  }
+  // Kullanılmayan değişkenler kaldırıldı
+  // MethodChannel handler'ları ekleniyor
+  const MethodChannel wakeLockChannel = MethodChannel('deprem_app/wake_lock');
+  const MethodChannel alertActivityChannel =
+      MethodChannel('deprem_app/alert_activity');
+
+  wakeLockChannel.setMethodCallHandler((call) async {
+    if (call.method == 'wakeUpScreen') {
+      debugPrint('[DepremApp] Flutter: wakeUpScreen çağrıldı!');
+      // Ekranı uyandırmak için native kod tetikleniyor
+    }
+  });
+
+  alertActivityChannel.setMethodCallHandler((call) async {
+    if (call.method == 'showEarthquakeAlertActivity') {
+      debugPrint('[DepremApp] Flutter: showEarthquakeAlertActivity çağrıldı!');
+      // Native deprem alert activity tetikleniyor
+    }
+  });
   // Firebase başlat
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -36,11 +70,31 @@ void main() async {
   OneSignal.initialize("37c0591e-7d1c-4754-b65c-1328feafd933");
   OneSignal.Notifications.requestPermission(true);
 
+  // FCM background handler kaydı
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
   // FCM notification setup
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print(
         '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
-    // Burada local notification veya özel işlem başlatabilirsin
+    if (message.data['type'] == 'earthquake_alert') {
+      final magnitude =
+          double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
+      final distance =
+          double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
+      final location = message.data['location'] ?? '';
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => EarthquakeAlertScreen(
+            magnitude: magnitude,
+            location: location,
+            distance: distance,
+            timestamp: DateTime.now(),
+            source: 'P2P',
+          ),
+        ),
+      );
+    }
   });
 
   // Background service'i initialize et
@@ -52,7 +106,25 @@ void main() async {
   // Servis başlatmayı arka plana alıyoruz - uygulama açılırken bekletmeyelim
   _initializeServicesInBackground();
 
-  runApp(const DepremApp());
+  if (earthquakeParams != null) {
+    debugPrint(
+        '[DepremApp] main.dart: Circle ekran açılıyor! Parametre: $earthquakeParams');
+    debugPrint(
+        '[DepremApp] main.dart: EarthquakeAlertScreen navigation başlatıldı!');
+    runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: EarthquakeAlertScreen(
+        magnitude: (earthquakeParams['magnitude'] as num?)?.toDouble() ?? 0.0,
+        location: earthquakeParams['location'] as String? ?? '',
+        distance: (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
+        timestamp: DateTime.now(),
+        source: 'P2P',
+      ),
+    ));
+  } else {
+    debugPrint('[DepremApp] main.dart: DepremApp ana ekran başlatıldı!');
+    runApp(const DepremApp());
+  }
 }
 
 // Servisleri arka planda başlat

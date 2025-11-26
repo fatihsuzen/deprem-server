@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+    <androidx.appcompat.widget.Toolbar android:id="@+id/toolbar_lists" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize">
+        <TextView android:id="@+id/tv_title_lists" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/lists_title" style="@style/UptodownToolbarStyle"/>
+    </androidx.appcompat.widget.Toolbar>
+    <androidx.core.widget.NestedScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_m" android:layout_below="@+id/toolbar_lists">
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_lists" android:layout_width="match_parent" android:layout_height="match_parent">
+            <include android:id="@+id/ll_wishlist_lists" android:visibility="visible" layout="@layout/lists_item"/>
+            <include android:id="@+id/ll_recommended_lists" android:visibility="visible" layout="@layout/lists_item"/>
+            <include android:id="@+id/ll_preregistrations_lists" android:visibility="visible" layout="@layout/lists_item"/>
+            <LinearLayout android:orientation="vertical" android:id="@+id/ll_floating_categories_lists" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_m"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+    <FrameLayout android:id="@+id/fl_lists" android:layout_width="match_parent" android:layout_height="match_parent"/>
+    <include android:id="@+id/loading_view_lists" android:visibility="visible" layout="@layout/core_loading_view"/>
+</RelativeLayout>

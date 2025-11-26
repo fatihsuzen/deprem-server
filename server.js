@@ -142,13 +142,13 @@ app.post('/api/users/update-location', async (req, res) => {
         // Bildirim ayarlarını da güncelle (eğer gönderildiyse)
         if (notificationRadius !== undefined || minMagnitude !== undefined || maxMagnitude !== undefined) {
             if (!user.notificationSettings) {
-                user.notificationSettings = {};
+              user.notificationSettings = {};
             }
-            if (notificationRadius !== undefined) user.notificationSettings.notificationRadius = notificationRadius;
-            if (minMagnitude !== undefined) user.notificationSettings.minMagnitude = minMagnitude;
-            if (maxMagnitude !== undefined) user.notificationSettings.maxMagnitude = maxMagnitude;
+            if (notificationRadius !== undefined) user.notificationSettings.notificationRadius = parseFloat(notificationRadius);
+            if (minMagnitude !== undefined) user.notificationSettings.minMagnitude = parseFloat(minMagnitude);
+            if (maxMagnitude !== undefined) user.notificationSettings.maxMagnitude = parseFloat(maxMagnitude);
             await user.save();
-            console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${notificationRadius}km, M${minMagnitude}-${maxMagnitude}`);
+            console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName} - ${parseFloat(notificationRadius)}km, M${parseFloat(minMagnitude)}-${parseFloat(maxMagnitude)}`);
         }
         console.log(`📍 Konum güncellendi: ${user.displayName} - ${latitude}, ${longitude}`);
         res.json({

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:paddingTop="@dimen/margin_xl" android:paddingBottom="@dimen/margin_xl" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingVertical="@dimen/margin_xl">
+    <LinearLayout android:orientation="vertical" android:id="@+id/ll_dialog_cd" android:background="@drawable/bg_dialog" android:padding="20dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_xl" android:layout_marginBottom="@dimen/margin_xl" android:layout_marginVertical="@dimen/margin_xl">
+        <TextView android:textSize="@dimen/text_size_xl" android:textColor="@color/text_primary" android:gravity="center_horizontal" android:id="@+id/tv_title_cd" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/app_detail_whats_new"/>
+        <ScrollView android:scrollbars="none" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="@dimen/margin_l" android:layout_weight="1">
+            <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/text_secundary" android:id="@+id/tv_changelog_cd" android:layout_width="match_parent" android:layout_height="wrap_content" android:lineSpacingExtra="8dp"/>
+        </ScrollView>
+        <TextView android:textColor="@color/white" android:gravity="center" android:layout_gravity="center_horizontal" android:id="@+id/tv_accept_cd" android:background="@drawable/ripple_blue_primary_button" android:layout_width="100dp" android:layout_height="40dp" android:layout_marginTop="@dimen/margin_l" android:text="@string/ok" android:textAllCaps="true"/>
+    </LinearLayout>
+</LinearLayout>

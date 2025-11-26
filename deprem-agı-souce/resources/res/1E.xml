@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:orientation="vertical" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+        <androidx.appcompat.widget.Toolbar android:id="@+id/toolbar_follow_list" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize">
+            <TextView android:id="@+id/tv_toolbar_follow_list" android:layout_width="match_parent" android:layout_height="wrap_content" style="@style/UptodownToolbarStyle"/>
+        </androidx.appcompat.widget.Toolbar>
+        <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_follow_list" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_marginTop="@dimen/margin_m"/>
+    </LinearLayout>
+    <TextView android:textSize="@dimen/text_size_xl" android:textColor="@color/text_secundary" android:gravity="center" android:id="@+id/tv_no_data_follow_list" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="@dimen/margin_m" android:text="@string/no_data_available" android:layout_centerInParent="true"/>
+    <include android:id="@+id/loading_view_follow_list" layout="@layout/core_loading_view"/>
+</RelativeLayout>

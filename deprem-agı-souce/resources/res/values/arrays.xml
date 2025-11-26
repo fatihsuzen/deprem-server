@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <array name="languageCodes">
+        <item>en</item>
+        <item>es</item>
+        <item>pt</item>
+        <item>de</item>
+        <item>fr</item>
+        <item>it</item>
+        <item>zh</item>
+        <item>ja</item>
+        <item>ru</item>
+        <item>ko</item>
+        <item>in</item>
+        <item>ar</item>
+        <item>th</item>
+        <item>tr</item>
+        <item>hi</item>
+        <item>vi</item>
+        <item>ro</item>
+    </array>
+    <array name="languages">
+        <item>English</item>
+        <item>Español</item>
+        <item>Português</item>
+        <item>Deutsch</item>
+        <item>Français</item>
+        <item>Italiano</item>
+        <item>中文</item>
+        <item>日本語</item>
+        <item>Pусский</item>
+        <item>한국어</item>
+        <item>B.Indonesia</item>
+        <item>العربية‎</item>
+        <item>ภาษาไทย</item>
+        <item>Türk</item>
+        <item>हिन्दी</item>
+        <item>Tiếng Việt</item>
+        <item>Română</item>
+    </array>
+    <array name="localizedLang">
+        <item>English</item>
+        <item>Spanish</item>
+        <item>Portuguese</item>
+        <item>German</item>
+        <item>French</item>
+        <item>Italian</item>
+        <item>Chinese</item>
+        <item>Japanese</item>
+        <item>Russian</item>
+        <item>Korean</item>
+        <item>Indonesian</item>
+        <item>Arabic</item>
+        <item>Thai</item>
+        <item>Turkish</item>
+        <item>Hindi</item>
+        <item>Vietnamese</item>
+        <item>Romanian</item>
+    </array>
+    <array name="messages_info">
+        <item>@string/message_info_01</item>
+        <item>@string/message_info_02</item>
+        <item>@string/message_info_03</item>
+        <item>@string/message_info_04</item>
+        <item>@string/message_info_05</item>
+        <item>@string/message_info_06</item>
+        <item>@string/message_info_07</item>
+        <item>@string/message_info_08</item>
+    </array>
+    <array name="messages_info_core">
+        <item>@string/message_info_core_01</item>
+        <item>@string/message_info_core_02</item>
+        <item>@string/message_info_core_03</item>
+        <item>@string/message_info_core_04</item>
+    </array>
+</resources>

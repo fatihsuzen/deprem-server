@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:orientation="vertical" android:background="#000000" android:layout_width="match_parent" android:layout_height="match_parent">
+    <TextView android:textColor="#ffffff" android:id="@+id/tv_file_name" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="File: "/>
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <Button android:textColor="@color/white" android:id="@+id/bt_read_android_manifest" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Manifest" android:textAllCaps="false"/>
+        <Button android:textColor="@color/white" android:id="@+id/bt_read_android_manifest_derived" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Derived" android:textAllCaps="false"/>
+    </LinearLayout>
+    <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <Button android:textColor="@color/white" android:id="@+id/bt_features" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Features" android:textAllCaps="false"/>
+        <Button android:textColor="@color/white" android:id="@+id/bt_2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="2" android:textAllCaps="false"/>
+    </LinearLayout>
+    <ScrollView android:layout_width="match_parent" android:layout_height="match_parent">
+        <TextView android:textColor="@color/white" android:id="@+id/tv_output" android:background="#000000" android:layout_width="match_parent" android:layout_height="match_parent"/>
+    </ScrollView>
+</LinearLayout>

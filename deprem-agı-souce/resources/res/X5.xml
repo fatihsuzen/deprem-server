@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:layout_width="match_parent" android:layout_height="wrap_content">
+    <ScrollView android:layout_width="match_parent" android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical" android:background="@drawable/bg_dialog" android:padding="@dimen/margin_l" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="15dp">
+            <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_primary" android:gravity="center" android:id="@+id/tv_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_m" android:text="@string/pending_installs_title"/>
+            <LinearLayout android:orientation="vertical" android:id="@+id/ll_updates_section" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_m">
+                <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/main_blue" android:ellipsize="end" android:id="@+id/tv_updates_title" android:background="@drawable/core_ripple_bg_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_s" android:text="@string/pending_updates_title" android:maxLines="1"/>
+                <LinearLayout android:orientation="vertical" android:id="@+id/ll_updates_list" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_s"/>
+                <TextView android:layout_gravity="center_horizontal" android:id="@+id/tv_go_to_updates" android:padding="@dimen/margin_m" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_m" android:text="@string/go_to_updates" style="@style/DialogButtonsStyle"/>
+            </LinearLayout>
+            <LinearLayout android:orientation="vertical" android:id="@+id/ll_downloads_section" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_m">
+                <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/main_blue" android:ellipsize="end" android:id="@+id/tv_downloads_title" android:background="@drawable/core_ripple_bg_card" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_s" android:text="@string/pending_downloads_title" android:maxLines="1"/>
+                <LinearLayout android:orientation="vertical" android:id="@+id/ll_downloads_list" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_s"/>
+                <TextView android:layout_gravity="center_horizontal" android:id="@+id/tv_go_to_downloads" android:padding="@dimen/margin_m" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="@dimen/margin_m" android:text="@string/go_to_downloads" style="@style/DialogButtonsStyle"/>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+    <ImageView android:id="@+id/iv_close_dialog_pending_installs" android:layout_width="30dp" android:layout_height="30dp" android:contentDescription="@string/close" android:layout_alignParentEnd="true" android:elevation="@dimen/button_elevation" app:srcCompat="@drawable/vector_cross_close_popup"/>
+</RelativeLayout>

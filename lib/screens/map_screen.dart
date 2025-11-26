@@ -1,7 +1,6 @@
 ﻿import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-// Tile caching import kaldırıldı
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +12,7 @@ import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'animated_fay_line.dart';
-import 'animated_fay_glow_overlay.dart';
+import 'package:flutter/services.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -24,6 +22,22 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+    // Dinamik (GeoJSON'dan) fay hatları
+    List<Polyline> _dynamicFaultLines = [];
+    // Harita hareketini dinlemek için listener
+    void _onMapMoved() {
+      final center = _mapController.camera.center;
+      final zoom = _mapController.camera.zoom;
+      // Range'i zoom'a göre dinamik ayarlayabilirsiniz, şimdilik notificationRadius kullanılıyor
+      loadFaultLines(_notificationRadius, center).then((lines) {
+        if (mounted) {
+          setState(() {
+            _dynamicFaultLines = lines;
+          });
+          print('🔄 Harita hareket etti, fay hatları güncellendi: ${lines.length} polyline');
+        }
+      });
+    }
   late AnimationController _fayPulseController;
   late Animation<double> _fayPulseAnimation;
   // ...existing code...
@@ -486,6 +500,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       _mapController.move(_userLocation, 11.0);
       print(
           '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+      // Dinamik fay hatlarını konumdan sonra yükle
+      loadFaultLines(_notificationRadius, _userLocation).then((lines) {
+        if (mounted) {
+          setState(() {
+            _dynamicFaultLines = lines;
+          });
+          print('✅ Dinamik fay hatları yüklendi: ${lines.length} polyline');
+        }
+      });
     }
 
     // 4. KONUM ALINDIKTAN SONRA ayarları yükle ve depremleri çek
@@ -686,13 +709,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     try {
       print('👥 Arkadaş listesi yükleniyor...');
       final friends = await _friendsService.getFriends();
+      print('🟢 Backendden gelen arkadaşlar JSON: $friends');
       print('✅ ${friends.length} arkadaş yüklendi');
 
-      // Her arkadaşın konum bilgisini kontrol et
+      // Her arkadaşın konum bilgisini parse et
       int withLocation = 0;
       int withoutLocation = 0;
       for (var friend in friends) {
         final location = friend['location'];
+        if (location != null &&
+            location['coordinates'] != null &&
+            location['coordinates'] is List &&
+            location['coordinates'].length == 2) {
+          friend['location']['latitude'] = location['coordinates'][1];
+          friend['location']['longitude'] = location['coordinates'][0];
+        }
         if (location != null &&
             location['latitude'] != null &&
             location['longitude'] != null) {
@@ -923,7 +954,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           style: TextStyle(color: Colors.grey[600], fontSize: 14),
         ),
         Text(
-          value,
+          label == 'Mw'
+              ? double.tryParse(value)?.toStringAsFixed(1) ?? value
+              : value,
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
       ],
@@ -1257,7 +1290,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _userLocation,
-            initialZoom: 6.0,
+            initialZoom: 3.5, // Daha geniş alan için zoom'u küçült
           ),
           children: [
             TileLayer(
@@ -1266,22 +1299,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               userAgentPackageName: 'dev.deprem_bildirim',
               // tileProvider kaldırıldı, default tileProvider kullanılacak
             ),
-            // Fay hatları katmanı
+            // Sadece dinamik fay hatları katmanı (statik kod devre dışı)
             if (_showFaultLines)
               AnimatedBuilder(
                 animation: _fayPulseAnimation,
                 builder: (context, child) {
                   return PolylineLayer(
-                    polylines: _faultLines.map((fault) {
-                      return Polyline(
-                        points: fault['points'] as List<LatLng>,
-                        strokeWidth: 4.0,
-                        color: Colors.redAccent
-                            .withOpacity(_fayPulseAnimation.value),
+                    polylines: [
+                      ..._dynamicFaultLines.map((poly) => Polyline(
+                        points: poly.points,
+                        strokeWidth: 5.0, // Daha kalın
+                        color: Colors.red.withOpacity(_fayPulseAnimation.value), // Daha belirgin renk
                         borderStrokeWidth: 2.0,
-                        borderColor: Colors.yellow.withOpacity(0.7),
-                      );
-                    }).toList(),
+                        borderColor: Colors.yellowAccent.withOpacity(0.8),
+                      )),
+                    ],
                   );
                 },
               ),
@@ -1291,21 +1323,44 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               MarkerLayer(
                 markers: _friends.where((friend) {
                   final location = friend['location'];
-                  return location != null &&
-                      location['latitude'] != null &&
-                      location['longitude'] != null;
+                  final lat = location != null ? location['latitude'] : null;
+                  final lon = location != null ? location['longitude'] : null;
+                  // Tip güvenli kontrol
+                  final latDouble = lat is int
+                      ? lat.toDouble()
+                      : (lat is double
+                          ? lat
+                          : double.tryParse(lat?.toString() ?? ''));
+                  final lonDouble = lon is int
+                      ? lon.toDouble()
+                      : (lon is double
+                          ? lon
+                          : double.tryParse(lon?.toString() ?? ''));
+                  final valid = latDouble != null && lonDouble != null;
+                  if (!valid) {
+                    print(
+                        '❌ Marker tip hatası: ${friend['displayName']} lat=$lat lon=$lon');
+                  }
+                  return valid;
                 }).map((friend) {
                   final location = friend['location'];
-                  final lat = (location['latitude'] is int)
-                      ? (location['latitude'] as int).toDouble()
-                      : location['latitude'] as double;
-                  final lon = (location['longitude'] is int)
-                      ? (location['longitude'] as int).toDouble()
-                      : location['longitude'] as double;
+                  final lat = location['latitude'];
+                  final lon = location['longitude'];
+                  final latDouble = lat is int
+                      ? lat.toDouble()
+                      : (lat is double
+                          ? lat
+                          : double.tryParse(lat?.toString() ?? ''));
+                  final lonDouble = lon is int
+                      ? lon.toDouble()
+                      : (lon is double
+                          ? lon
+                          : double.tryParse(lon?.toString() ?? ''));
                   final isOnline = friend['isOnline'] ?? false;
-
+                  print(
+                      '🟢 Marker ekleniyor: ${friend['displayName']} lat=$latDouble lon=$lonDouble');
                   return Marker(
-                    point: LatLng(lat, lon),
+                    point: LatLng(latDouble!, lonDouble!),
                     width: 45,
                     height: 45,
                     alignment: Alignment.center,
@@ -1589,7 +1644,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     Row(
                       children: [
                         Text(
-                          '${_latestQuake!['mag']} Mw',
+                          '${(_latestQuake!['mag'] as num).toDouble().toStringAsFixed(1)} Mw',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -1724,6 +1779,37 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         ),
       ],
     );
+  }
+
+  Future<List<Polyline>> loadFaultLines(double rangeKm, LatLng userLocation) async {
+    // 700km radius, mor renk ve ince çizgi
+    final double limitedRadius = 700.0;
+    final geojson = await rootBundle.loadString('assets/gem_active_faults_harmonized.geojson');
+    final data = json.decode(geojson);
+    List<Polyline> lines = [];
+    for (var feature in data['features']) {
+      final coords = feature['geometry']['coordinates'];
+      if (coords is List) {
+        List<LatLng> points = [];
+        for (var c in coords) {
+          final lat = c[1], lon = c[0];
+          final dist = Distance().as(LengthUnit.Kilometer, userLocation, LatLng(lat, lon));
+          if (dist <= limitedRadius) {
+            points.add(LatLng(lat, lon));
+          }
+        }
+        if (points.length > 1) {
+          lines.add(Polyline(
+            points: points,
+            strokeWidth: 2.0, // Daha ince çizgi
+            color: Colors.purple, // Mor renk
+            borderStrokeWidth: 1.0,
+            borderColor: Colors.white.withOpacity(0.7),
+          ));
+        }
+      }
+    }
+    return lines;
   }
 }
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt">
+    <item android:icon="@drawable/vector_shield_protect" android:id="@+id/action_protect" android:title="@string/label_uptodown_protect" app:showAsAction="ifRoom"/>
+    <item android:icon="@drawable/vector_moon" android:id="@+id/action_dark_mode" android:title="@string/menu_left_dark_mode" app:showAsAction="ifRoom"/>
+    <item android:icon="@drawable/vector_edit_profile" android:id="@+id/action_edit_profile" android:title="@string/edit_profile" app:showAsAction="ifRoom"/>
+</menu>

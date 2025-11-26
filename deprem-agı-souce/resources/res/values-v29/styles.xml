@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme.BottomSheetDialogOverlay">
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+    <style name="AppThemeBar">
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:windowContentTransitions">true</item>
+        <item name="android:colorPrimary">@color/main_blue</item>
+        <item name="android:windowEnterTransition">@android:transition/fade</item>
+        <item name="android:windowSharedElementEnterTransition">@android:transition/move</item>
+        <item name="android:windowSharedElementExitTransition">@android:transition/move</item>
+        <item name="android:windowAllowReturnTransitionOverlap">false</item>
+        <item name="android:windowAllowEnterTransitionOverlap">false</item>
+        <item name="android:statusBarColor">@color/background_color</item>
+        <item name="?0x10104e0">@bool/windowLightStatusBarCustom</item>
+        <item name="?0x101058c">false</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>

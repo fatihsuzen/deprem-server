@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true">
+    <RelativeLayout android:id="@+id/rl_container_user_list_item" android:background="@drawable/core_ripple_bg_card" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <RelativeLayout android:id="@+id/rl_icon_progress_user_list_item" android:layout_width="@dimen/icon_size_l" android:layout_height="@dimen/icon_size_l">
+            <ProgressBar android:id="@+id/pb_progress_user_list_item" android:visibility="gone" android:layout_width="match_parent" android:layout_height="match_parent" android:max="100" android:progress="0" android:indeterminateDrawable="@drawable/progressbar_circular_indeterminate" android:progressDrawable="@drawable/progressbar_circular" style="?android:attr/progressBarStyleHorizontal"/>
+            <ImageView android:id="@+id/iv_icon_user_list_item" android:layout_width="@dimen/icon_size_l" android:layout_height="@dimen/icon_size_l" android:adjustViewBounds="true" android:layout_centerVertical="true" android:contentDescription="@null" app:srcCompat="@drawable/vector_uptodown_logo_disabled"/>
+        </RelativeLayout>
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_info_user_list_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginStart="@dimen/margin_m" android:layout_toEndOf="@+id/rl_icon_progress_user_list_item">
+            <TextView android:textSize="14sp" android:textColor="@color/text_primary" android:ellipsize="end" android:id="@+id/tv_name_user_list_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="2" android:layout_marginEnd="110dp"/>
+            <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginEnd="100dp">
+                <ImageView android:layout_gravity="center_vertical" android:id="@+id/iv_icon_platform_user_list_item" android:layout_width="10dp" android:layout_height="10dp" android:adjustViewBounds="true" android:contentDescription="@null" android:layout_marginEnd="@dimen/margin_m" app:srcCompat="@drawable/vector_uptodown_logo_disabled"/>
+                <TextView android:textSize="@dimen/text_size_s" android:textColor="@color/text_secundary" android:ellipsize="end" android:id="@+id/tv_date_user_list_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:lines="1"/>
+            </LinearLayout>
+            <RelativeLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_s">
+                <HorizontalScrollView android:id="@+id/hsv_floating_tags_user_list_item" android:paddingTop="@dimen/margin_m" android:scrollbars="none" android:layout_width="wrap_content" android:layout_height="wrap_content">
+                    <LinearLayout android:orientation="horizontal" android:id="@+id/ll_user_list_item_floating_categories" android:layout_width="wrap_content" android:layout_height="wrap_content">
+                        <include android:id="@+id/user_list_item_floating_tag" layout="@layout/user_list_item_floating_tag"/>
+                    </LinearLayout>
+                </HorizontalScrollView>
+                <View android:background="@drawable/shadow_vertical" android:layout_width="10dp" android:layout_height="wrap_content" android:layout_alignTop="@+id/hsv_floating_tags_user_list_item" android:layout_alignBottom="@+id/hsv_floating_tags_user_list_item" android:layout_alignParentEnd="true"/>
+            </RelativeLayout>
+        </LinearLayout>
+    </RelativeLayout>
+    <RelativeLayout android:gravity="center" android:id="@+id/rl_actions_user_list_item" android:layout_width="100dp" android:layout_height="wrap_content" android:layout_alignParentEnd="true">
+        <TextView android:textSize="@dimen/text_size_s" android:textColor="@color/white" android:id="@+id/tv_action_user_list_item" android:visibility="gone" android:layout_width="match_parent" android:layout_alignParentEnd="true" style="@style/AutoSizeTextView"/>
+        <RelativeLayout android:id="@+id/rl_cancel_user_list_item" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_centerVertical="true" android:layout_alignParentEnd="true">
+            <TextView android:textSize="@dimen/text_size_s" android:textColor="@color/main_light_grey" android:ellipsize="end" android:id="@+id/tv_pending_user_list_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/status_download_update_pending" android:maxLines="1" android:layout_centerVertical="true" android:layout_toStartOf="@+id/iv_cancel_user_list_item"/>
+            <ImageView android:id="@+id/iv_cancel_user_list_item" android:layout_width="@dimen/icon_size_s" android:layout_height="@dimen/icon_size_s" android:layout_centerVertical="true" android:contentDescription="@string/action_cancel_download" android:layout_marginEnd="@dimen/margin_m" android:layout_alignParentEnd="true" app:srcCompat="@drawable/core_vector_cross"/>
+        </RelativeLayout>
+    </RelativeLayout>
+</RelativeLayout>

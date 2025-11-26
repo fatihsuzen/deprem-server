@@ -40,7 +40,28 @@ class FriendsService {
               onTimeout: () => throw 'API timeout',
             );
 
-        _friends = apiResponse;
+        print('🟢 Backendden gelen arkadaş verisi: $apiResponse');
+        // Sunucudan gelen arkadaşların konumunu parse et
+        _friends = apiResponse.map((friend) {
+          final location = friend['location'];
+          if (location != null &&
+              location['coordinates'] != null &&
+              location['coordinates'] is List &&
+              location['coordinates'].length == 2) {
+            // GeoJSON: [longitude, latitude]
+            friend['location']['latitude'] = location['coordinates'][1];
+            friend['location']['longitude'] = location['coordinates'][0];
+            print(
+                '✅ Marker parse: ${friend['displayName']} -> lat:${friend['location']['latitude']} lon:${friend['location']['longitude']}');
+          } else {
+            print(
+                '❌ Marker parse hatası: ${friend['displayName']} - location: $location');
+            friend['location'] ??= {};
+            friend['location']['latitude'] = null;
+            friend['location']['longitude'] = null;
+          }
+          return friend;
+        }).toList();
         print('✅ ${_friends.length} arkadas yuklendi (Real Database)');
       } catch (error) {
         print('❌ API hatası: $error - Simülasyon moduna geçiliyor');

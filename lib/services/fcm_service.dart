@@ -1,28 +1,24 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'notification_service.dart';
 
-// FCM altyapısı devre dışı
-// BACKGROUND MESSAGE HANDLER - Uygulama kapalıyken çalışır
-// @pragma('vm:entry-point')
-// Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-//   await Firebase.initializeApp();
-//   print('🔥 BACKGROUND FCM MESSAGE: 
-//   Data: 
-//   // Deprem verisi varsa işle
-//   if (message.data.containsKey('type') &&
-//       message.data['type'] == 'earthquake') {
-//     final magnitude = double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
-//     final location = message.data['location'] ?? 'Bilinmeyen';
-//     final distance = double.tryParse(message.data['distance'] ?? '0') ?? 0.0;
-//     print('🚨 DEPREM ALARMI (Background): M$magnitude - $location');
-//     // Tam ekran bildirim göster
-//     final notificationService = NotificationService();
-//     await notificationService.showFullScreenEarthquakeAlert(
-//       magnitude: magnitude,
-//       location: location,
-//       distance: distance,
-//       source: message.data['source'] ?? 'FCM',
-//     );
-//   }
-// }
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print('🔥 BACKGROUND FCM MESSAGE: ${message.data}');
+  if (message.data['type'] == 'earthquake_alert') {
+    final magnitude = double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
+    final location = message.data['location'] ?? 'Bilinmeyen';
+    final distance = double.tryParse(message.data['distance'] ?? '0') ?? 0.0;
+    final notificationService = NotificationService();
+    await notificationService.showFullScreenEarthquakeAlert(
+      magnitude: magnitude,
+      location: location,
+      distance: distance,
+      source: message.data['source'] ?? 'FCM',
+    );
+  }
+}
 
 // FCM servisi devre dışı
 // class FCMService {

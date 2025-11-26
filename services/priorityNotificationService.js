@@ -123,15 +123,15 @@ class PriorityNotificationService {
 
           const notificationData = {
             title: `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
-            body: `Büyüklük: ${Number(earthquake.magnitude).toFixed(1)}mw ${earthquake.location}\n- Derinlik: ${earthquake.depth}km\n- Mesafe: ${distanceText}`,
-            magnitude: Number(earthquake.magnitude).toFixed(1),
+            body: `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${earthquake.location}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
+            magnitude: parseFloat(earthquake.magnitude).toFixed(1),
             location: earthquake.location,
-            depth: earthquake.depth,
-            distance: distance,
-            earthquakeLat: earthquake.lat,
-            earthquakeLon: earthquake.lon,
-            userLat: userLat,
-            userLon: userLon,
+            depth: parseFloat(earthquake.depth).toFixed(1),
+            distance: parseFloat(distance).toFixed(1),
+            earthquakeLat: parseFloat(earthquake.lat),
+            earthquakeLon: parseFloat(earthquake.lon),
+            userLat: parseFloat(userLat),
+            userLon: parseFloat(userLon),
             time: earthquake.time,
             priority: 'high'
           };

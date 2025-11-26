@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="match_parent">
+    <androidx.appcompat.widget.Toolbar android:theme="@style/UptodownToolbarTheme" android:id="@+id/toolbar_my_apps" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize" app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight">
+        <TextView android:id="@+id/tv_toolbar_title_my_apps" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/my_apps_menu_left" style="@style/UptodownToolbarStyle"/>
+    </androidx.appcompat.widget.Toolbar>
+    <androidx.core.widget.NestedScrollView android:id="@+id/nsv_my_apps" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_below="@+id/toolbar_my_apps">
+        <LinearLayout android:orientation="vertical" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true">
+            <androidx.appcompat.widget.SearchView android:id="@+id/search_view_my_apps" android:visibility="gone" android:layout_marginLeft="@dimen/margin_m" android:layout_marginRight="@dimen/margin_m" android:layout_marginHorizontal="@dimen/margin_m" app:queryHint="@string/my_apps_search_hint" style="@style/UptodownSearchView"/>
+            <include android:id="@+id/ll_order_my_apps" android:visibility="invisible" layout="@layout/dropdown_menu_layout"/>
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_my_apps" android:layout_width="match_parent" android:layout_height="match_parent" android:nestedScrollingEnabled="true"/>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+    <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_secundary" android:gravity="center" android:id="@+id/tv_no_items_filtered_my_apps" android:visibility="gone" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_margin="@dimen/margin_m" android:layout_centerInParent="true"/>
+    <include android:id="@+id/loading_view_my_apps" layout="@layout/core_loading_view"/>
+</RelativeLayout>

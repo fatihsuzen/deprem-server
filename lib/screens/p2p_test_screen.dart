@@ -16,6 +16,12 @@ class P2PTestScreen extends StatefulWidget {
 }
 
 class _P2PTestScreenState extends State<P2PTestScreen> {
+  // ...existing code...
+  // Deprem ve kullanıcı hareketi ayırt etmek için pencere
+  List<Map<String, dynamic>> _shakeEvents = [];
+  static const int SHAKE_WINDOW_MS = 3000; // pencere süresi 3 saniye
+  static const int DEPREM_SHAKE_COUNT = 2; // olay sayısı 2'ye düşürüldü
+  // ...existing code...
   final P2PEarthquakeDetectionService _p2pService =
       P2PEarthquakeDetectionService();
 
@@ -84,6 +90,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     // Manuel sensör dinleme (görsel feedback için)
     _accelerometerSubscription =
         accelerometerEvents.listen((AccelerometerEvent event) {
+      if (!mounted) return;
       // 1. KALİBRASYON: İlk 20 örnek
       if (_calibrationCount < CALIBRATION_SAMPLES) {
         _baselineX += event.x;
@@ -124,6 +131,19 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
         if (magnitude > SHAKE_THRESHOLD) {
           final now = DateTime.now();
 
+          // Sarsıntı olaylarını pencereye ekle (zaman ve eksenler)
+          _shakeEvents.add({
+            'time': now,
+            'deltaX': deltaX.abs(),
+            'deltaY': deltaY.abs(),
+            'deltaZ': deltaZ.abs(),
+          });
+          // Pencere dışındaki eski olayları temizle
+          _shakeEvents = _shakeEvents
+              .where((e) =>
+                  now.difference(e['time']).inMilliseconds <= SHAKE_WINDOW_MS)
+              .toList();
+
           // Spam önleme - 0.5 saniyede bir log
           if (_lastShakeTime == null ||
               now.difference(_lastShakeTime!).inMilliseconds >= 500) {
@@ -131,11 +151,53 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
             _lastShakeTime = now;
             _addLog('⚡ Sarsıntı! ${magnitude.toStringAsFixed(2)} m/s²');
 
-            // Rapor gönderme eşiği
-            if (magnitude > REPORT_THRESHOLD) {
-              _addLog('📤 RAPOR! ${magnitude.toStringAsFixed(2)} m/s²');
-              _reportsSent++;
+            // Deprem mi kullanıcı hareketi mi?
+            // 1. Pencere içinde olay sayısı
+            int shakeCount = _shakeEvents.length;
+            // 2. Olaylar arası ortalama süre
+            double avgInterval = 0;
+            if (shakeCount > 1) {
+              List<int> intervals = [];
+              for (int i = 1; i < _shakeEvents.length; i++) {
+                intervals.add(_shakeEvents[i]['time']
+                    .difference(_shakeEvents[i - 1]['time'])
+                    .inMilliseconds);
+              }
+              avgInterval =
+                  intervals.reduce((a, b) => a + b) / intervals.length;
             }
+            // 3. Eksenlerdeki ani değişim (en az 1 eksende threshold üstü)
+            int multiAxisCount = _shakeEvents
+                .where((e) =>
+                    (e['deltaX'] > SHAKE_THRESHOLD &&
+                        e['deltaY'] > SHAKE_THRESHOLD) ||
+                    (e['deltaX'] > SHAKE_THRESHOLD &&
+                        e['deltaZ'] > SHAKE_THRESHOLD) ||
+                    (e['deltaY'] > SHAKE_THRESHOLD &&
+                        e['deltaZ'] > SHAKE_THRESHOLD))
+                .length;
+
+            if (shakeCount >= DEPREM_SHAKE_COUNT &&
+                avgInterval < 900 &&
+                multiAxisCount >= 1) {
+              _addLog(
+                  '🌍 Deprem sarsıntısı algılandı (pencere: $shakeCount olay, ort. aralık: ${avgInterval.toStringAsFixed(0)}ms, çoklu eksen: $multiAxisCount)');
+              // Rapor gönderme eşiği
+              if (magnitude > REPORT_THRESHOLD) {
+                _addLog('📤 RAPOR! ${magnitude.toStringAsFixed(2)} m/s²');
+                _reportsSent++;
+              }
+            } else {
+              _addLog(
+                  '👤 Kullanıcı hareketi algılandı (pencere: $shakeCount olay, ort. aralık: ${avgInterval.toStringAsFixed(0)}ms, çoklu eksen: $multiAxisCount)');
+            }
+
+            // Sarsıntıdan sonra otomatik kalibrasyon başlat
+            _addLog('🔄 Sarsıntı sonrası otomatik kalibrasyon başlatıldı');
+            _calibrationCount = 0;
+            _baselineX = 0.0;
+            _baselineY = 0.0;
+            _baselineZ = GRAVITY;
           }
         }
       });
@@ -277,118 +339,43 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
       ),
       body: Column(
         children: [
-          // Üst panel - Kontroller
-          Container(
-            color: Colors.grey[100],
-            padding: const EdgeInsets.all(16),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Büyük başlat/durdur butonu
-                SizedBox(
-                  width: double.infinity,
-                  height: 80,
-                  child: ElevatedButton(
-                    onPressed:
-                        _isMonitoring ? _stopMonitoring : _startMonitoring,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _isMonitoring ? Colors.red : Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isMonitoring ? Icons.stop : Icons.play_arrow,
-                          size: 36,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _isMonitoring ? 'İZLEMEYİ DURDUR' : 'İZLEMEYİ BAŞLAT',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
+                Text('P2P Deprem Testi',
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 8),
+                Text(
+                    'Telefonu masaya koyup sallayarak deprem simülasyonu yapabilirsin.',
+                    style: Theme.of(context).textTheme.bodyLarge),
                 const SizedBox(height: 16),
-
-                // Sensör göstergeleri
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      // Anlık şiddet göstergesi
-                      Row(
-                        children: [
-                          Container(
-                            width: 12,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: _getMagnitudeColor(),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Anlık Şiddet:',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${_currentMagnitude.toStringAsFixed(1)} m/s²',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: _getMagnitudeColor(),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      // İstatistikler
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatBox('Sarsıntı', _shakeCount.toString(),
-                              Icons.vibration),
-                          _buildStatBox(
-                              'Rapor', _reportsSent.toString(), Icons.send),
-                          _buildStatBox(
-                              'Max',
-                              '${_maxMagnitude.toStringAsFixed(1)}',
-                              Icons.arrow_upward),
-                        ],
-                      ),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isMonitoring ? null : _startMonitoring,
+                      child: const Text('İzlemeyi Başlat'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _isMonitoring ? _stopMonitoring : null,
+                      child: const Text('Durdur'),
+                    ),
+                  ],
                 ),
-
                 const SizedBox(height: 16),
-
-                // Test butonları
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildStatBox(
+                        'Sarsıntı', _shakeCount.toString(), Icons.vibration),
+                    _buildStatBox('Rapor', _reportsSent.toString(), Icons.send),
+                    _buildStatBox('Max', '${_maxMagnitude.toStringAsFixed(1)}',
+                        Icons.arrow_upward),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
@@ -416,11 +403,11 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
+                // ...existing code...
               ],
             ),
           ),
-
-          // Alt panel - Loglar
           Expanded(
             child: Container(
               color: Colors.black87,

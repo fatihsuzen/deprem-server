@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import '../screens/earthquake_alert_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,18 +13,76 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  Future<void> _checkEarthquakeParams() async {
+    const MethodChannel paramsChannel =
+        MethodChannel('deprem_app/earthquake_params');
+    try {
+      final earthquakeParams =
+          await paramsChannel.invokeMethod('getEarthquakeParams');
+      if (earthquakeParams != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => EarthquakeAlertScreen(
+              magnitude:
+                  (earthquakeParams['magnitude'] as num?)?.toDouble() ?? 0.0,
+              location: earthquakeParams['location'] as String? ?? '',
+              distance:
+                  (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
+              timestamp: DateTime.now(),
+              source: 'P2P',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Hata olursa logla
+      debugPrint('Earthquake param check error: $e');
+    }
+  }
+
+  Future<void> _checkEarthquakeParamsAndNavigate() async {
+    const MethodChannel paramsChannel =
+        MethodChannel('deprem_app/earthquake_params');
+    try {
+      final earthquakeParams =
+          await paramsChannel.invokeMethod('getEarthquakeParams');
+      if (earthquakeParams != null && mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => EarthquakeAlertScreen(
+              magnitude:
+                  (earthquakeParams['magnitude'] as num?)?.toDouble() ?? 0.0,
+              location: earthquakeParams['location'] as String? ?? '',
+              distance:
+                  (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
+              timestamp: DateTime.now(),
+              source: 'P2P',
+            ),
+          ),
+        );
+        return; // Deprem ekranına yönlendirildi, diğer akışları başlatma
+      }
+    } catch (e) {
+      debugPrint('Earthquake param check error: $e');
+    }
+    // Deprem parametresi yoksa login/home akışına devam et
+    _checkLoginStatus();
+  }
+
   @override
   void initState() {
     super.initState();
     // Uygulama yüklenene kadar splash screen göster (1.5 saniye - optimize edildi)
     Timer(const Duration(milliseconds: 1500), () {
-      // Normal UI mode'a geri dön
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      _checkLoginStatus();
+      _checkEarthquakeParamsAndNavigate();
     });
   }
 
   Future<void> _checkLoginStatus() async {
+    // Uygulama açıldığında kısa bir gecikmeyle deprem parametresi kontrolü
+    Future.delayed(
+        const Duration(milliseconds: 500), () => _checkEarthquakeParams());
     if (!mounted) return;
 
     try {

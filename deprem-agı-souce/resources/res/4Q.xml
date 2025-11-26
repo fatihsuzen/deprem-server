@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true">
+    <RelativeLayout android:id="@+id/rl_container_user_device_app_item" android:background="@drawable/core_ripple_bg_card" android:layout_width="match_parent" android:layout_height="wrap_content">
+        <ImageView android:id="@+id/iv_icon_user_device_app_item" android:layout_width="@dimen/icon_size_l" android:layout_height="@dimen/icon_size_l" android:adjustViewBounds="true" android:layout_centerVertical="true" android:contentDescription="@null" app:srcCompat="@drawable/vector_uptodown_logo_disabled"/>
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_info_user_device_app_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="@dimen/margin_m" android:layout_marginRight="@dimen/margin_m" android:layout_toStartOf="@+id/iv_action_user_device_app_item" android:layout_toEndOf="@+id/iv_icon_user_device_app_item" android:layout_marginHorizontal="@dimen/margin_m">
+            <TextView android:textSize="@dimen/font_size_16" android:textColor="@color/text_primary" android:ellipsize="end" android:id="@+id/tv_name_user_device_app_item" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxLines="2"/>
+            <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/text_secundary" android:ellipsize="end" android:id="@+id/tv_last_update_user_device_app_item" android:layout_width="match_parent" android:layout_height="wrap_content" android:maxLines="1" android:lines="1"/>
+        </LinearLayout>
+        <ImageView android:id="@+id/iv_action_user_device_app_item" android:background="@drawable/ripple_blue_primary_button" android:padding="@dimen/margin_m" android:layout_width="30dp" android:layout_height="30dp" android:layout_centerVertical="true" android:contentDescription="@string/action_cancel_download" android:layout_alignParentEnd="true" app:srcCompat="@drawable/vector_arrow_right_white"/>
+    </RelativeLayout>
+</RelativeLayout>

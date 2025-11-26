@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:layout_gravity="bottom" android:layout_width="match_parent" android:layout_height="wrap_content">
+    <ImageView android:id="@+id/iv_close_cd" android:background="?android:attr/selectableItemBackgroundBorderless" android:padding="2dp" android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/vector_cross_close_popup" android:contentDescription="@string/close" android:layout_alignParentEnd="true" android:elevation="5dp"/>
+    <RelativeLayout android:id="@+id/rl_content_area" android:background="@drawable/bg_dialog" android:focusable="true" android:clickable="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_m" android:layout_marginBottom="@dimen/margin_s" android:layout_marginStart="@dimen/margin_m" android:layout_marginEnd="@dimen/margin_m" android:elevation="4dp">
+        <LinearLayout android:orientation="horizontal" android:padding="@dimen/margin_m" android:layout_width="match_parent" android:layout_height="wrap_content">
+            <ImageView android:layout_gravity="center_vertical" android:layout_width="24dp" android:layout_height="24dp" android:src="@drawable/vector_info_explanation" android:contentDescription="@string/app_detail_whats_new" android:layout_marginEnd="@dimen/margin_m"/>
+            <LinearLayout android:orientation="vertical" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1">
+                <TextView android:textSize="@dimen/text_size_m" android:textStyle="bold" android:textColor="@color/text_primary" android:id="@+id/tv_version_cd" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginEnd="32dp"/>
+                <TextView android:textSize="@dimen/text_size_s" android:textColor="@color/text_secundary" android:id="@+id/tv_subtitle_cd" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="@string/changelog_notification_subtitle" android:layout_marginEnd="32dp"/>
+            </LinearLayout>
+            <ImageView android:layout_gravity="center_vertical" android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/vector_arrow_right_blue" android:contentDescription="@string/see_more" android:layout_marginStart="@dimen/margin_s"/>
+        </LinearLayout>
+    </RelativeLayout>
+</RelativeLayout>

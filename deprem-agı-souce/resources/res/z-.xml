@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:orientation="vertical" android:id="@+id/rl_app_info_item" android:background="@color/background_color" android:layout_width="match_parent" android:layout_height="wrap_content">
+    <androidx.appcompat.widget.Toolbar android:theme="@style/UptodownToolbarTheme" android:id="@+id/toolbar_preferences" android:layout_width="match_parent" android:layout_height="?android:attr/actionBarSize" app:popupTheme="@style/ThemeOverlay.AppCompat.DayNight">
+        <TextView android:id="@+id/tv_toolbar_title_preferences" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/settings" style="@style/UptodownToolbarStyle"/>
+    </androidx.appcompat.widget.Toolbar>
+    <ScrollView android:layout_width="match_parent" android:layout_height="wrap_content">
+        <LinearLayout android:orientation="vertical" android:id="@+id/ll_preferences_list" android:paddingBottom="@dimen/margin_l" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true">
+            <include android:id="@+id/language_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/updates_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/updates_setting" layout="@layout/preference_switch_with_action"/>
+            <include android:id="@+id/file_management_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/installable_files_notification_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/root_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/auto_update_root_switch_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/quick_install_root_switch_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/performance_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/only_wifi_switch_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/allow_animations_switch_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/auto_play_video_setting" layout="@layout/preference_list"/>
+            <include android:id="@+id/data_saver_setting" layout="@layout/preference_list"/>
+            <include android:id="@+id/notifications_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/show_notifications_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/updates_notification_setting" layout="@layout/preference_list"/>
+            <include android:id="@+id/downloads_notification_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/installations_notification_setting" layout="@layout/preference_switch"/>
+            <include android:id="@+id/privacy_and_policy_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/privacy_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/advanced_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/more_info_category" layout="@layout/preference_category"/>
+            <include android:id="@+id/tos_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/feedback_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/ads_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/about_app_setting" layout="@layout/preference_item"/>
+            <include android:id="@+id/about_uptodown_setting" layout="@layout/preference_item"/>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

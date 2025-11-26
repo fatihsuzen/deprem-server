@@ -5,6 +5,39 @@ import 'dart:math';
 import '../main.dart';
 import 'user_preferences_service.dart';
 import '../screens/earthquake_alert_screen.dart';
+import 'package:flutter/services.dart';
+
+class NativeAlertService {
+  static const platform = MethodChannel('deprem_app/alert_activity');
+
+  static Future<void> showNativeEarthquakeAlertActivity({
+    required double magnitude,
+    required String location,
+    required double distance,
+  }) async {
+    try {
+      await platform.invokeMethod('showEarthquakeAlertActivity', {
+        'magnitude': magnitude,
+        'location': location,
+        'distance': distance,
+      });
+    } catch (e) {
+      print('Native alert error: $e');
+    }
+  }
+}
+
+class WakeLockService {
+  static const platform = MethodChannel('deprem_app/wake_lock');
+
+  static Future<void> wakeUpScreen() async {
+    try {
+      await platform.invokeMethod('wakeUpScreen');
+    } catch (e) {
+      print('WakeLock error: $e');
+    }
+  }
+}
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -466,6 +499,9 @@ class NotificationService {
   }) async {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
 
+    // 0. Native wake lock ile ekranı uyandır
+    await WakeLockService.wakeUpScreen();
+
     // 1. Önce tam ekran bildirim gönder (ekran kapalıyken uyandırmak için)
     await showWakeUpNotification(magnitude, location, distance);
 
@@ -476,8 +512,13 @@ class NotificationService {
       // Uygulama açık - direkt tam ekran göster
       showAlertScreen(magnitude, location, distance, source);
     } else {
-      // Uygulama kapalı - bildiri üstünden açılmasını bekle
-      print('Uygulama kapalı - bildirim gönderildi');
+      // Uygulama kapalı - native activity aç
+      print('Uygulama kapalı - native deprem alert activity açılıyor');
+      await NativeAlertService.showNativeEarthquakeAlertActivity(
+        magnitude: magnitude,
+        location: location,
+        distance: distance,
+      );
     }
   }
 

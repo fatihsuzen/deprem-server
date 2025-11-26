@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" xmlns:aapt="http://schemas.android.com/aapt" android:orientation="vertical" android:background="@drawable/bg_dialog" android:padding="@dimen/margin_l" android:layout_width="match_parent" android:layout_height="wrap_content" android:animateLayoutChanges="true">
+    <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_primary" android:gravity="center" android:id="@+id/tv_title_dialog_copying" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/copying"/>
+    <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/blue_primary" android:ellipsize="end" android:gravity="center" android:layout_gravity="center_horizontal" android:id="@+id/tv_files_dialog_copying" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_l"/>
+    <TextView android:textSize="@dimen/text_size_m" android:textColor="@color/text_primary" android:id="@+id/tv_size_dialog_copying" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_l"/>
+    <ProgressBar android:id="@+id/pb_dialog_copying" android:layout_marginTop="@dimen/margin_m" android:progressTint="@color/main_blue" style="@style/ProgressBarStyle"/>
+    <TextView android:textSize="@dimen/text_size_l" android:textColor="@color/text_primary" android:id="@+id/tv_percentage_dialog_copying" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="@dimen/margin_s"/>
+</LinearLayout>
