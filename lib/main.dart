@@ -94,6 +94,9 @@ void main() async {
           ),
         ),
       );
+    } else {
+      // Normal bildirimde ana ekrana yönlendir
+      navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
     }
   });
 

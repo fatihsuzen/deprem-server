@@ -116,18 +116,18 @@ class NotificationService {
   void _handleNotificationTap(NotificationResponse response) {
     print('Bildirim yanıtı işleniyor: ${response.payload}');
 
-    // Deprem alert'i ise tam ekran aç
-    if (response.payload != null &&
-        response.payload!.startsWith('earthquake_alert|')) {
-      // earthquake_alert|magnitude|location|distance formatı
+    // Sadece deprem alert'inde tam ekran aç, diğerlerinde ana ekrana yönlendir
+    if (response.payload != null && response.payload!.startsWith('earthquake_alert|')) {
       final parts = response.payload!.split('|');
       if (parts.length >= 4) {
         final magnitude = double.tryParse(parts[1]) ?? 0.0;
         final location = parts[2];
         final distance = double.tryParse(parts[3]) ?? 0.0;
-
         showAlertScreen(magnitude, location, distance, 'AFAD');
       }
+    } else {
+      // Normal bildirimde ana ekrana yönlendir
+      navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 
