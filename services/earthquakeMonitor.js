@@ -448,20 +448,22 @@ class EarthquakeMonitor {
         let mag = null;
         const mags = [ml, mw, md];
         for (const m of mags) {
-          // '-.-' veya boş ise atla
           if (!m || m === '-.-') continue;
-          // Sayısal ise kullan
-          const num = parseFloat(m);
+          // String ise, float'a çevirmeye çalış
+          const num = typeof m === 'string' ? parseFloat(m.replace(/[^0-9.]/g, '')) : parseFloat(m);
           if (!isNaN(num) && num > 0) {
             mag = num;
             break;
           }
         }
+        // Debug: Satırı ve seçilen mag değerini logla
+        console.log(`[Kandilli Parse] Satır: ${line}`);
+        console.log(`[Kandilli Parse] Seçilen mag: ${mag}`);
         const [year, month, day] = tarih.split('.').map(Number);
         const [hour, minute, second] = saat.split(':').map(Number);
         const timestamp = new Date(year, month - 1, day, hour, minute, second);
         // Mantıklı değer kontrolü
-        if (isNaN(lat) || isNaN(lon) || isNaN(mag) || mag <= 0 || mag > 10) continue;
+        if (isNaN(lat) || isNaN(lon) || mag === null || isNaN(mag) || mag <= 0 || mag > 10) continue;
         earthquakes.push({
           id: `kandilli_${tarih.replace(/\./g, '')}_${saat.replace(/:/g, '')}_${lat.toFixed(2)}_${lon.toFixed(2)}`,
           source: 'Kandilli',
