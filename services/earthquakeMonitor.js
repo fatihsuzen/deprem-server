@@ -443,7 +443,14 @@ class EarthquakeMonitor {
         const lat = parseFloat(enlem);
         const lon = parseFloat(boylam);
         const depth = parseFloat(derinlik);
-        const mag = parseFloat(ml);
+        // Magnitude fallback: ml, mw, md
+        let mag = parseFloat(ml);
+        if (isNaN(mag) || mag <= 0) {
+          mag = parseFloat(mw);
+        }
+        if (isNaN(mag) || mag <= 0) {
+          mag = parseFloat(md);
+        }
         // Tarih ve saat birleştir
         const [year, month, day] = tarih.split('.').map(Number);
         const [hour, minute, second] = saat.split(':').map(Number);
