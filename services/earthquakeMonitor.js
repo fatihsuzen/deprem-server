@@ -444,18 +444,9 @@ class EarthquakeMonitor {
         const lon = parseFloat(boylam);
         const depth = parseFloat(derinlik);
         // Magnitude fallback: ml, mw, md
-        // Magnitude fallback: ml > mw > md
-        let mag = null;
-        const magCandidates = [ml, mw, md];
-        for (const m of magCandidates) {
-          if (m && m !== '-.-') {
-            const num = parseFloat(m);
-            if (!isNaN(num) && num > 0 && num <= 10) {
-              mag = num;
-              break;
-            }
-          }
-        }
+        // Magnitude: sadece ml'yi substring ile al
+        const ml = line.substring(58, 63).trim();
+        let mag = parseFloat(ml);
         // Debug: Satırı ve seçilen mag değerini logla
         console.log(`[Kandilli Parse] Satır: ${line}`);
         console.log(`[Kandilli Parse] Seçilen mag: ${mag}`);
