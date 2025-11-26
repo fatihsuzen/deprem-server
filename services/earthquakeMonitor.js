@@ -435,7 +435,7 @@ class EarthquakeMonitor {
         const boylam = line.substring(30, 39).trim();
         const derinlik = line.substring(40, 52).trim();
         const md = line.substring(53, 57).trim();
-        const ml = line.substring(58, 62).trim();
+        const ml = line.substring(58, 63).trim();
         const mw = line.substring(63, 67).trim();
         const yer = line.substring(68, 108).trim();
         const cozum = line.substring(109).trim();
@@ -444,12 +444,11 @@ class EarthquakeMonitor {
         const lon = parseFloat(boylam);
         const depth = parseFloat(derinlik);
         // Magnitude fallback: ml, mw, md
-        // Magnitude: sadece ml'yi substring ile al
-        const ml = line.substring(58, 63).trim();
-        let mag = parseFloat(ml);
+        // Magnitude fallback: ml > mw > md
+        let mag = null;
+        const magCandidates = [ml, mw, md];
+        mag = parseFloat(ml);
         // Debug: Satırı ve seçilen mag değerini logla
-        console.log(`[Kandilli Parse] Satır: ${line}`);
-        console.log(`[Kandilli Parse] Seçilen mag: ${mag}`);
         const [year, month, day] = tarih.split('.').map(Number);
         const [hour, minute, second] = saat.split(':').map(Number);
         const timestamp = new Date(year, month - 1, day, hour, minute, second);
