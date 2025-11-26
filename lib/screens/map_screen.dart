@@ -1010,7 +1010,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   void _onTapMarker(Map<String, dynamic> q) {
-    final mag = (q['mag'] as num).toDouble();
+    final mag = double.tryParse(q['mag'].toString()) ?? 0.0;
     final place = q['place'] ?? 'Konum';
     final time = q['time'] ?? '--:--';
 
@@ -1486,7 +1486,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     final lon = (q['lon'] is int)
                         ? (q['lon'] as int).toDouble()
                         : q['lon'] as double;
-                    final mag = (q['mag'] as num).toDouble();
+                    final mag = double.tryParse(q['mag'].toString()) ?? 0.0;
                     final color = _colorForMag(mag);
 
                     return Marker(
