@@ -33,7 +33,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
   late AnimationController _shakeController;
   late Animation<double> _pulseAnimation;
   Timer? _autoCloseTimer;
-  int _secondsLeft = 120;
+  int _secondsLeft = 0;
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
   late LatLng userLatLng;
@@ -43,54 +43,46 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
   @override
   void initState() {
-    super.initState();
-
-    // Tam ekran modu
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-
-    // Nabız animasyonu
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
-    // Titreşim animasyonu
-    _shakeController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    // Deprem ve kullanıcı konumlarını parse et, format ve null kontrolü
-    try {
-      final locParts = widget.location.split(',');
-      if (locParts.length == 2) {
-        quakeLatLng = LatLng(
-            double.parse(locParts[0].trim()), double.parse(locParts[1].trim()));
-      } else {
-        quakeLatLng = LatLng(37.0, 27.0); // fallback
-      }
-    } catch (_) {
-      quakeLatLng = LatLng(37.0, 27.0);
-    }
-    try {
-      final userLocParts = (widget.userLocation ?? '').split(',');
-      if (userLocParts.length == 2) {
-        userLatLng = LatLng(double.parse(userLocParts[0].trim()),
-            double.parse(userLocParts[1].trim()));
-      } else {
-        userLatLng = LatLng(38.5, 27.2);
-      }
-    } catch (_) {
-      userLatLng = LatLng(38.5, 27.2);
-    }
     distanceKm =
         const Distance().as(LengthUnit.Kilometer, quakeLatLng, userLatLng);
 
-    // Sismik dalga animasyonu: deprem merkezinden sürekli yayılma
+    // Sismik dalga yayılma hızı (7.0 km/sn)
+    const double waveSpeedKmPerSec = 7.0;
+    final dynamicSeconds = max(3, (distanceKm / waveSpeedKmPerSec).ceil());
+    _secondsLeft = dynamicSeconds;
+    final waveDuration = Duration(seconds: dynamicSeconds);
+    _waveController = AnimationController(
+      duration: waveDuration,
+      vsync: this,
+    );
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _waveController, curve: Curves.linear),
+    );
+    // Dalga animasyonu ekran kapanana kadar sürekli tekrar etsin
+    void repeatWave() {
+      if (mounted) {
+        _waveController.forward(from: 0.0).then((_) {
+          if (mounted) {
+            setState(() {
+              waveBase += 0.5;
+            });
+            repeatWave();
+          }
+        });
+      }
+    }
+    repeatWave();
+    // Dinamik geri sayım
+    _autoCloseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _secondsLeft--;
+      });
+      if (_secondsLeft <= 0) {
+        timer.cancel();
+        // Otomatik kapatma kaldırıldı, sadece kullanıcı kapatınca kapanacak
+      }
+    });
     // Dalga yayılma hızı (ör: 3 km/sn)
     const double waveSpeedKmPerSec = 3.0;
     final waveDuration =
@@ -155,10 +147,9 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
   }
 
   void _closeAlert() {
-    // Deprem parametrelerini native tarafta temizle
-    const MethodChannel paramsChannel =
-        MethodChannel('deprem_app/earthquake_params');
-    paramsChannel.invokeMethod('clearEarthquakeParams');
+      // Deprem parametrelerini native tarafta temizle
+      const MethodChannel paramsChannel = MethodChannel('deprem_app/earthquake_params');
+      paramsChannel.invokeMethod('clearEarthquakeParams');
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     Navigator.of(context).pop();
   }
@@ -199,8 +190,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
-        '[ALERT_SCREEN] build: source=${widget.source}, magnitude=${widget.magnitude}, location=${widget.location}, distance=${widget.distance}, timestamp=${widget.timestamp}, userLocation=${widget.userLocation}');
+    debugPrint('[ALERT_SCREEN] build: source=${widget.source}, magnitude=${widget.magnitude}, location=${widget.location}, distance=${widget.distance}, timestamp=${widget.timestamp}, userLocation=${widget.userLocation}');
     final alertColor = _getAlertColor();
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
