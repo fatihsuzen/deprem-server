@@ -68,14 +68,14 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
     // Deprem merkezi konumu
     final locParts = widget.location.split(',');
     quakeLatLng = (locParts.length == 2)
-        ? LatLng(double.parse(locParts[0].trim()), double.parse(locParts[1].trim()))
-        : LatLng(0, 0); // fallback: 0,0
+      ? LatLng(double.parse(locParts[0].trim()), double.parse(locParts[1].trim()))
+      : LatLng(39.0, 35.0); // fallback: Türkiye merkezi
 
     // Kullanıcı konumu (server/gps'ten gelen)
     final userLocParts = (widget.userLocation ?? '').split(',');
     userLatLng = (userLocParts.length == 2)
-        ? LatLng(double.parse(userLocParts[0].trim()), double.parse(userLocParts[1].trim()))
-        : LatLng(0, 0); // fallback: 0,0
+      ? LatLng(double.parse(userLocParts[0].trim()), double.parse(userLocParts[1].trim()))
+      : LatLng(39.0, 35.0); // fallback: Türkiye merkezi
     distanceKm =
         const Distance().as(LengthUnit.Kilometer, quakeLatLng, userLatLng);
 
