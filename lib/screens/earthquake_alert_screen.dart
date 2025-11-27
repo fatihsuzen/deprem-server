@@ -33,7 +33,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
   late AnimationController _shakeController;
   late Animation<double> _pulseAnimation;
   Timer? _autoCloseTimer;
-  int _secondsLeft = 0;
+  int _secondsLeft = 120;
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
   late LatLng userLatLng;
@@ -43,50 +43,47 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
   @override
   void initState() {
+    super.initState();
+
+    // Tam ekran modu
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+    // Nabız animasyonu
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Titreşim animasyonu
+    _shakeController = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    // Deprem ve kullanıcı konumlarını parse et, format ve null kontrolü
+    // Deprem merkezi konumu
+    final locParts = widget.location.split(',');
+    quakeLatLng = (locParts.length == 2)
+        ? LatLng(double.parse(locParts[0].trim()), double.parse(locParts[1].trim()))
+        : LatLng(0, 0); // fallback: 0,0
+
+    // Kullanıcı konumu (server/gps'ten gelen)
+    final userLocParts = (widget.userLocation ?? '').split(',');
+    userLatLng = (userLocParts.length == 2)
+        ? LatLng(double.parse(userLocParts[0].trim()), double.parse(userLocParts[1].trim()))
+        : LatLng(0, 0); // fallback: 0,0
     distanceKm =
         const Distance().as(LengthUnit.Kilometer, quakeLatLng, userLatLng);
 
-    // Sismik dalga yayılma hızı (7.0 km/sn)
+    // Sismik dalga animasyonu: deprem merkezinden kullanıcıya yayılma
+    // Dalga yayılma hızı (7 km/sn)
     const double waveSpeedKmPerSec = 7.0;
-    final dynamicSeconds = max(3, (distanceKm / waveSpeedKmPerSec).ceil());
-    _secondsLeft = dynamicSeconds;
-    final waveDuration = Duration(seconds: dynamicSeconds);
-    _waveController = AnimationController(
-      duration: waveDuration,
-      vsync: this,
-    );
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.linear),
-    );
-    // Dalga animasyonu ekran kapanana kadar sürekli tekrar etsin
-    void repeatWave() {
-      if (mounted) {
-        _waveController.forward(from: 0.0).then((_) {
-          if (mounted) {
-            setState(() {
-              waveBase += 0.5;
-            });
-            repeatWave();
-          }
-        });
-      }
-    }
-    repeatWave();
-    // Dinamik geri sayım
-    _autoCloseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _secondsLeft--;
-      });
-      if (_secondsLeft <= 0) {
-        timer.cancel();
-        // Otomatik kapatma kaldırıldı, sadece kullanıcı kapatınca kapanacak
-      }
-    });
-    // Dalga yayılma hızı (ör: 3 km/sn)
-    const double waveSpeedKmPerSec = 3.0;
-    final waveDuration =
-        Duration(seconds: max(3, (distanceKm / waveSpeedKmPerSec).ceil()));
+    final int secondsToReach = max(3, (distanceKm / waveSpeedKmPerSec).ceil());
+    final waveDuration = Duration(seconds: secondsToReach);
     _waveController = AnimationController(
       duration: waveDuration,
       vsync: this,
@@ -110,12 +107,9 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
     }
 
     repeatWave();
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.linear),
-    );
 
-    // Dinamik geri sayım
-    _secondsLeft = 30;
+    // Dinamik geri sayım: Sismik dalga kullanıcıya ulaşana kadar
+    _secondsLeft = secondsToReach;
     _autoCloseTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
