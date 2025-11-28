@@ -330,11 +330,7 @@ class EarthquakeMonitor {
         format: 'geojson',
         starttime: yesterday.toISOString().slice(0, 19),
         endtime: now.toISOString().slice(0, 19),
-        minmagnitude: 5,
-        minlatitude: 35,
-        maxlatitude: 43,
-        minlongitude: 25,
-        maxlongitude: 45
+        minmagnitude: 1
       };
 
       const response = await axios.get(this.sources.usgs.url, {
