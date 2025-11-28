@@ -161,7 +161,7 @@ class EarthquakeMonitor {
             if (existing) {
               // Kaynak ekle (varsa), güncelle
               if (!existing.source.includes(eq.source)) {
-                existing.source += ',' + eq.source;
+                existing.source.push(eq.source);
                 await existing.save();
               }
               console.log(`🔁 Duplicate deprem: ${eq.mag} ${eq.place} (${eq.source})`);
