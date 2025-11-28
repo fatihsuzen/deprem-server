@@ -524,7 +524,7 @@ const deviceManager = new DeviceManager();
 const geoService = new GeoService();
 const notificationService = new NotificationService(io);
 const priorityNotificationService = new PriorityNotificationService(notificationService);
-const p2pEarthquakeAnalyzer = new P2PEarthquakeAnalyzer();
+const p2pEarthquakeAnalyzer = new P2PEarthquakeAnalyzer(priorityNotificationService);
 const validationService = new ValidationService();
 
 // Set earthquakeMonitor in routes after initialization

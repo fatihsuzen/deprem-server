@@ -6,7 +6,7 @@ const geolib = require('geolib');
  * ve gerçek deprem olup olmadığını tespit eder
  */
 class P2PEarthquakeAnalyzer {
-  constructor() {
+  constructor(priorityNotificationService = null) {
     // Son raporlar (memory cache - production'da Redis kullan)
     this.recentReports = [];
     
@@ -24,6 +24,7 @@ class P2PEarthquakeAnalyzer {
     
     // Detected earthquakes cache
     this.detectedEarthquakes = new Map();
+    this.priorityNotificationService = priorityNotificationService;
   }
 
   /**
@@ -444,9 +445,8 @@ class P2PEarthquakeAnalyzer {
     
     // Priority notification sistemini tetikle
     try {
-      const priorityNotificationService = require('./priorityNotificationService');
-      if (priorityNotificationService && typeof priorityNotificationService.sendPriorityEarthquakeNotifications === 'function') {
-        await priorityNotificationService.sendPriorityEarthquakeNotifications({
+      if (this.priorityNotificationService && typeof this.priorityNotificationService.sendPriorityEarthquakeNotifications === 'function') {
+        await this.priorityNotificationService.sendPriorityEarthquakeNotifications({
           eventId: earthquakeId,
           mag: analysis.estimatedMagnitude,
           magnitude: analysis.estimatedMagnitude,
