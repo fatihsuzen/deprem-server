@@ -278,7 +278,7 @@ class EarthquakeMonitor {
     try {
       // EMSC for international earthquakes
       const params = {
-        format: 'geojson',
+        format: 'json',
         starttime: '2019-01-01T00:00:00',
         endtime: '2020-01-02T00:00:00',
         minmag: 2,
@@ -318,10 +318,12 @@ class EarthquakeMonitor {
   async checkUSGS() {
     try {
       // USGS for international earthquakes affecting Turkey region
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const params = {
         format: 'geojson',
-        starttime: '2014-01-01',
-        endtime: '2014-01-02',
+        starttime: yesterday.toISOString().slice(0, 19),
+        endtime: now.toISOString().slice(0, 19),
         minmagnitude: 5,
         minlatitude: 35,
         maxlatitude: 43,
@@ -350,12 +352,16 @@ class EarthquakeMonitor {
           url: feature.properties.url,
           type: feature.properties.type
         }));
+      } else {
+        console.log('✅ USGS: 0 earthquakes');
       }
-
       return [];
 
     } catch (error) {
       console.warn('⚠️ USGS API failed:', error.message);
+      if (error.response) {
+        console.warn('USGS API response:', error.response.data);
+      }
       // Don't use mock data - rely on other sources and P2P
       return [];
     }
