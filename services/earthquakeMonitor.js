@@ -24,6 +24,11 @@ class EarthquakeMonitor {
         url: 'https://earthquake.usgs.gov/fdsnws/event/1/query',
         enabled: true,
         timeout: 5000
+      },
+      emsc: {
+        url: 'https://www.seismicportal.eu/fdsnws/event/1/query',
+        enabled: true,
+        timeout: 5000
       }
     };
   }
@@ -38,13 +43,14 @@ class EarthquakeMonitor {
       if (this.sources.afad.enabled) {
         promises.push(this.checkAFAD());
       }
-      
       if (this.sources.kandilli.enabled) {
         promises.push(this.checkKandilli());
       }
-
       if (this.sources.usgs.enabled) {
         promises.push(this.checkUSGS());
+      }
+      if (this.sources.emsc.enabled) {
+        promises.push(this.checkEMSC());
       }
 
       const results = await Promise.allSettled(promises);
@@ -263,6 +269,49 @@ class EarthquakeMonitor {
       process.exit(1);
     });
   }
+  }
+
+  async checkUSGS() {
+  }
+
+  async checkEMSC() {
+    try {
+      // EMSC for international earthquakes
+      const params = {
+        format: 'geojson',
+        starttime: this.getISO8601String(new Date(Date.now() - 24 * 60 * 60 * 1000)),
+        minmag: 4.0,
+        minlat: 35,
+        maxlat: 43,
+        minlon: 25,
+        maxlon: 45
+      };
+      const response = await axios.get(this.sources.emsc.url, {
+        params,
+        timeout: this.sources.emsc.timeout
+      });
+      if (response.data && response.data.features) {
+        return response.data.features.map(feature => ({
+          id: `emsc_${feature.id}`,
+          source: 'EMSC',
+          eventId: feature.id,
+          magnitude: feature.properties.mag,
+          depth: feature.geometry.coordinates[2],
+          location: {
+            latitude: feature.geometry.coordinates[1],
+            longitude: feature.geometry.coordinates[0]
+          },
+          place: feature.properties.place || feature.properties.flynn_region || 'Unknown',
+          timestamp: new Date(feature.properties.time),
+          url: feature.properties.url || '',
+          type: feature.properties.type || 'earthquake'
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.warn('⚠️ EMSC API failed:', error.message);
+      return [];
+    }
   }
 
   async checkUSGS() {
