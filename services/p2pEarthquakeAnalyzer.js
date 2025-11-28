@@ -301,6 +301,12 @@ class P2PEarthquakeAnalyzer {
     console.log(`   📈 Olasılık: ${probability.toFixed(1)}%`);
     console.log(`   📏 Ortalama Büyüklük: ${stats.avgAvgMagnitude.toFixed(2)} m/s²`);
     console.log(`   ⏱️ Zaman Korelasyonu: ${(timeCorrelation * 100).toFixed(1)}%`);
+    // P2P deprem tespit logu dosyaya yaz
+    const fs = require('fs');
+    const detectionLogLine = `${new Date().toISOString()} | P2P DEPREM ALGILANDI | Rapor:${stats.count} | Benzersiz Kullanıcı:${stats.uniqueUsers} | Olasılık:${probability.toFixed(1)}% | Ortalama Büyüklük:${stats.avgAvgMagnitude.toFixed(2)} m/s² | Zaman Korelasyonu:${(timeCorrelation * 100).toFixed(1)}%\n`;
+    fs.appendFile('p2p_detection_log.txt', detectionLogLine, (err) => {
+      if (err) console.error('P2P detection log dosyasına yazılamadı:', err);
+    });
     
     return true;
   }
