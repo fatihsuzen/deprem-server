@@ -279,14 +279,15 @@ class EarthquakeMonitor {
       // EMSC for international earthquakes
       const params = {
         format: 'geojson',
-        starttime: this.getISO8601String(new Date(Date.now() - 24 * 60 * 60 * 1000)),
-        minmag: 4.0,
+        starttime: '2019-01-01T00:00:00',
+        endtime: '2020-01-02T00:00:00',
+        minmag: 2,
         minlat: 35,
         maxlat: 43,
         minlon: 25,
         maxlon: 45
       };
-      const response = await axios.get(this.sources.emsc.url, {
+      const response = await axios.get('https://www.seismicportal.eu/fdsnws/event/1/query', {
         params,
         timeout: this.sources.emsc.timeout
       });
@@ -319,8 +320,9 @@ class EarthquakeMonitor {
       // USGS for international earthquakes affecting Turkey region
       const params = {
         format: 'geojson',
-        starttime: this.getISO8601String(new Date(Date.now() - 24 * 60 * 60 * 1000)),
-        minmagnitude: 4.0,
+        starttime: '2014-01-01',
+        endtime: '2014-01-02',
+        minmagnitude: 5,
         minlatitude: 35,
         maxlatitude: 43,
         minlongitude: 25,
