@@ -439,8 +439,8 @@ class P2PEarthquakeAnalyzer {
     // Priority notification sistemini tetikle
     try {
       const priorityNotificationService = require('./priorityNotificationService');
-      if (priorityNotificationService && typeof priorityNotificationService.sendEarthquakeNotifications === 'function') {
-        await priorityNotificationService.sendEarthquakeNotifications({
+      if (priorityNotificationService && typeof priorityNotificationService.sendPriorityEarthquakeNotifications === 'function') {
+        await priorityNotificationService.sendPriorityEarthquakeNotifications({
           eventId: earthquakeId,
           mag: analysis.estimatedMagnitude,
           magnitude: analysis.estimatedMagnitude,

@@ -4,12 +4,55 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:latlong2/latlong.dart';
 import 'auth_service.dart';
 import 'api_service.dart';
 import 'friends_service_backend.dart';
 import 'dart:math';
 
 class LocationService {
+  // Son konumu dosyaya kaydet
+  Future<void> saveLastLocationToFile() async {
+    if (_latitude == null || _longitude == null) return;
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/user_location.json');
+      final data = {
+        'latitude': _latitude,
+        'longitude': _longitude,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await file.writeAsString(jsonEncode(data));
+      print(
+          '✅ Son konum dosyaya kaydedildi: ${data['latitude']},${data['longitude']}');
+    } catch (e) {
+      print('❌ Son konum dosyaya kaydedilemedi: $e');
+    }
+  }
+
+  // Son kaydedilen konumu dosyadan oku
+  Future<LatLng?> readLastLocationFromFile() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/user_location.json');
+      if (!await file.exists()) return null;
+      final content = await file.readAsString();
+      final data = jsonDecode(content);
+      final lat = data['latitude'] as double?;
+      final lon = data['longitude'] as double?;
+      if (lat != null && lon != null) {
+        print('✅ Son konum dosyadan okundu: $lat,$lon');
+        return LatLng(lat, lon);
+      }
+      return null;
+    } catch (e) {
+      print('❌ Son konum dosyadan okunamadı: $e');
+      return null;
+    }
+  }
+
   static final LocationService _instance = LocationService._internal();
   factory LocationService() => _instance;
   LocationService._internal();
@@ -99,6 +142,7 @@ class LocationService {
       _isLocationLoading = false;
 
       print('Konum başarıyla alındı: $_cityName ($_locationText)');
+      await saveLastLocationToFile();
       return true;
     } catch (e) {
       _setLocationError("Konum alınamadı: ${e.toString()}");

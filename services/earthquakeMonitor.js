@@ -148,6 +148,12 @@ class EarthquakeMonitor {
               // Yeni deprem kaydı
               await EarthquakeModel.create(eq);
               console.log(`✅ Yeni deprem kaydedildi: ${eq.mag} ${eq.place} (${eq.source})`);
+              // Dosyaya log ekle
+              const fs = require('fs');
+              const logLine = `${new Date().toISOString()} | Mag:${eq.mag} | ${eq.place} | ${eq.source} | Lat:${eq.location.latitude} Lon:${eq.location.longitude}\n`;
+              fs.appendFile('earthquake_log.txt', logLine, (err) => {
+                if (err) console.error('Deprem log dosyasına yazılamadı:', err);
+              });
             }
           }
         } catch (err) {
@@ -356,7 +362,9 @@ class EarthquakeMonitor {
         lat: earthquake.location?.latitude || 0,
         lon: earthquake.location?.longitude || 0,
         magnitude: earthquake.magnitude,
-        location: earthquake.place || 'Unknown',
+        location: `${earthquake.location?.latitude || 0},${earthquake.location?.longitude || 0}`,
+        location_str: `${earthquake.location?.latitude || 0},${earthquake.location?.longitude || 0}`,
+        region: earthquake.place || 'Unknown',
         depth: earthquake.depth || 10,
         time: earthquake.timestamp ? new Date(earthquake.timestamp) : new Date()
       };

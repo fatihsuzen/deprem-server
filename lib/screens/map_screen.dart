@@ -45,14 +45,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
-  LatLng _userLocation = LatLng(0, 0); // Başlangıçta boş, gerçek GPS ile dolacak
+  LatLng _userLocation =
+      LatLng(0, 0); // Başlangıçta boş, gerçek GPS ile dolacak
   bool _showEarthquakes = true;
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
   bool _showFaultLines = true;
   int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
   List<Map<String, dynamic>> _friends = [];
-  List<Map<String, dynamic>> _quakes = []; // Sadece serverdan gelen deprem verisi
+  List<Map<String, dynamic>> _quakes =
+      []; // Sadece serverdan gelen deprem verisi
   Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
@@ -679,7 +681,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           final latestMinutes = (_latestQuake!['minutesAgo'] is int)
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
-          print('   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+          print(
+              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
         }
       });
       print('✅ Map - ${_quakes.length} deprem yüklendi');
@@ -1292,11 +1295,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     polylines: [
                       ..._dynamicFaultLines.map((poly) => Polyline(
                             points: poly.points,
-                            strokeWidth: 5.0, // Daha kalın
-                            color: Colors.red.withOpacity(
-                                _fayPulseAnimation.value), // Daha belirgin renk
-                            borderStrokeWidth: 2.0,
-                            borderColor: Colors.yellowAccent.withOpacity(0.8),
+                            strokeWidth: 2.0, // Daha ince çizgi
+                            color: Colors.deepOrange.withOpacity(
+                                _fayPulseAnimation.value), // Beyaz renk
+                            borderStrokeWidth: 0.0, // Kenarlık yok
+                            borderColor: Colors.transparent,
                           )),
                     ],
                   );

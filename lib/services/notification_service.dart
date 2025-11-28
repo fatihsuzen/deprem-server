@@ -117,7 +117,8 @@ class NotificationService {
     print('Bildirim yanıtı işleniyor: ${response.payload}');
 
     // Sadece deprem alert'inde tam ekran aç, diğerlerinde ana ekrana yönlendir
-    if (response.payload != null && response.payload!.startsWith('earthquake_alert|')) {
+    if (response.payload != null &&
+        response.payload!.startsWith('earthquake_alert|')) {
       final parts = response.payload!.split('|');
       if (parts.length >= 4) {
         final magnitude = double.tryParse(parts[1]) ?? 0.0;

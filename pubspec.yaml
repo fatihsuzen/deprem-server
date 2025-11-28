@@ -17,6 +17,7 @@ dependencies:
   http: ^1.1.0
   flutter_local_notifications: ^17.2.2
   cupertino_icons: ^1.0.2
+  geolocator: ^10.0.0
   
   # Google Authentication (using our custom backend instead of Firebase)
   firebase_messaging: ^14.0.0

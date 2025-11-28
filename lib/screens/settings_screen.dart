@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/mqtt_service.dart';
 import '../services/user_preferences_service.dart';
@@ -17,6 +18,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool isDarkMapTheme = false;
   bool autoStartMqtt = true;
   bool isLoading = true;
+  bool _earthquakeDetectionEnabled = false;
+  EarthquakeDetector? _earthquakeDetector;
+  EarthquakeReportService? _reportService;
+  String _deviceId = "";
 
   // Deprem filtreleme ayarları
   final UserPreferencesService _prefsService = UserPreferencesService();
@@ -25,10 +30,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
   double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
 
+  Stream<BatteryState>? _batteryStream;
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    // Şarj durumu değişimini dinle
+    final battery = Battery();
+    _batteryStream = battery.onBatteryStateChanged;
+    _batteryStream?.listen((BatteryState state) {
+      // Sadece kullanıcı servisi aktif ettiyse kontrol et
+      if (_earthquakeDetectionEnabled) {
+        _checkAndStartDetection();
+      }
+    });
   }
 
   Future<void> _loadSettings() async {
@@ -39,6 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       isDarkTheme = prefs.getBool('isDarkTheme') ?? false;
       isDarkMapTheme = prefs.getBool('isDarkMapTheme') ?? false;
       autoStartMqtt = prefs.getBool('auto_start_mqtt_service') ?? true;
+      _earthquakeDetectionEnabled = prefs.getBool('earthquake_detection_enabled') ?? false;
 
       // Deprem ayarları
       _minMagnitude = earthquakeSettings['minMagnitude'];
@@ -47,6 +63,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       isLoading = false;
     });
+    // Cihaz ID'si ve servisleri başlat
+    _deviceId = prefs.getString('device_id') ?? "test-device";
+    _reportService = EarthquakeReportService('http://188.132.202.24:3000/api/p2p-earthquake');
+    _earthquakeDetector = EarthquakeDetector();
+    _checkAndStartDetection();
   }
 
   Future<void> _saveAppTheme(bool value) async {
@@ -91,6 +112,110 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       backgroundColor: isDarkTheme ? Colors.grey[850] : Colors.white,
       body: SingleChildScrollView(
+
+              const SizedBox(height: 32),
+
+              // Earthquake Detection Service Toggle
+              Text(
+                'Deprem Algılama Servisi',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: isDarkTheme ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDarkTheme ? Colors.grey[800] : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sensors,
+                      color: isDarkTheme ? Colors.orange : Colors.blue,
+                      size: 28,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Deprem Algılama Servisi',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDarkTheme ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          Text(
+                            _earthquakeDetectionEnabled
+                                ? 'Cihaz şarjda olduğunda deprem algılama servisi çalışır.'
+                                : 'Deprem algılama servisi devre dışı.',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDarkTheme
+                                  ? Colors.grey[300]
+                                  : Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _earthquakeDetectionEnabled,
+                      onChanged: (v) async {
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('earthquake_detection_enabled', v);
+                        setState(() {
+                          _earthquakeDetectionEnabled = v;
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(v
+                                  ? 'Deprem algılama servisi etkinleştirildi.'
+                                  : 'Deprem algılama servisi devre dışı bırakıldı.'),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                        _checkAndStartDetection();
+                      },
+                        // Şarjda olup olmadığını kontrol et
+                        Future<bool> _isDeviceCharging() async {
+                          final battery = Battery();
+                          final status = await battery.batteryState;
+                          // BatteryState.charging veya BatteryState.full ise şarja takılı
+                          return status == BatteryState.charging || status == BatteryState.full;
+                        }
+
+                        // Servisi başlat/durdur
+                        Future<void> _checkAndStartDetection() async {
+                          if (_earthquakeDetectionEnabled && await _isDeviceCharging()) {
+                            // Servisi başlat
+                            if (_earthquakeDetector != null && _reportService != null) {
+                              _earthquakeDetector!.startListening(
+                                deviceId: _deviceId,
+                                reportService: _reportService!,
+                              );
+                            }
+                          } else {
+                            // Servisi durdur (geliştirilebilir)
+                            // Şu an için dinlemeyi durdurma fonksiyonu yok, eklenebilir
+                          }
+                        }
+                      activeColor: Colors.orange,
+                      activeTrackColor: Colors.orange.withOpacity(0.3),
+                    ),
+                  ],
+                ),
+              ),
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

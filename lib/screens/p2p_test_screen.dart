@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/p2p_earthquake_detection_service.dart';
+import '../services/earthquake_detector.dart';
+import '../services/earthquake_report_service.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:sensors_plus/sensors_plus.dart';
@@ -22,8 +23,9 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   static const int SHAKE_WINDOW_MS = 3000; // pencere süresi 3 saniye
   static const int DEPREM_SHAKE_COUNT = 2; // olay sayısı 2'ye düşürüldü
   // ...existing code...
-  final P2PEarthquakeDetectionService _p2pService =
-      P2PEarthquakeDetectionService();
+  EarthquakeDetector? _detector;
+  EarthquakeReportService? _reportService;
+  String _deviceId = "test-device";
 
   bool _isMonitoring = false;
   List<String> _logs = [];
@@ -54,7 +56,10 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   void initState() {
     super.initState();
     _addLog('📱 P2P Test Ekranı hazır');
-    _addLog('ℹ️ Telefonu masaya koy ve masayı salla');
+    _addLog('ℹ️ Yeni deprem algılama algoritması test ediliyor');
+    _reportService = EarthquakeReportService(
+        'http://188.132.202.24:3000/api/p2p-earthquake');
+    _detector = EarthquakeDetector();
   }
 
   @override
@@ -68,157 +73,22 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
 
     setState(() {
       _isMonitoring = true;
-      _maxMagnitude = 0.0;
-      _shakeCount = 0;
-      _reportsSent = 0;
       _logs.clear();
     });
-
-    _addLog('🟢 İzleme başladı');
-    _addLog('📐 Kalibrasyon yapılıyor... (20 örnek)');
-    _addLog('📊 3.0 deprem eşiği: ${SHAKE_THRESHOLD.toStringAsFixed(1)} m/s²');
-
-    // P2P servisini başlat
-    _p2pService.startMonitoring();
-
-    // Kalibrasyon ve baseline sıfırla
-    _calibrationCount = 0;
-    _baselineX = 0.0;
-    _baselineY = 0.0;
-    _baselineZ = GRAVITY;
-
-    // Manuel sensör dinleme (görsel feedback için)
-    _accelerometerSubscription =
-        accelerometerEvents.listen((AccelerometerEvent event) {
-      if (!mounted) return;
-      // 1. KALİBRASYON: İlk 20 örnek
-      if (_calibrationCount < CALIBRATION_SAMPLES) {
-        _baselineX += event.x;
-        _baselineY += event.y;
-        _baselineZ += event.z;
-        _calibrationCount++;
-
-        if (_calibrationCount == CALIBRATION_SAMPLES) {
-          _baselineX /= CALIBRATION_SAMPLES;
-          _baselineY /= CALIBRATION_SAMPLES;
-          _baselineZ /= CALIBRATION_SAMPLES;
-          _addLog(
-              '✅ Kalibrasyon tamamlandı: (${_baselineX.toStringAsFixed(2)}, ${_baselineY.toStringAsFixed(2)}, ${_baselineZ.toStringAsFixed(2)})');
-        }
-        return;
-      }
-
-      // 2. GRAVİTY FİLTRELEME
-      final deltaX = event.x - _baselineX;
-      final deltaY = event.y - _baselineY;
-      final deltaZ = event.z - _baselineZ;
-      double magnitude =
-          sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-
-      setState(() {
-        _currentMagnitude = magnitude;
-
-        if (magnitude > _maxMagnitude) {
-          _maxMagnitude = magnitude;
-        }
-
-        // 3. NOISE FİLTRELEME
-        if (magnitude < NOISE_THRESHOLD) {
-          return; // Çok küçük, normal titreşim
-        }
-
-        // 4. SARSINTIYI ALGILA
-        if (magnitude > SHAKE_THRESHOLD) {
-          final now = DateTime.now();
-
-          // Sarsıntı olaylarını pencereye ekle (zaman ve eksenler)
-          _shakeEvents.add({
-            'time': now,
-            'deltaX': deltaX.abs(),
-            'deltaY': deltaY.abs(),
-            'deltaZ': deltaZ.abs(),
-          });
-          // Pencere dışındaki eski olayları temizle
-          _shakeEvents = _shakeEvents
-              .where((e) =>
-                  now.difference(e['time']).inMilliseconds <= SHAKE_WINDOW_MS)
-              .toList();
-
-          // Spam önleme - 0.5 saniyede bir log
-          if (_lastShakeTime == null ||
-              now.difference(_lastShakeTime!).inMilliseconds >= 500) {
-            _shakeCount++;
-            _lastShakeTime = now;
-            _addLog('⚡ Sarsıntı! ${magnitude.toStringAsFixed(2)} m/s²');
-
-            // Deprem mi kullanıcı hareketi mi?
-            // 1. Pencere içinde olay sayısı
-            int shakeCount = _shakeEvents.length;
-            // 2. Olaylar arası ortalama süre
-            double avgInterval = 0;
-            if (shakeCount > 1) {
-              List<int> intervals = [];
-              for (int i = 1; i < _shakeEvents.length; i++) {
-                intervals.add(_shakeEvents[i]['time']
-                    .difference(_shakeEvents[i - 1]['time'])
-                    .inMilliseconds);
-              }
-              avgInterval =
-                  intervals.reduce((a, b) => a + b) / intervals.length;
-            }
-            // 3. Eksenlerdeki ani değişim (en az 1 eksende threshold üstü)
-            int multiAxisCount = _shakeEvents
-                .where((e) =>
-                    (e['deltaX'] > SHAKE_THRESHOLD &&
-                        e['deltaY'] > SHAKE_THRESHOLD) ||
-                    (e['deltaX'] > SHAKE_THRESHOLD &&
-                        e['deltaZ'] > SHAKE_THRESHOLD) ||
-                    (e['deltaY'] > SHAKE_THRESHOLD &&
-                        e['deltaZ'] > SHAKE_THRESHOLD))
-                .length;
-
-            if (shakeCount >= DEPREM_SHAKE_COUNT &&
-                avgInterval < 900 &&
-                multiAxisCount >= 1) {
-              _addLog(
-                  '🌍 Deprem sarsıntısı algılandı (pencere: $shakeCount olay, ort. aralık: ${avgInterval.toStringAsFixed(0)}ms, çoklu eksen: $multiAxisCount)');
-              // Rapor gönderme eşiği
-              if (magnitude > REPORT_THRESHOLD) {
-                _addLog('📤 RAPOR! ${magnitude.toStringAsFixed(2)} m/s²');
-                _reportsSent++;
-              }
-            } else {
-              _addLog(
-                  '👤 Kullanıcı hareketi algılandı (pencere: $shakeCount olay, ort. aralık: ${avgInterval.toStringAsFixed(0)}ms, çoklu eksen: $multiAxisCount)');
-            }
-
-            // Sarsıntıdan sonra otomatik kalibrasyon başlat
-            _addLog('🔄 Sarsıntı sonrası otomatik kalibrasyon başlatıldı');
-            _calibrationCount = 0;
-            _baselineX = 0.0;
-            _baselineY = 0.0;
-            _baselineZ = GRAVITY;
-          }
-        }
-      });
-    });
-
+    _addLog('🟢 Yeni algoritma ile izleme başladı');
+    // Yeni deprem algılama algoritmasını başlat
+    _detector?.startListening(
+      deviceId: _deviceId,
+      reportService: _reportService!,
+    );
     _addLog('✅ Sensörler aktif');
   }
 
   void _stopMonitoring() {
     if (!_isMonitoring) return;
-
     setState(() => _isMonitoring = false);
-
-    _accelerometerSubscription?.cancel();
-    _accelerometerSubscription = null;
-    _p2pService.stopMonitoring();
-
+    // EarthquakeDetector'da durdurma fonksiyonu yok, eklenirse burada çağrılabilir
     _addLog('🔴 İzleme durduruldu');
-    _addLog('📊 Toplam sarsıntı: $_shakeCount');
-    _addLog('📊 Gönderilen rapor: $_reportsSent');
-    _addLog('📊 Max şiddet: ${_maxMagnitude.toStringAsFixed(1)} m/s²');
   }
 
   Future<void> _checkServerStats() async {
