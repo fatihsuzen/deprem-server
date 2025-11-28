@@ -59,15 +59,21 @@ class EarthquakeMonitor {
       
       let successfulSources = 0;
       results.forEach((result, index) => {
-        const sources = ['AFAD', 'Kandilli', 'USGS'];
-        if (result.status === 'fulfilled' && result.value) {
-          if (result.value.length > 0) {
-            successfulSources++;
-            console.log(`✅ ${sources[index]}: ${result.value.length} earthquakes`);
-          }
+        let sourceName = 'Unknown';
+        if (result.status === 'fulfilled' && result.value && result.value.length > 0) {
+          sourceName = result.value[0].source || 'Unknown';
+          successfulSources++;
+          console.log(`✅ ${sourceName}: ${result.value.length} earthquakes`);
           newEarthquakes = newEarthquakes.concat(result.value);
+        } else if (result.status === 'fulfilled' && result.value && result.value.length === 0) {
+          // fulfilled ama veri yoksa, sourceName'i index ile tahmin et
+          const sources = ['AFAD', 'Kandilli', 'USGS', 'EMSC'];
+          sourceName = sources[index] || 'Unknown';
+          console.log(`✅ ${sourceName}: 0 earthquakes`);
         } else if (result.status === 'rejected') {
-          console.error(`❌ ${sources[index]} failed:`, result.reason.message);
+          const sources = ['AFAD', 'Kandilli', 'USGS', 'EMSC'];
+          sourceName = sources[index] || 'Unknown';
+          console.error(`❌ ${sourceName} failed:`, result.reason.message);
         }
       });
       
