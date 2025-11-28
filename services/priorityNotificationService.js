@@ -121,9 +121,14 @@ class PriorityNotificationService {
             ? `${(distance * 1000).toFixed(0)}m` 
             : `${distance.toFixed(1)}km`;
 
+          const isP2P = earthquake.source === 'P2P' || (earthquake.place && String(earthquake.place).includes('P2P'));
           const notificationData = {
-            title: `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
-            body: `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${earthquake.location}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
+            title: isP2P
+              ? `🟢 P2P Deprem Algılandı!`
+              : `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
+            body: isP2P
+              ? `P2P algılama ile deprem tespit edildi! Bölge: ${earthquake.location}\nBüyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw\nMesafe: ${distanceText}`
+              : `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${earthquake.location}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
             magnitude: parseFloat(earthquake.magnitude).toFixed(1),
             location: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,
             location_str: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,
@@ -135,7 +140,8 @@ class PriorityNotificationService {
             userLat: parseFloat(userLat),
             userLon: parseFloat(userLon),
             time: earthquake.time,
-            priority: 'high'
+            priority: 'high',
+            p2p_circle: isP2P ? 'true' : 'false',
           };
 
           // FCM token varsa gönder
