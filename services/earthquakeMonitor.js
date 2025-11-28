@@ -134,6 +134,8 @@ class EarthquakeMonitor {
           }
           for (const eqRaw of processedEarthquakes) {
             const eq = normalizeEarthquake(eqRaw);
+            // Debug: normalize edilen deprem objesini logla
+            console.log('[DEBUG] Normalize deprem:', JSON.stringify(eq));
             // Duplicate önleme: Zaman, konum ve büyüklük ile arama
             const timeWindowStart = new Date(eq.time.getTime() - 60 * 1000); // -1 dakika
             const timeWindowEnd = new Date(eq.time.getTime() + 60 * 1000);   // +1 dakika
@@ -143,6 +145,13 @@ class EarthquakeMonitor {
             const latMax = eq.location.latitude + 0.1;
             const lonMin = eq.location.longitude - 0.1;
             const lonMax = eq.location.longitude + 0.1;
+            // Debug: duplicate sorgusunu logla
+            console.log('[DEBUG] Duplicate sorgusu:', {
+              time: { $gte: timeWindowStart, $lte: timeWindowEnd },
+              mag: { $gte: magMin, $lte: magMax },
+              'location.latitude': { $gte: latMin, $lte: latMax },
+              'location.longitude': { $gte: lonMin, $lte: lonMax }
+            });
             const existing = await EarthquakeModel.findOne({
               time: { $gte: timeWindowStart, $lte: timeWindowEnd },
               mag: { $gte: magMin, $lte: magMax },
@@ -158,8 +167,12 @@ class EarthquakeMonitor {
               console.log(`🔁 Duplicate deprem: ${eq.mag} ${eq.place} (${eq.source})`);
             } else {
               // Yeni deprem kaydı
-              await EarthquakeModel.create(eq);
-              console.log(`✅ Yeni deprem kaydedildi: ${eq.mag} ${eq.place} (${eq.source})`);
+              try {
+                await EarthquakeModel.create(eq);
+                console.log(`✅ Yeni deprem kaydedildi: ${eq.mag} ${eq.place} (${eq.source})`);
+              } catch (dbErr) {
+                console.error('[ERROR] Deprem DB kaydı başarısız:', dbErr, eq);
+              }
               // Dosyaya log ekle
               const fs = require('fs');
               const logLine = `${new Date().toISOString()} | Mag:${eq.mag} | ${eq.place} | ${eq.source} | Lat:${eq.location.latitude} Lon:${eq.location.longitude}\n`;
@@ -283,10 +296,12 @@ class EarthquakeMonitor {
   async checkEMSC() {
     try {
       // EMSC for international earthquakes
+      const now = new Date();
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       const params = {
         format: 'json',
-        starttime: '2019-01-01T00:00:00',
-        endtime: '2020-01-02T00:00:00',
+        starttime: yesterday.toISOString().slice(0, 19),
+        endtime: now.toISOString().slice(0, 19),
         minmag: 2,
         minlat: 35,
         maxlat: 43,
