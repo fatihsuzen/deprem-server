@@ -165,6 +165,12 @@ class EarthquakeMonitor {
                 await existing.save();
               }
               console.log(`🔁 Duplicate deprem: ${eq.mag} ${eq.place} (${eq.source})`);
+              // Duplicate depremi ayrı dosyaya logla
+              const fs = require('fs');
+              const duplicateLogLine = `${new Date().toISOString()} | Mag:${eq.mag} | ${eq.place} | Yeni kaynak:${eq.source} | Mevcut kaynaklar:${existing.source.join(',')} | Lat:${eq.location.latitude} Lon:${eq.location.longitude}\n`;
+              fs.appendFile('earthquake_duplicates_log.txt', duplicateLogLine, (err) => {
+                if (err) console.error('Duplicate deprem log dosyasına yazılamadı:', err);
+              });
             } else {
               // Yeni deprem kaydı
               try {
