@@ -68,10 +68,22 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
     // Deprem merkezi konumu
     final locParts = widget.location.split(',');
-    quakeLatLng = (locParts.length == 2)
-        ? LatLng(
-            double.parse(locParts[0].trim()), double.parse(locParts[1].trim()))
-        : LatLng(39.0, 35.0); // fallback: Türkiye merkezi
+    double quakeLat = 39.0;
+    double quakeLon = 35.0;
+    if (locParts.length == 2) {
+      try {
+        quakeLat = double.parse(locParts[0].trim());
+        quakeLon = double.parse(locParts[1].trim());
+        if (quakeLat.isNaN || quakeLon.isNaN) {
+          quakeLat = 39.0;
+          quakeLon = 35.0;
+        }
+      } catch (e) {
+        quakeLat = 39.0;
+        quakeLon = 35.0;
+      }
+    }
+    quakeLatLng = LatLng(quakeLat, quakeLon);
 
     // Kullanıcı konumu (server/gps'ten gelen)
     Future<void> setUserLocation() async {

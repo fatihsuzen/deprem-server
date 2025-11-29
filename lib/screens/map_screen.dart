@@ -119,30 +119,31 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
         CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
     super.initState();
-    _firebaseMessaging.requestPermission().then((value) {
-      print('✅ Bildirim izni istendi: $value');
-    });
-    // FCM token logla ve sunucuya gönder
-    _firebaseMessaging.getToken().then((token) {
-      print('🔑 FCM Token: $token');
-      if (token != null) {
-        _userFcmToken = token;
-        _sendLocationAndSettingsToServer();
-      }
-    });
-    // Token yenilendiğinde sunucuya gönder
-    _firebaseMessaging.onTokenRefresh.listen((token) {
-      print('🔄 FCM Token yenilendi: $token');
-      _userFcmToken = token;
-      _sendLocationAndSettingsToServer();
-    });
-    // Topic aboneliği logla
-    _firebaseMessaging.subscribeToTopic('all').then((_) {
-      print('✅ Topic "all" abonesi olundu');
-    });
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print(
-          '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
+        _firebaseMessaging.subscribeToTopic('all').then((_) {
+          print('✅ Topic "all" abonesi olundu');
+        });
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          print(
+              '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
+          if (!mounted) return;
+          if (message.notification != null) {
+            final title = message.notification!.title ?? 'Deprem Uyarısı';
+            final body = message.notification!.body ?? '';
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text(title),
+                content: Text(body),
+                actions: [
+                  TextButton(
+                    child: Text('Kapat'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            );
+          }
+        });
       if (message.notification != null) {
         final title = message.notification!.title ?? 'Deprem Uyarısı';
         final body = message.notification!.body ?? '';

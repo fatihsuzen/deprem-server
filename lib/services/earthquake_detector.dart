@@ -1,14 +1,17 @@
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:math';
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'earthquake_report_service.dart';
 
 /// Java algoritmasındaki eşik değerlerine sadık deprem algılama servisi
 class EarthquakeDetector {
   // Eşik değerleri (Java algoritmasından alınmıştır)
-  static const double shakeThreshold = 2.5; // m/s^2
-  static const int minShakeCount = 3; // art arda kaç sarsıntı olmalı
-  static const int shakeWindowMs = 2000; // sarsıntı aralığı (ms)
+  static const double shakeThreshold = 1.2; // m/s^2 (test ekranı ile aynı)
+  static const int minShakeCount =
+      2; // art arda kaç sarsıntı olmalı (test ile aynı)
+  static const int shakeWindowMs = 3000; // sarsıntı aralığı (ms, test ile aynı)
+  StreamSubscription<AccelerometerEvent>? _subscription;
 
   int _shakeCount = 0;
   DateTime? _lastShakeTime;
@@ -17,10 +20,12 @@ class EarthquakeDetector {
   void startListening({
     required String deviceId,
     required EarthquakeReportService reportService,
+    void Function(String log)? onDetected,
   }) {
     if (_listening) return;
     _listening = true;
-    accelerometerEvents.listen((AccelerometerEvent event) async {
+    _subscription =
+        accelerometerEvents.listen((AccelerometerEvent event) async {
       double magnitude = sqrt(
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
@@ -45,8 +50,17 @@ class EarthquakeDetector {
             position: position,
             deviceId: deviceId,
           );
+          if (onDetected != null) {
+            onDetected(
+                '⚡ Deprem algılandı! Magnitude: ${delta.toStringAsFixed(2)}, Konum: ${position.latitude},${position.longitude}, Zaman: $now');
+          }
         }
       }
     });
+  }
+
+  void stopListening() {
+    _subscription?.cancel();
+    _listening = false;
   }
 }

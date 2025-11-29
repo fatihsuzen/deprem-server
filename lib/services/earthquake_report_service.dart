@@ -14,20 +14,42 @@ class EarthquakeReportService {
     required String deviceId,
   }) async {
     final data = {
-      'magnitude': magnitude,
+      'userId': deviceId,
       'timestamp': timestamp.toIso8601String(),
-      'latitude': position.latitude,
-      'longitude': position.longitude,
-      'accuracy': position.accuracy,
-      'deviceId': deviceId,
+      'location': {
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+      },
+      'sensorData': {
+        'accelerationMagnitude': magnitude,
+        'probabilityScore': 80, // örnek sabit değer
+        'duration': 2.0, // örnek sabit değer
+        'peakAcceleration': magnitude, // örnek sabit değer
+      },
+      'deviceInfo': {
+        'platform': 'Android',
+        'model': 'Test Device',
+      },
     };
-    final response = await http.post(
-      Uri.parse(serverUrl),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode(data),
-    );
-    if (response.statusCode != 200) {
-      throw Exception('Deprem raporu gönderilemedi: ${response.body}');
+    print('[BG] Deprem raporu HTTP isteği başlatılıyor: $serverUrl');
+    try {
+      final response = await http.post(
+        Uri.parse(serverUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+      print('[BG] HTTP response status: ${response.statusCode}');
+      print('[BG] HTTP response body: ${response.body}');
+      if (response.statusCode != 200) {
+        print('[BG] Deprem raporu gönderilemedi! Status: ${response.statusCode}, Body: ${response.body}');
+        throw Exception('Deprem raporu gönderilemedi: ${response.body}');
+      } else {
+        print('[BG] Deprem raporu başarıyla gönderildi!');
+      }
+    } catch (e) {
+      print('[BG] Deprem raporu gönderim hatası: $e');
+      rethrow;
     }
   }
 }

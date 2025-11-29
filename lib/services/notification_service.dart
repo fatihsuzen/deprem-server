@@ -40,6 +40,23 @@ class WakeLockService {
 }
 
 class NotificationService {
+    Future<void> showNotification({required String title, required String body}) async {
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'deprem_channel',
+        'Deprem Bildirimleri',
+        channelDescription: 'Deprem algılandığında bildirim gönderir',
+        importance: Importance.max,
+        priority: Priority.high,
+        ticker: 'ticker',
+      );
+      const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+      await _flutterLocalNotificationsPlugin.show(
+        0,
+        title,
+        body,
+        platformDetails,
+      );
+    }
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
@@ -499,27 +516,11 @@ class NotificationService {
     double? userLon,
   }) async {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
-
-    // 0. Native wake lock ile ekranı uyandır
-    await WakeLockService.wakeUpScreen();
-
-    // 1. Önce tam ekran bildirim gönder (ekran kapalıyken uyandırmak için)
-    await showWakeUpNotification(magnitude, location, distance);
-
-    // 2. Uygulama açıksa veya bildirime tıklandığında tam ekran göster
-    await Future.delayed(const Duration(milliseconds: 500));
-
+    // Sadece animasyonlu ekranı aç (push bildirim ve native activity yok)
     if (navigatorKey.currentContext != null) {
-      // Uygulama açık - direkt tam ekran göster
       showAlertScreen(magnitude, location, distance, source);
     } else {
-      // Uygulama kapalı - native activity aç
-      print('Uygulama kapalı - native deprem alert activity açılıyor');
-      await NativeAlertService.showNativeEarthquakeAlertActivity(
-        magnitude: magnitude,
-        location: location,
-        distance: distance,
-      );
+      print('❌ Uygulama arka planda veya kapalı, animasyonlu ekran açılamıyor');
     }
   }
 

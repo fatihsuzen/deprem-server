@@ -74,28 +74,39 @@ void main() async {
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   // FCM notification setup
+  // Duplicate deprem bildirimi engelleme
+  String? lastEarthquakeId;
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print(
-        '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
+    print('📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
     if (message.data['type'] == 'earthquake_alert') {
-      final magnitude =
-          double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
-      final distance =
-          double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
+      // Benzersiz deprem id'si oluştur (location+timestamp)
       final location = message.data['location'] ?? '';
+      final timestampStr = message.data['timestamp'] ?? DateTime.now().toIso8601String();
+      final eqId = '$location|$timestampStr';
+      if (lastEarthquakeId == eqId) {
+        print('[FCM] Duplicate deprem bildirimi engellendi: $eqId');
+        return;
+      }
+      lastEarthquakeId = eqId;
+      // Alanları kontrol et
+      final magnitude = double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
+      final distance = double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
+      String safeLocation = location;
+      if (safeLocation.isEmpty || safeLocation == 'NaN,NaN' || safeLocation.contains('object')) {
+        safeLocation = 'Bilinmeyen';
+      }
       navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => EarthquakeAlertScreen(
             magnitude: magnitude,
-            location: location,
-            distance: distance,
-            timestamp: DateTime.now(),
+            location: safeLocation,
+            distance: distance.isNaN ? 0.0 : distance,
+            timestamp: DateTime.tryParse(timestampStr) ?? DateTime.now(),
             source: 'P2P',
           ),
         ),
       );
     } else {
-      // Normal bildirimde ana ekrana yönlendir
       navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
     }
   });

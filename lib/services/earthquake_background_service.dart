@@ -1,6 +1,13 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
+import 'dart:convert';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:sensors_plus/sensors_plus.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:deprem_app/services/earthquake_report_service.dart';
+import 'package:deprem_app/services/screen_state_service.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notification_service.dart';
@@ -40,11 +47,11 @@ class EarthquakeBackgroundService {
 
   static Future<bool> startService() async {
     if (await FlutterForegroundTask.isRunningService) {
-      print('Background servis zaten calisiyor');
+      print('[BG] Foreground servis zaten çalışıyor (kontrol: isRunningService)');
       return true;
     }
 
-    print('Background servis baslatiliyor...');
+    print('[BG] Foreground servis başlatılıyor...');
 
     await FlutterForegroundTask.startService(
       notificationTitle: 'Deprem Takip Aktif',
@@ -68,48 +75,102 @@ void startCallback() {
 }
 
 class EarthquakeTaskHandler extends TaskHandler {
-  IO.Socket? _socket;
-  int _updateCount = 0;
+      // Pending rapor ve timer kodları kaldırıldı
+    StreamSubscription<AccelerometerEvent>? _subscription;
+    int _shakeCount = 0;
+    DateTime? _lastShakeTime;
+    bool _listening = false;
 
+    // Sensör dinleme ve deprem raporlama
+    void _startSensorListening() {
+      if (_listening) {
+        print('[BG] Sensör dinleme zaten aktif.');
+        return;
+      }
+      print('[BG] Sensör dinleme başlatılıyor...');
+      _listening = true;
+      _subscription = accelerometerEvents.listen((AccelerometerEvent event) async {
+        double magnitude = sqrt(
+          event.x * event.x + event.y * event.y + event.z * event.z,
+        );
+        double delta = (magnitude - 9.8).abs();
+        if (delta > 1.2) {
+          DateTime now = DateTime.now();
+          print('[BG] Sarsıntı algılandı! delta=$delta, time=$now');
+          if (_lastShakeTime == null ||
+              now.difference(_lastShakeTime!).inMilliseconds > 3000) {
+            _shakeCount = 1;
+          } else {
+            _shakeCount++;
+          }
+          _lastShakeTime = now;
+          print('[BG] Shake count: $_shakeCount');
+          if (_shakeCount >= 2) {
+            _shakeCount = 0;
+            print('[BG] Deprem algılandı! Konum alınacak...');
+            Position? position;
+            try {
+              position = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.high);
+              print('[BG] Konum alındı: ${position.latitude},${position.longitude}');
+            } catch (geoError) {
+              print('[BG] Konum alınamadı! Hata: $geoError');
+              print('[BG] Konum json dosyasından alınmaya çalışılıyor...');
+              try {
+                final dir = await getApplicationDocumentsDirectory();
+                final file = File('${dir.path}/last_location.json');
+                if (await file.exists()) {
+                  final jsonStr = await file.readAsString();
+                  final json = jsonDecode(jsonStr);
+                  position = Position(
+                    latitude: json['latitude'] ?? 0.0,
+                    longitude: json['longitude'] ?? 0.0,
+                    accuracy: json['accuracy'] ?? 0.0,
+                    altitude: 0.0,
+                    heading: 0.0,
+                    speed: 0.0,
+                    speedAccuracy: 0.0,
+                    altitudeAccuracy: 0.0,
+                    headingAccuracy: 0.0,
+                    timestamp: DateTime.now(),
+                  );
+                  print('[BG] Konum dosyadan alındı: ${position.latitude},${position.longitude}');
+                } else {
+                  print('[BG] Konum dosyası bulunamadı, rapor gönderilemiyor.');
+                  return;
+                }
+              } catch (fileError) {
+                print('[BG] Konum dosyadan alınamadı! Hata: $fileError');
+                return;
+              }
+            }
+            if (position != null) {
+              print('[BG] Deprem raporu gönderiliyor...');
+              final reportService = EarthquakeReportService(
+                  'http://188.132.202.24:3000/api/p2p/shake-report');
+              try {
+                await reportService.sendEarthquakeReport(
+                  magnitude: delta,
+                  timestamp: now,
+                  position: position,
+                  deviceId: 'background-device',
+                );
+                print('⚡ [BG] Deprem raporu GİTTİ!');
+              } catch (e) {
+                print('❌ [BG] Deprem raporu GİTMEDİ! Hata: $e');
+              }
+            } else {
+              print('[BG] Konum alınamadı, rapor gönderilmiyor.');
+            }
+          }
+        }
+      });
+    }
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    print('🔧 Background WebSocket baslaniyor...');
-
-    try {
-      // WebSocket baglantisi kur
-      _socket = IO.io(
-          'http://188.132.202.24:3000',
-          IO.OptionBuilder()
-              .setTransports(['websocket'])
-              .disableAutoConnect()
-              .build());
-
-      _socket?.on('connect', (_) {
-        print('✅ Background WebSocket baglandi');
-        FlutterForegroundTask.updateService(
-          notificationTitle: 'Deprem Takip Aktif',
-          notificationText: 'WebSocket baglantisi aktif',
-        );
-      });
-
-      _socket?.on('earthquake_alert', (data) async {
-        print('🚨 BACKGROUND ALERT: $data');
-        await _handleEarthquakeData(data, 'earthquake_alert');
-      });
-
-      _socket?.on('earthquake_warning', (data) async {
-        print('⚠️  BACKGROUND WARNING: $data');
-        await _handleEarthquakeData(data, 'earthquake_warning');
-      });
-
-      _socket?.on('disconnect', (_) {
-        print('❌ Background WebSocket baglanti kesildi');
-      });
-
-      _socket?.connect();
-    } catch (e) {
-      print('❌ Background WebSocket hatasi: $e');
-    }
+    print('[BG] onStart: Foreground servis başlatıldı (WebSocket kapalı)');
+    print('[BG] onStart: Sensör dinleme başlatılıyor...');
+    _startSensorListening();
   }
 
   Future<void> _handleEarthquakeData(dynamic data, String type) async {
@@ -155,37 +216,40 @@ class EarthquakeTaskHandler extends TaskHandler {
         }
       }
 
-      // 🚨 TAM EKRAN ALARM - NotificationService ile
-      print('🚨 TAM EKRAN ALARM ACILIYOR...');
-
-      try {
-        // Mesafe bilgisini hesapla
-        final prefs = await SharedPreferences.getInstance();
-        final userLat = prefs.getDouble('last_latitude');
-        final userLon = prefs.getDouble('last_longitude');
-
-        double distance = 0;
-        if (userLat != null && userLon != null) {
-          distance = _calculateDistance(
-              userLat, userLon, earthquakeLat, earthquakeLon);
+      // Ekran durumu kontrolü
+      bool isScreenOn = await ScreenStateService.isScreenOn();
+      final notificationService = NotificationService();
+      if (!isScreenOn) {
+        print('🚨 Ekran kapalı, tam ekran afiş açılıyor...');
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final userLat = prefs.getDouble('last_latitude');
+          final userLon = prefs.getDouble('last_longitude');
+          double distance = 0;
+          if (userLat != null && userLon != null) {
+            distance = _calculateDistance(
+                userLat, userLon, earthquakeLat, earthquakeLon);
+          }
+          await notificationService.showFullScreenEarthquakeAlert(
+            magnitude: magnitude,
+            location: location,
+            distance: distance,
+            source: type.toUpperCase(),
+            earthquakeLat: earthquakeLat,
+            earthquakeLon: earthquakeLon,
+            userLat: userLat,
+            userLon: userLon,
+          );
+          print('✅ Tam ekran alarm gonderildi');
+        } catch (e) {
+          print('❌ Alarm gonderme hatasi: $e');
         }
-
-        // TAM EKRAN ALARM GÖNDER
-        final notificationService = NotificationService();
-        await notificationService.showFullScreenEarthquakeAlert(
-          magnitude: magnitude,
-          location: location,
-          distance: distance,
-          source: type.toUpperCase(),
-          earthquakeLat: earthquakeLat,
-          earthquakeLon: earthquakeLon,
-          userLat: userLat,
-          userLon: userLon,
+      } else {
+        print('📲 Ekran açık, sadece bildirim gönderiliyor...');
+        await notificationService.showNotification(
+          title: 'Deprem Algılandı!',
+          body: 'M$magnitude - $location',
         );
-
-        print('✅ Tam ekran alarm gonderildi');
-      } catch (e) {
-        print('❌ Alarm gonderme hatasi: $e');
       }
 
       // Ekranı uyandır
@@ -238,7 +302,8 @@ class EarthquakeTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp) async {
     print('🔴 Background task durduruluyor');
-    // WebSocket kaldırıldı
+    _subscription?.cancel();
+    _listening = false;
   }
 
   @override

@@ -122,24 +122,27 @@ class PriorityNotificationService {
             : `${distance.toFixed(1)}km`;
 
           const isP2P = earthquake.source === 'P2P' || (earthquake.place && String(earthquake.place).includes('P2P'));
+          const regionStr = typeof earthquake.location === 'string'
+            ? earthquake.location
+            : (earthquake.location?.name || 'Bilinmeyen');
           const notificationData = {
             title: isP2P
               ? `🟢 P2P Deprem Algılandı!`
               : `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
             body: isP2P
-              ? `P2P algılama ile deprem tespit edildi! Bölge: ${earthquake.location}\nBüyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw\nMesafe: ${distanceText}`
-              : `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${earthquake.location}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
-            magnitude: parseFloat(earthquake.magnitude).toFixed(1),
+              ? `P2P algılama ile deprem tespit edildi! Bölge: ${regionStr}\nBüyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw\nMesafe: ${distanceText}`
+              : `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${regionStr}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
+            magnitude: String(parseFloat(earthquake.magnitude).toFixed(1)),
             location: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,
             location_str: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,
-            region: earthquake.location,
-            depth: parseFloat(earthquake.depth).toFixed(1),
-            distance: parseFloat(distance).toFixed(1),
-            earthquakeLat: parseFloat(earthquake.lat),
-            earthquakeLon: parseFloat(earthquake.lon),
-            userLat: parseFloat(userLat),
-            userLon: parseFloat(userLon),
-            time: earthquake.time,
+            region: regionStr,
+            depth: String(parseFloat(earthquake.depth).toFixed(1)),
+            distance: String(parseFloat(distance).toFixed(1)),
+            earthquakeLat: String(parseFloat(earthquake.lat)),
+            earthquakeLon: String(parseFloat(earthquake.lon)),
+            userLat: String(parseFloat(userLat)),
+            userLon: String(parseFloat(userLon)),
+            time: String(earthquake.time),
             priority: 'high',
             p2p_circle: isP2P ? 'true' : 'false',
           };

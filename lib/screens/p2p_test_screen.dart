@@ -58,7 +58,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     _addLog('📱 P2P Test Ekranı hazır');
     _addLog('ℹ️ Yeni deprem algılama algoritması test ediliyor');
     _reportService = EarthquakeReportService(
-        'http://188.132.202.24:3000/api/p2p-earthquake');
+        'http://188.132.202.24:3000/api/p2p/shake-report');
     _detector = EarthquakeDetector();
   }
 
@@ -80,6 +80,9 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
     _detector?.startListening(
       deviceId: _deviceId,
       reportService: _reportService!,
+      onDetected: (log) {
+        _addLog(log);
+      },
     );
     _addLog('✅ Sensörler aktif');
   }
@@ -87,7 +90,7 @@ class _P2PTestScreenState extends State<P2PTestScreen> {
   void _stopMonitoring() {
     if (!_isMonitoring) return;
     setState(() => _isMonitoring = false);
-    // EarthquakeDetector'da durdurma fonksiyonu yok, eklenirse burada çağrılabilir
+    _detector?.stopListening();
     _addLog('🔴 İzleme durduruldu');
   }
 
