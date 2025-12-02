@@ -3,16 +3,28 @@ import java.io.File
 import org.json.JSONObject
 
 import android.os.PowerManager
+import android.os.BatteryManager
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Data
+import androidx.work.ExistingPeriodicWorkPolicy
+import java.util.concurrent.TimeUnit
 
 class MainActivity: FlutterActivity() {
+	private var screenStateReceiver: ScreenStateReceiver? = null
+
 			override fun onResume() {
 				super.onResume()
 				android.util.Log.d("DepremApp", "onResume called!")
+				// Ekran durumunu güncelle
+				ScreenStateReceiver.writeScreenState(this, true)
 				val params = getEarthquakeParamsFromIntent(intent)
 				android.util.Log.d("DepremApp", "onResume: params = $params")
 				sendEarthquakeParamsToFlutter(params)
@@ -25,13 +37,99 @@ class MainActivity: FlutterActivity() {
 					}, 500)
 				}
 			}
+
+		override fun onPause() {
+			super.onPause()
+			// Uygulama arka plana geçtiğinde ekran durumunu güncelle
+			android.util.Log.d("DepremApp", "onPause called!")
+		}
+
 		override fun onCreate(savedInstanceState: android.os.Bundle?) {
 			super.onCreate(savedInstanceState)
 			android.util.Log.d("DepremApp", "onCreate called!")
+			
+			// Screen state receiver'ı kaydet
+			registerScreenStateReceiver()
+			
+			// Periyodik ekran durumu worker'ını başlat (her 15 dakikada bir)
+			startScreenStateWorker()
+			
+			// Screen State Service'ı başlat (5 saniyede bir günceller)
+			startScreenStateService()
+			
+			// Mevcut ekran durumunu yaz
+			val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+			val isScreenOn = powerManager.isInteractive
+			ScreenStateReceiver.writeScreenState(this, isScreenOn)
+			android.util.Log.d("DepremApp", "Initial screen state: isScreenOn=$isScreenOn")
+			
 			val params = getEarthquakeParamsFromIntent(intent)
 			android.util.Log.d("DepremApp", "onCreate: params = $params")
 			sendEarthquakeParamsToFlutter(params)
 		}
+
+		override fun onDestroy() {
+			super.onDestroy()
+			// Screen state receiver'ı kaldır
+			unregisterScreenStateReceiver()
+		}
+
+		private fun registerScreenStateReceiver() {
+			if (screenStateReceiver == null) {
+				screenStateReceiver = ScreenStateReceiver()
+				val filter = IntentFilter().apply {
+					addAction(Intent.ACTION_SCREEN_ON)
+					addAction(Intent.ACTION_SCREEN_OFF)
+					addAction(Intent.ACTION_USER_PRESENT)
+				}
+				registerReceiver(screenStateReceiver, filter)
+				android.util.Log.d("DepremApp", "ScreenStateReceiver registered")
+			}
+		}
+
+		private fun unregisterScreenStateReceiver() {
+			screenStateReceiver?.let {
+				try {
+					unregisterReceiver(it)
+					screenStateReceiver = null
+					android.util.Log.d("DepremApp", "ScreenStateReceiver unregistered")
+				} catch (e: Exception) {
+					android.util.Log.e("DepremApp", "Error unregistering receiver: ${e.message}")
+				}
+			}
+		}
+
+		private fun startScreenStateWorker() {
+			try {
+				// Her 15 dakikada bir ekran durumunu kontrol et (WorkManager minimum)
+				val workRequest = PeriodicWorkRequestBuilder<ScreenStateWorker>(15, TimeUnit.MINUTES)
+					.build()
+				
+				WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+					"screen_state_worker",
+					ExistingPeriodicWorkPolicy.KEEP,
+					workRequest
+				)
+				android.util.Log.d("DepremApp", "ScreenStateWorker started (every 15 minutes)")
+				
+				// Hemen bir kez çalıştır
+				val immediateWork = OneTimeWorkRequestBuilder<ScreenStateWorker>().build()
+				WorkManager.getInstance(this).enqueue(immediateWork)
+			} catch (e: Exception) {
+				android.util.Log.e("DepremApp", "Error starting ScreenStateWorker: ${e.message}")
+			}
+		}
+
+		private fun startScreenStateService() {
+			try {
+				val serviceIntent = Intent(this, ScreenStateService::class.java)
+				startService(serviceIntent)
+				android.util.Log.d("DepremApp", "ScreenStateService started")
+			} catch (e: Exception) {
+				android.util.Log.e("DepremApp", "Error starting ScreenStateService: ${e.message}")
+			}
+		}
+
 	// Deprem parametrelerini intent'ten oku
 	private fun getEarthquakeParamsFromIntent(intent: Intent?): Map<String, Any>? {
 		if (intent == null) {
@@ -136,10 +234,17 @@ class MainActivity: FlutterActivity() {
 	}
 	private val CHANNEL = "deprem_app/wake_lock"
 	private val ALERT_CHANNEL = "deprem_app/alert_activity"
+	private val HTTP_CHANNEL = "deprem_app/http"
+	private val DEVICE_STATE_CHANNEL = "deprem_app/device_state"
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
 		android.util.Log.d("DepremApp", "configureFlutterEngine called!")
+
+		// Earthquake Report Service'i başlat
+		val serviceIntent = Intent(this, EarthquakeReportService::class.java)
+		startService(serviceIntent)
+		android.util.Log.d("DepremApp", "✅ EarthquakeReportService başlatıldı!")
 
 		// Wake lock channel
 		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
@@ -147,6 +252,69 @@ class MainActivity: FlutterActivity() {
 				android.util.Log.d("DepremApp", "wakeUpScreen called from Flutter!")
 				wakeUpScreen()
 				result.success(null)
+			} else {
+				result.notImplemented()
+			}
+		}
+
+		// HTTP channel (arka plan HTTP istekleri için - WorkManager ile)
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, HTTP_CHANNEL).setMethodCallHandler { call, result ->
+			if (call.method == "sendHttpPost") {
+				val url = call.argument<String>("url") ?: ""
+				val jsonBody = call.argument<String>("jsonBody") ?: ""
+				android.util.Log.d("DepremApp", "WorkManager ile HTTP POST: url=$url")
+				android.util.Log.d("DepremApp", "WorkManager ile HTTP POST: body=$jsonBody")
+				try {
+					// WorkManager ile arka plan işi başlat
+					val inputData = Data.Builder()
+						.putString("url", url)
+						.putString("jsonBody", jsonBody)
+						.build()
+					
+					val workRequest = OneTimeWorkRequestBuilder<EarthquakeReportWorker>()
+						.setInputData(inputData)
+						.build()
+					
+					WorkManager.getInstance(applicationContext).enqueue(workRequest)
+					android.util.Log.d("DepremApp", "✅ WorkManager görevi kuyruğa alındı!")
+					result.success(true)
+				} catch (e: Exception) {
+					android.util.Log.e("DepremApp", "WorkManager hatası: ${e.message}")
+					result.error("WORK_MANAGER_ERROR", e.message, null)
+				}
+			} else {
+				result.notImplemented()
+			}
+		}
+
+		// Device State Channel - Anlık ekran ve şarj durumu kontrolü
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_STATE_CHANNEL).setMethodCallHandler { call, result ->
+			if (call.method == "getRealTimeDeviceState") {
+				// ANLIK ekran durumu kontrolü
+				val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+				val isScreenOn = powerManager.isInteractive
+				
+				// ANLIK şarj durumu kontrolü
+				val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+				val batteryStatus = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+				val isCharging = batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING || 
+								 batteryStatus == BatteryManager.BATTERY_STATUS_FULL
+				
+				// Pil seviyesi
+				val batteryLevel = batteryIntent?.let { intent ->
+					val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+					val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+					if (level >= 0 && scale > 0) (level * 100 / scale) else -1
+				} ?: -1
+				
+				android.util.Log.d("DepremApp", "📱 Anlık Durum: isScreenOn=$isScreenOn, isCharging=$isCharging, batteryLevel=$batteryLevel%")
+				
+				val stateMap = mapOf(
+					"isScreenOn" to isScreenOn,
+					"isCharging" to isCharging,
+					"batteryLevel" to batteryLevel
+				)
+				result.success(stateMap)
 			} else {
 				result.notImplemented()
 			}
@@ -231,5 +399,36 @@ class MainActivity: FlutterActivity() {
 		intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 		android.util.Log.d("DepremApp", "showEarthquakeAlertActivity: intent extras = magnitude=$magnitude, location=$location, distance=$distance")
 		startActivity(intent)
+	}
+
+	// Native HTTP POST request (arka plan için)
+	private fun sendHttpPostRequest(url: String, jsonBody: String) {
+		Thread {
+			try {
+				val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+				connection.requestMethod = "POST"
+				connection.setRequestProperty("Content-Type", "application/json")
+				connection.doOutput = true
+				connection.connectTimeout = 10000
+				connection.readTimeout = 10000
+
+				val outputStream = connection.outputStream
+				outputStream.write(jsonBody.toByteArray())
+				outputStream.flush()
+				outputStream.close()
+
+				val responseCode = connection.responseCode
+				android.util.Log.d("DepremApp", "Native HTTP POST response: $responseCode")
+				
+				if (responseCode == 200 || responseCode == 201) {
+					android.util.Log.d("DepremApp", "✅ Native HTTP POST başarılı!")
+				} else {
+					android.util.Log.e("DepremApp", "❌ Native HTTP POST başarısız: $responseCode")
+				}
+				connection.disconnect()
+			} catch (e: Exception) {
+				android.util.Log.e("DepremApp", "❌ Native HTTP POST hatası: ${e.message}")
+			}
+		}.start()
 	}
 }

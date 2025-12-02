@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:battery_plus/battery_plus.dart';
 import 'package:deprem_app/services/earthquake_report_service.dart';
 import 'package:deprem_app/services/screen_state_service.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -47,11 +49,37 @@ class EarthquakeBackgroundService {
 
   static Future<bool> startService() async {
     if (await FlutterForegroundTask.isRunningService) {
-      print('[BG] Foreground servis zaten çalışıyor (kontrol: isRunningService)');
+      print(
+          '[BG] Foreground servis zaten çalışıyor (kontrol: isRunningService)');
       return true;
     }
 
     print('[BG] Foreground servis başlatılıyor...');
+
+    // Arka plan konum izni kontrolü (Android 10+)
+    try {
+      // Geolocator ile runtime izin kontrolü
+      final geolocator = GeolocatorPlatform.instance;
+      LocationPermission permission = await geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        permission = await geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.whileInUse) {
+        // Android 10+ için arka plan izni ayrıca istenmeli
+        print(
+            '[BG] Arka plan konum izni (ACCESS_BACKGROUND_LOCATION) isteniyor...');
+        permission = await geolocator.requestPermission();
+      }
+      if (permission != LocationPermission.always) {
+        print(
+            '[BG] UYARI: Arka plan konum izni verilmedi! Arka planda deprem raporu gönderilemez.');
+      } else {
+        print('[BG] Arka plan konum izni verildi.');
+      }
+    } catch (e) {
+      print('[BG] Arka plan konum izni kontrolünde hata: $e');
+    }
 
     await FlutterForegroundTask.startService(
       notificationTitle: 'Deprem Takip Aktif',
@@ -75,102 +103,920 @@ void startCallback() {
 }
 
 class EarthquakeTaskHandler extends TaskHandler {
-      // Pending rapor ve timer kodları kaldırıldı
-    StreamSubscription<AccelerometerEvent>? _subscription;
-    int _shakeCount = 0;
-    DateTime? _lastShakeTime;
-    bool _listening = false;
+  // Pending rapor ve timer kodları kaldırıldı
+  StreamSubscription<AccelerometerEvent>? _subscription;
+  int _shakeCount = 0;
+  DateTime? _lastShakeTime;
+  bool _listening = false;
 
-    // Sensör dinleme ve deprem raporlama
-    void _startSensorListening() {
-      if (_listening) {
-        print('[BG] Sensör dinleme zaten aktif.');
+  // Pil ve şarj kontrolü
+  final Battery _battery = Battery();
+  StreamSubscription<BatteryState>? _batteryStateSubscription;
+  Timer? _batteryCheckTimer;
+  bool _isCharging = false;
+  int _batteryLevel = 0;
+  bool _isScreenOn = true; // Ekran açık mı?
+  static const int minBatteryLevel = 35; // Minimum pil seviyesi
+
+  // ============ DEPREM AĞI ALGORİTMASI DEĞİŞKENLERİ ============
+  // Veri tamponları (Deprem Ağı gibi)
+  static const int bufferSize = 256; // Örnek tamponu boyutu (DÜŞÜRÜLDÜ: 4096→256, ~5 saniye @ 50Hz)
+  final List<double> _deltaBuffer = []; // Delta değerleri tamponu
+  final List<int> _timestampBuffer = []; // Zaman damgaları (ms)
+
+  // Baseline değerleri
+  double _baselineMin = 9999.0; // Minimum baseline
+  double _baselineMax = -9999.0; // Maximum baseline
+  double _baselineStd = 9999.0; // Baseline standart sapma
+
+  // Algılama durumu
+  bool _isDetecting = false; // Deprem algılama modunda mı
+  int _detectionSampleCount = 0; // Algılama sırasındaki örnek sayısı
+  int _consecutiveEvents = 0; // Ardışık olay sayısı
+  double _cumulativeDuration = 0.0; // Kümülatif süre
+
+  // Eşik değerleri (VERİ ANALİZİNE DAYALI - 02.12.2025)
+  // Normal STD: 0.0052, Weak STD: 0.0099, Medium STD: 0.0168, Strong STD: 0.0542
+  // Normal Max Delta: 0.0429, Weak Max Delta: 0.0724, Medium Max Delta: 0.1580
+  // Zayıf deprem algılamak için: weak/normal = 1.9x → güvenlik payı ile 1.5x
+  static const double stdMultiplier =
+      1.5; // Baseline STD'nin 1.5 katı = anomali (DÜŞÜRÜLDÜ: 1.7→1.5)
+  static const double deltaMultiplier = 0.8; // Delta çarpanı
+  static const int minConsecutiveSamples =
+      2; // Minimum ardışık örnek (DÜŞÜRÜLDÜ: 3→2)
+  static const double minDuration =
+      0.05; // Minimum süre (saniye) (DÜŞÜRÜLDÜ: 0.1→0.05)
+  static const int stabilizationTime = 2; // Stabilizasyon süresi (2 saniye)
+  static const bool instantReport = true; // Anında raporlama
+  static const double minAbsoluteThreshold =
+      0.005; // Min mutlak eşik (DÜŞÜRÜLDÜ: 0.008→0.005, normal STD civarı)
+
+  // Son değerler
+  double _lastMagnitude = 0.0;
+  bool _firstSampleSkipped = false; // İlk örneği atla (delta ~9.8 olur)
+  bool _stabilizationComplete = false; // Stabilizasyon tamamlandı mı?
+  int _sampleIndex = 0;
+  DateTime? _monitoringStartTime;
+
+  // Cooldown mekanizması - aynı deprem için tekrar rapor göndermemek
+  DateTime? _lastReportTime;
+  static const int reportCooldownSeconds = 30; // 30 saniye cooldown
+  bool _reportInProgress = false; // Rapor gönderimi devam ediyor mu
+
+  // Potansiyel deprem bildirimi için cooldown ve eşik
+  DateTime? _lastPotentialReportTime;
+  static const int potentialReportCooldownSeconds = 10; // 10 saniye cooldown
+  static const double potentialReportThreshold =
+      1.8; // Potansiyel rapor için baseline'ın 1.8 katı (DÜŞÜRÜLDÜ: 2.5→1.8, weak algılanabilsin)
+  
+  // Detection timeout cooldown - yanlış pozitif döngüsünü önle
+  DateTime? _lastDetectionTimeoutTime;
+  static const int detectionTimeoutCooldownSeconds = 5; // 5 saniye cooldown
+  // ============================================================
+
+  // Ekran durumunu dosyadan oku (isolate'da MethodChannel çalışmadığından)
+  Future<bool> _checkScreenState() async {
+    try {
+      // Android filesDir yolunu doğrudan kullan
+      // Android'de: /data/data/com.example.deprem_app/files/screen_state.json
+      const String packageName = 'com.example.deprem_app';
+      final String filesPath = '/data/data/$packageName/files';
+      final file = File('$filesPath/screen_state.json');
+
+      if (await file.exists()) {
+        final jsonStr = await file.readAsString();
+        final json = jsonDecode(jsonStr);
+        final isScreenOn = json['isScreenOn'] ?? false;
+        final timestamp = json['timestamp'] ?? 0;
+        final age = DateTime.now().millisecondsSinceEpoch - timestamp;
+
+        // ScreenStateService 5 saniyede bir günceller
+        // 30 saniyeden eski ise service çalışmıyor olabilir ama yine de dosyadaki değeri kullan
+        print(
+            '[BG] 📱 Ekran durumu: isScreenOn=$isScreenOn (${age ~/ 1000}s önce güncellendi)');
+
+        return isScreenOn;
+      } else {
+        print(
+            '[BG] ⚠️ screen_state.json dosyası bulunamadı, ekran KAPALI kabul ediliyor');
+        return false; // Dosya yoksa ekran kapalı kabul et
+      }
+    } catch (e) {
+      print('[BG] ❌ Ekran durumu okuma hatası: $e');
+      return false; // Hata varsa ekran kapalı kabul et
+    }
+  }
+
+  // Pil durumunu kontrol et ve sensör dinlemeyi yönet
+  Future<void> _checkBatteryAndManageSensor() async {
+    try {
+      _batteryLevel = await _battery.batteryLevel;
+      final batteryState = await _battery.batteryState;
+      _isCharging = batteryState == BatteryState.charging ||
+          batteryState == BatteryState.full;
+
+      // Ekran durumunu kontrol et
+      _isScreenOn = await _checkScreenState();
+
+      // Koşullar: Şarjda + Pil >= 50% + Ekran kapalı
+      final shouldListen =
+          _isCharging && _batteryLevel >= minBatteryLevel && !_isScreenOn;
+
+      print(
+          '[BG] 🔋 Pil: $_batteryLevel%, Şarjda: $_isCharging, Ekran açık: $_isScreenOn, Dinleme aktif olmalı: $shouldListen');
+
+      if (shouldListen && !_listening) {
+        print('[BG] ✅ Tüm koşullar sağlandı! Sensör dinleme başlatılıyor...');
+        _startSensorListening();
+        _updateNotification('Deprem Takip Aktif',
+            '🔋 $_batteryLevel% | 📴 Ekran kapalı | Sensör aktif');
+      } else if (!shouldListen && _listening) {
+        print('[BG] ⏸️ Koşullar sağlanmıyor. Sensör dinleme duraklatılıyor...');
+        _stopSensorListening();
+        String reason = '';
+        if (_isScreenOn) {
+          reason = 'Ekran açık';
+        } else if (!_isCharging) {
+          reason = 'Şarjda değil';
+        } else {
+          reason = 'Pil $_batteryLevel% < $minBatteryLevel%';
+        }
+        _updateNotification('Deprem Takip Beklemede', '⏸️ $reason');
+      } else if (shouldListen && _listening) {
+        // Koşullar hala sağlanıyor, notification güncelle
+        _updateNotification('Deprem Takip Aktif',
+            '🔋 $_batteryLevel% | 📴 Ekran kapalı | Sensör aktif');
+      } else if (!shouldListen && !_listening) {
+        // Dinlemiyoruz ve dinlememeliyiz, sadece bilgi güncelle
+        String status = '';
+        if (_isScreenOn) {
+          status = '📱 Ekran açık - beklemede';
+        } else if (!_isCharging) {
+          status = '🔌 Şarj bekleniyor';
+        } else {
+          status = '🔋 Pil $_batteryLevel% < $minBatteryLevel%';
+        }
+        _updateNotification('Deprem Takip Beklemede', status);
+      }
+    } catch (e) {
+      print('[BG] ❌ Pil/Ekran kontrolü hatası: $e');
+    }
+  }
+
+  // Pil durumu değişikliklerini dinle
+  void _startBatteryMonitoring() {
+    print('[BG] 🔋 Pil izleme başlatılıyor...');
+
+    // Pil durumu değişikliklerini dinle (şarj takıldı/çıkarıldı)
+    _batteryStateSubscription =
+        _battery.onBatteryStateChanged.listen((BatteryState state) {
+      print('[BG] 🔌 Şarj durumu değişti: $state');
+      _isCharging =
+          state == BatteryState.charging || state == BatteryState.full;
+      _checkBatteryAndManageSensor();
+    });
+
+    // Her 30 saniyede bir pil seviyesini kontrol et
+    _batteryCheckTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _checkBatteryAndManageSensor();
+    });
+
+    // İlk kontrolü hemen yap
+    _checkBatteryAndManageSensor();
+  }
+
+  void _stopBatteryMonitoring() {
+    _batteryStateSubscription?.cancel();
+    _batteryCheckTimer?.cancel();
+  }
+
+  void _updateNotification(String title, String text) {
+    FlutterForegroundTask.updateService(
+      notificationTitle: title,
+      notificationText: text,
+    );
+  }
+
+  // Sensör dinlemeyi durdur
+  void _stopSensorListening() {
+    if (!_listening) return;
+    print('[BG] Sensör dinleme durduruluyor...');
+    _subscription?.cancel();
+    _subscription = null;
+    _listening = false;
+
+    // Deprem Ağı değişkenlerini sıfırla
+    _resetDetectionState();
+  }
+
+  // Algılama durumunu sıfırla (Deprem Ağı'ndan)
+  void _resetDetectionState() {
+    _deltaBuffer.clear();
+    _timestampBuffer.clear();
+    _baselineMin = 9999.0;
+    _baselineMax = -9999.0;
+    _baselineStd = 9999.0;
+    _isDetecting = false;
+    _detectionSampleCount = 0;
+    _consecutiveEvents = 0;
+    _cumulativeDuration = 0.0;
+    _lastMagnitude = 0.0;
+    _firstSampleSkipped = false; // İlk örnek flag'ını sıfırla
+    _stabilizationComplete = false; // Stabilizasyon flag'ını sıfırla
+    _sampleIndex = 0;
+    _shakeCount = 0;
+    _lastShakeTime = null;
+    _monitoringStartTime = null;
+    // Cooldown değişkenlerini de sıfırla
+    _lastReportTime = null;
+    _reportInProgress = false;
+    _lastDetectionTimeoutTime = null; // Timeout cooldown'ı sıfırla
+  }
+
+  // Sensör dinleme ve deprem raporlama (DEPREM AĞI ALGORİTMASI)
+  void _startSensorListening() {
+    if (_listening) {
+      print('[BG] Sensör dinleme zaten aktif.');
+      return;
+    }
+    print('[BG] 🌍 Sensör dinleme başlatılıyor (Deprem Ağı algoritması)...');
+    _listening = true;
+    _resetDetectionState(); // ÖNCE sıfırla
+    _monitoringStartTime = DateTime.now(); // SONRA zamanı ayarla
+
+    _subscription =
+        accelerometerEvents.listen((AccelerometerEvent event) async {
+      final now = DateTime.now();
+      final nowMs = now.millisecondsSinceEpoch;
+
+      // İvme büyüklüğü hesapla
+      final double magnitude = sqrt(
+        event.x * event.x + event.y * event.y + event.z * event.z,
+      );
+
+      // İLK ÖRNEĞİ ATLA - _lastMagnitude=0 olduğunda delta ~9.8 olur!
+      if (_lastMagnitude == 0.0) {
+        _lastMagnitude = magnitude;
+        print('[BG] ⚠️ İlk örnek atlandı (magnitude=${magnitude.toStringAsFixed(2)})');
         return;
       }
-      print('[BG] Sensör dinleme başlatılıyor...');
-      _listening = true;
-      _subscription = accelerometerEvents.listen((AccelerometerEvent event) async {
-        double magnitude = sqrt(
-          event.x * event.x + event.y * event.y + event.z * event.z,
-        );
-        double delta = (magnitude - 9.8).abs();
-        if (delta > 1.2) {
-          DateTime now = DateTime.now();
-          print('[BG] Sarsıntı algılandı! delta=$delta, time=$now');
-          if (_lastShakeTime == null ||
-              now.difference(_lastShakeTime!).inMilliseconds > 3000) {
-            _shakeCount = 1;
-          } else {
-            _shakeCount++;
+
+      // Delta: Ardışık ölçümler arasındaki fark
+      final double delta = (magnitude - _lastMagnitude).abs();
+      _lastMagnitude = magnitude;
+
+      // Aşırı değerleri filtrele (sensör hatası veya ani hareket)
+      if (delta > 0.5) {
+        print('[BG] ⚠️ Aşırı delta filtrelendi: ${delta.toStringAsFixed(4)}');
+        return;
+      }
+
+      _sampleIndex++;
+
+      // ========== STABİLİZASYON FAZINDA ==========
+      if (!_stabilizationComplete) {
+        // Tampona ekle
+        _deltaBuffer.add(delta);
+        while (_deltaBuffer.length > 64) {
+          _deltaBuffer.removeAt(0);
+        }
+
+        // Baseline hesapla (32+ örnek olduğunda)
+        if (_deltaBuffer.length >= 32) {
+          final std = _calculateStd(_deltaBuffer);
+          if (std < _baselineStd) {
+            _baselineStd = std;
+            _baselineMin = _deltaBuffer.reduce((a, b) => a < b ? a : b);
+            _baselineMax = _deltaBuffer.reduce((a, b) => a > b ? a : b);
           }
-          _lastShakeTime = now;
-          print('[BG] Shake count: $_shakeCount');
-          if (_shakeCount >= 2) {
-            _shakeCount = 0;
-            print('[BG] Deprem algılandı! Konum alınacak...');
-            Position? position;
-            try {
-              position = await Geolocator.getCurrentPosition(
-                  desiredAccuracy: LocationAccuracy.high);
-              print('[BG] Konum alındı: ${position.latitude},${position.longitude}');
-            } catch (geoError) {
-              print('[BG] Konum alınamadı! Hata: $geoError');
-              print('[BG] Konum json dosyasından alınmaya çalışılıyor...');
-              try {
-                final dir = await getApplicationDocumentsDirectory();
-                final file = File('${dir.path}/last_location.json');
-                if (await file.exists()) {
-                  final jsonStr = await file.readAsString();
-                  final json = jsonDecode(jsonStr);
-                  position = Position(
-                    latitude: json['latitude'] ?? 0.0,
-                    longitude: json['longitude'] ?? 0.0,
-                    accuracy: json['accuracy'] ?? 0.0,
-                    altitude: 0.0,
-                    heading: 0.0,
-                    speed: 0.0,
-                    speedAccuracy: 0.0,
-                    altitudeAccuracy: 0.0,
-                    headingAccuracy: 0.0,
-                    timestamp: DateTime.now(),
-                  );
-                  print('[BG] Konum dosyadan alındı: ${position.latitude},${position.longitude}');
-                } else {
-                  print('[BG] Konum dosyası bulunamadı, rapor gönderilemiyor.');
-                  return;
-                }
-              } catch (fileError) {
-                print('[BG] Konum dosyadan alınamadı! Hata: $fileError');
-                return;
-              }
+        }
+
+        // Stabilizasyon süresi doldu mu?
+        final monitoringStart = _monitoringStartTime;
+        if (monitoringStart != null &&
+            now.difference(monitoringStart).inSeconds >= stabilizationTime) {
+          // Baseline oluştu mu kontrol et
+          if (_baselineStd < 9999.0 && _baselineStd > 0) {
+            // UYARI: Baseline çok yüksekse (>0.02) telefon stabil değil demektir
+            // Normal baseline: 0.003-0.008 arasında olmalı
+            if (_baselineStd > 0.02) {
+              print('[BG] ⚠️ UYARI: Baseline çok yüksek! (${_baselineStd.toStringAsFixed(4)})');
+              print('[BG] 📱 Telefon sabit bir yüzeyde değil veya titreşimli ortam!');
+              print('[BG] 💡 Normal baseline: 0.003-0.008 arası olmalı');
             }
-            if (position != null) {
-              print('[BG] Deprem raporu gönderiliyor...');
-              final reportService = EarthquakeReportService(
-                  'http://188.132.202.24:3000/api/p2p/shake-report');
-              try {
-                await reportService.sendEarthquakeReport(
-                  magnitude: delta,
-                  timestamp: now,
-                  position: position,
-                  deviceId: 'background-device',
-                );
-                print('⚡ [BG] Deprem raporu GİTTİ!');
-              } catch (e) {
-                print('❌ [BG] Deprem raporu GİTMEDİ! Hata: $e');
-              }
+            _stabilizationComplete = true;
+            print('[BG] ✅ Stabilizasyon tamamlandı!');
+            print('[BG] 📊 Baseline STD: ${_baselineStd.toStringAsFixed(6)}');
+            print('[BG] 📊 Baseline Min: ${_baselineMin.toStringAsFixed(4)}, Max: ${_baselineMax.toStringAsFixed(4)}');
+            print('[BG] 🗑️ Ana algılama için buffer temizleniyor...');
+            _deltaBuffer.clear();
+            _timestampBuffer.clear();
+          } else {
+            // Baseline oluşmadı, daha fazla veri bekle
+            if (_sampleIndex % 100 == 0) {
+              print('[BG] ⏳ Baseline henüz oluşmadı, bekleniyor... (buffer=${_deltaBuffer.length})');
+            }
+          }
+        } else if (monitoringStart != null) {
+          // Stabilizasyon devam ediyor
+          if (_sampleIndex % 100 == 0) {
+            final remaining = stabilizationTime - 
+                now.difference(monitoringStart).inSeconds;
+            print('[BG] ⏳ Stabilizasyon: ${remaining}s kaldı (baseline=${_baselineStd.toStringAsFixed(6)}, buffer=${_deltaBuffer.length})');
+          }
+        }
+        return; // Stabilizasyon bitmeden ana algılamaya geçme
+      }
+
+      // ========== ANA ALGILAMA FAZINDA ==========
+      // Tampona ekle
+      _deltaBuffer.add(delta);
+      _timestampBuffer.add(nowMs);
+
+      // Tampon boyutunu sınırla
+      while (_deltaBuffer.length > bufferSize) {
+        _deltaBuffer.removeAt(0);
+        _timestampBuffer.removeAt(0);
+      }
+
+      _sampleIndex++;
+
+      // Her 500 örnekte bir durum bildir (log spam önleme)
+      if (_sampleIndex % 500 == 0) {
+        print(
+            '[BG] 📊 Örnek: $_sampleIndex, Buffer: ${_deltaBuffer.length}, Baseline std: ${_baselineStd.toStringAsFixed(4)}');
+      }
+
+      // Yeterli veri yoksa bekle
+      if (_deltaBuffer.length < 64) return;
+
+      // ============ DEPREM AĞI ALGILAMA ALGORİTMASI ============
+
+      // Mevcut standart sapma hesapla
+      final currentStd = _calculateStd(_deltaBuffer);
+
+      // Baseline güncelle (sadece sakin dönemlerde)
+      if (!_isDetecting && currentStd < _baselineStd) {
+        _baselineStd = currentStd;
+        _baselineMin = _deltaBuffer.reduce((a, b) => a < b ? a : b);
+        _baselineMax = _deltaBuffer.reduce((a, b) => a > b ? a : b);
+        if (_sampleIndex % 200 == 0) {
+          print(
+              '[BG] 📈 Baseline güncellendi: std=${_baselineStd.toStringAsFixed(4)}, min=${_baselineMin.toStringAsFixed(4)}, max=${_baselineMax.toStringAsFixed(4)}');
+        }
+      }
+
+      // Anomali tespiti: Standart sapma baseline'ın 1.5 katından büyükse
+      final double threshold = _baselineStd * stdMultiplier;
+      final bool isAnomaly = currentStd > threshold && _baselineStd < 9999.0;
+
+      // Her 200 örnekte detaylı log (debug için - log spam önleme)
+      if (_sampleIndex % 200 == 0) {
+        print(
+            '[BG] 🔬 DEBUG: delta=${delta.toStringAsFixed(4)}, std=${currentStd.toStringAsFixed(4)}, baseline=${_baselineStd.toStringAsFixed(4)}, threshold=${threshold.toStringAsFixed(4)}, isAnomaly=$isAnomaly');
+      }
+
+      // Büyük delta değerleri logla - SADECE her 100 örnekte bir (log spam önleme)
+      // 0.1'den büyük delta'lar gerçek sarsıntı olabilir
+      if (delta > 0.1 && _sampleIndex % 20 == 0) {
+        print(
+            '[BG] 📳 Delta spike: ${delta.toStringAsFixed(4)}, std=${currentStd.toStringAsFixed(4)}, threshold=${threshold.toStringAsFixed(4)}, anomaly=$isAnomaly');
+      }
+
+      // Timeout cooldown kontrolü - son timeout'tan 5 saniye geçmeden yeni detection başlatma
+      final detectionCooldownOk = _lastDetectionTimeoutTime == null ||
+          now.difference(_lastDetectionTimeoutTime!).inSeconds >= detectionTimeoutCooldownSeconds;
+
+      if (isAnomaly && !_isDetecting && detectionCooldownOk) {
+        // Potansiyel deprem başlangıcı
+        _isDetecting = true;
+        _detectionSampleCount = 0;
+        print(
+            '[BG] 🔍 Potansiyel deprem algılandı! std=$currentStd, baseline=$_baselineStd');
+
+        // ===== POTANSİYEL DEPREMİ SUNUCUYA BİLDİR =====
+        // Sadece yeterince güçlü anomalilerde bildir (baseline'ın 1.5 katı)
+        // Böylece yanlış pozitifler sunucuya gitmez
+        final double potentialThreshold =
+            _baselineStd * potentialReportThreshold;
+        final bool isStrongEnough = currentStd > potentialThreshold;
+        final now = DateTime.now();
+        final canSendPotential = _lastPotentialReportTime == null ||
+            now.difference(_lastPotentialReportTime!).inSeconds >=
+                potentialReportCooldownSeconds;
+
+        if (isStrongEnough && canSendPotential) {
+          _lastPotentialReportTime = now;
+          print(
+              '[BG] 📤 Güçlü anomali tespit edildi (${currentStd.toStringAsFixed(4)} > ${potentialThreshold.toStringAsFixed(4)}), sunucuya bildiriliyor...');
+
+          // ANLIK cihaz durumu kontrolü - potansiyel rapor için de
+          _checkRealTimeDeviceState().then((deviceStateOk) {
+            if (deviceStateOk) {
+              _sendPotentialEarthquakeReport(currentStd, _baselineStd)
+                  .then((_) {
+                print('[BG] ✅ Potansiyel deprem bildirimi gönderildi');
+              }).catchError((e) {
+                print('[BG] ⚠️ Potansiyel deprem bildirimi gönderilemedi: $e');
+              });
             } else {
-              print('[BG] Konum alınamadı, rapor gönderilmiyor.');
+              print(
+                  '[BG] ⚠️ Anlık durum uygun değil, potansiyel rapor iptal edildi');
+            }
+          });
+        } else if (!isStrongEnough) {
+          print(
+              '[BG] 📊 Anomali zayıf (${currentStd.toStringAsFixed(4)} <= ${potentialThreshold.toStringAsFixed(4)}), potansiyel bildirim gönderilmiyor');
+        }
+      }
+
+      if (_isDetecting) {
+        _detectionSampleCount++;
+
+        // Aşırı değerler ara - DÜŞÜK eşik (hassas algılama)
+        // Eşik: baseline std'nin 0.8 katı VEYA minimum mutlak eşik (hangisi büyükse)
+        // DÜŞÜRÜLDÜ: 1.1→0.8 - orta sarsıntılar algılansın
+        final double extremeThreshold =
+            max(_baselineStd * 0.8, minAbsoluteThreshold);
+        int extremeCount = 0;
+        int extremeStart = -1;
+        int extremeEnd = -1;
+
+        for (int i = 0; i < _deltaBuffer.length; i++) {
+          final d = _deltaBuffer[i];
+          // Delta değeri eşikten büyükse aşırı değer say
+          final bool isExtreme = d > extremeThreshold;
+          if (isExtreme) {
+            extremeCount++;
+            if (extremeStart < 0) extremeStart = i;
+            extremeEnd = i;
+          }
+        }
+
+        // Log ekle - sadece her 25 detection sample'da (log spam önleme)
+        if (_detectionSampleCount % 25 == 0) {
+          print(
+              '[BG] 📊 DETECTION[$_detectionSampleCount]: extremeCount=$extremeCount, eşik=${extremeThreshold.toStringAsFixed(4)}, std=${currentStd.toStringAsFixed(4)}');
+        }
+
+        // Ardışık aşırı örnek sayısı
+        final int consecutiveSamples = (extremeStart >= 0 && extremeEnd >= 0)
+            ? (extremeEnd - extremeStart + 1)
+            : 0;
+
+        // Süre hesapla
+        double duration = 0.0;
+        if (extremeStart >= 0 &&
+            extremeEnd >= 0 &&
+            _timestampBuffer.length > extremeEnd) {
+          duration =
+              (_timestampBuffer[extremeEnd] - _timestampBuffer[extremeStart]) /
+                  1000.0;
+        }
+
+        // Debug: Tüm koşulları kontrol et
+        // DİNAMİK STD EŞİĞİ: baseline'ın 1.8 katı (sabit 0.007 yerine)
+        final double minStdThreshold = _baselineStd * 1.8;
+        final bool cond1 = consecutiveSamples >= minConsecutiveSamples;
+        final bool cond2 = duration >= minDuration;
+        final bool cond3 = extremeCount >= 3;
+        final bool cond4 = currentStd >= minStdThreshold;
+
+        // Sadece tüm koşullar sağlandığında veya her 50 sample'da log bas (log spam önleme)
+        if ((cond1 && cond2 && cond3 && cond4) || _detectionSampleCount % 50 == 0) {
+          print(
+              '[BG] 🎯 KOŞULLAR: consecutive=$consecutiveSamples>=${minConsecutiveSamples}($cond1), duration=${duration.toStringAsFixed(3)}>=${minDuration}($cond2), extreme=$extremeCount>=3($cond3), std=${currentStd.toStringAsFixed(4)}>=${minStdThreshold.toStringAsFixed(4)}($cond4)');
+        }
+
+        // ============ DEPREM TESPİTİ (ANINDA RAPORLAMA) ============
+        // Koşullar: 2+ ardışık örnek VE 0.05+ saniye süre VE 3+ aşırı değer
+        // ANINDA RAPOR: Deprem tespit edildiği anda hemen gönder, bitmesini bekleme!
+        // DİNAMİK EŞİK: baseline'ın 1.8 katı (sabit değer yerine)
+        if (consecutiveSamples >= minConsecutiveSamples &&
+            duration >= minDuration &&
+            extremeCount >= 3 &&
+            currentStd >= minStdThreshold) {
+          // Cooldown kontrolü - son rapordan beri yeterli süre geçti mi?
+          final now = DateTime.now();
+          final canReport = _lastReportTime == null ||
+              now.difference(_lastReportTime!).inSeconds >=
+                  reportCooldownSeconds;
+
+          // Rapor gönderimi devam ediyorsa atla
+          if (_reportInProgress) {
+            return; // Bu event'i atla
+          }
+
+          if (canReport) {
+            _reportInProgress = true;
+            _consecutiveEvents++;
+            _cumulativeDuration += duration;
+
+            print('[BG] 🌍 DEPREM TESPİT EDİLDİ!');
+            print('[BG]   Ardışık örnekler: $consecutiveSamples');
+            print('[BG]   Süre: ${duration.toStringAsFixed(2)}s');
+            print('[BG]   Toplam olay: $_consecutiveEvents');
+            print(
+                '[BG]   Kümülatif süre: ${_cumulativeDuration.toStringAsFixed(2)}s');
+
+            // Rapor zamanını kaydet (cooldown için)
+            _lastReportTime = now;
+
+            // Rapor gönder (async - arka planda)
+            _sendEarthquakeReport(currentStd, duration, consecutiveSamples)
+                .then((_) {
+              _reportInProgress = false;
+              print(
+                  '[BG] ✅ Rapor gönderimi tamamlandı, ${reportCooldownSeconds}s cooldown başladı');
+
+              // ===== RAPOR SONRASI TÜM VERİLERİ SIFIRLA =====
+              // Baseline dahil her şeyi sıfırla, yeni baştan başla
+              _deltaBuffer.clear();
+              _timestampBuffer.clear();
+              _baselineMin = 9999.0;
+              _baselineMax = -9999.0;
+              _baselineStd = 9999.0;
+              _isDetecting = false;
+              _detectionSampleCount = 0;
+              _consecutiveEvents = 0;
+              _cumulativeDuration = 0.0;
+              _lastMagnitude = 0.0;
+              _sampleIndex = 0;
+              _monitoringStartTime = DateTime.now();
+              print(
+                  '[BG] 🔄 Tüm veriler sıfırlandı, yeni baseline oluşturulacak');
+            }).catchError((e) {
+              _reportInProgress = false;
+              print('[BG] ❌ Rapor gönderim hatası: $e');
+            });
+
+            return; // Bu event'i bitir, yeni data toplanmaya başlasın
+          } else {
+            final remaining = reportCooldownSeconds -
+                now.difference(_lastReportTime!).inSeconds;
+            if (_detectionSampleCount % 50 == 0) {
+              print('[BG] ⏳ Cooldown: ${remaining}s kaldı, rapor atlandı');
             }
           }
         }
-      });
+
+        // 3 saniye içinde yeterli olay yoksa iptal
+        if (_detectionSampleCount > 150) {
+          // ~3 saniye @ 50Hz
+          print('[BG] ⏱️ Algılama zaman aşımı, sıfırlanıyor...');
+          _isDetecting = false;
+          _detectionSampleCount = 0;
+          // Timeout cooldown başlat - 5 saniye boyunca yeni detection başlatma
+          _lastDetectionTimeoutTime = DateTime.now();
+          print('[BG] ⏸️ ${detectionTimeoutCooldownSeconds}s cooldown başladı');
+        }
+      }
+    });
+  }
+
+  // Baseline güncelleme (stabilizasyon sırasında)
+  void _updateBaseline(AccelerometerEvent event) {
+    final double magnitude = sqrt(
+      event.x * event.x + event.y * event.y + event.z * event.z,
+    );
+
+    // İLK ÖRNEĞİ ATLA - _lastMagnitude=0 olduğunda delta ~9.8 olur!
+    if (!_firstSampleSkipped) {
+      _lastMagnitude = magnitude;
+      _firstSampleSkipped = true;
+      print(
+          '[BG] ⚠️ İlk örnek atlandı (magnitude=${magnitude.toStringAsFixed(2)})');
+      return;
     }
+
+    final double delta = (magnitude - _lastMagnitude).abs();
+    _lastMagnitude = magnitude;
+
+    // AŞırı değerleri filtrele (0.5'ten büyük delta'lar gerçekçi değil)
+    // Normal delta değerleri 0.001-0.1 arasında olmalı
+    if (delta > 0.5) {
+      print('[BG] ⚠️ Aşırı delta filtrelendi: ${delta.toStringAsFixed(4)}');
+      return;
+    }
+
+    _deltaBuffer.add(delta);
+    while (_deltaBuffer.length > 64) {
+      _deltaBuffer.removeAt(0);
+    }
+
+    if (_deltaBuffer.length >= 32) {
+      final std = _calculateStd(_deltaBuffer);
+      if (std < _baselineStd) {
+        _baselineStd = std;
+        _baselineMin = _deltaBuffer.reduce((a, b) => a < b ? a : b);
+        _baselineMax = _deltaBuffer.reduce((a, b) => a > b ? a : b);
+        if (_sampleIndex % 20 == 0) {
+          print(
+              '[BG] 📈 Baseline: std=${std.toStringAsFixed(6)}, min=${_baselineMin.toStringAsFixed(4)}, max=${_baselineMax.toStringAsFixed(4)}');
+        }
+      }
+    }
+  }
+
+  // Standart sapma hesapla
+  double _calculateStd(List<double> values) {
+    if (values.isEmpty) return 0.0;
+    final mean = values.reduce((a, b) => a + b) / values.length;
+    final variance =
+        values.map((v) => pow(v - mean, 2)).reduce((a, b) => a + b) /
+            values.length;
+    return sqrt(variance);
+  }
+
+  // ===== ANLIK CİHAZ DURUMU KONTROLÜ =====
+  // Native Android'den gerçek zamanlı ekran ve şarj durumu al
+  // Bu fonksiyon dosyadan okuma yerine ANLIK sistem durumunu kontrol eder
+  Future<bool> _checkRealTimeDeviceState() async {
+    try {
+      const channel = MethodChannel('deprem_app/device_state');
+      final result = await channel.invokeMethod('getRealTimeDeviceState');
+
+      if (result != null && result is Map) {
+        final isScreenOn = result['isScreenOn'] as bool? ?? true;
+        final isCharging = result['isCharging'] as bool? ?? false;
+        final batteryLevel = result['batteryLevel'] as int? ?? 0;
+
+        print(
+            '[BG] 📱 ANLIK DURUM: Ekran=${isScreenOn ? "AÇIK" : "KAPALI"}, Şarj=${isCharging ? "EVET" : "HAYIR"}, Pil=$batteryLevel%');
+
+        // Koşullar: Ekran KAPALI olmalı VE Şarjda olmalı VE Pil >= 35%
+        if (isScreenOn) {
+          print('[BG] ❌ Ekran AÇIK - kullanıcı telefonu kullanıyor olabilir');
+          return false;
+        }
+        if (!isCharging) {
+          print('[BG] ❌ Şarjda DEĞİL - telefon hareket ediyor olabilir');
+          return false;
+        }
+        if (batteryLevel < 35) {
+          print('[BG] ❌ Pil seviyesi düşük: $batteryLevel%');
+          return false;
+        }
+
+        print(
+            '[BG] ✅ Tüm koşullar sağlandı: Ekran kapalı, şarjda, pil yeterli');
+        return true;
+      }
+
+      print('[BG] ⚠️ Native durum alınamadı, dosyadan kontrol ediliyor...');
+      // Fallback: Dosyadan kontrol et (eski yöntem)
+      return await _checkScreenStateFromFile();
+    } catch (e) {
+      print('[BG] ⚠️ Anlık durum kontrolü hatası: $e');
+      // Hata durumunda dosyadan kontrol et
+      return await _checkScreenStateFromFile();
+    }
+  }
+
+  // Fallback: Dosyadan ekran durumu kontrolü
+  Future<bool> _checkScreenStateFromFile() async {
+    try {
+      final screenOff = !(await _checkScreenState());
+      final battery = Battery();
+      final batteryState = await battery.batteryState;
+      final isCharging = batteryState == BatteryState.charging ||
+          batteryState == BatteryState.full;
+      final batteryLevel = await battery.batteryLevel;
+
+      print(
+          '[BG] 📁 Dosya kontrolü: Ekran=${screenOff ? "KAPALI" : "AÇIK"}, Şarj=${isCharging ? "EVET" : "HAYIR"}, Pil=$batteryLevel%');
+
+      return screenOff && isCharging && batteryLevel >= 35;
+    } catch (e) {
+      print('[BG] ⚠️ Dosya kontrolü hatası: $e');
+      return false; // Güvenli tarafta kal, gönderme
+    }
+  }
+
+  // Deprem raporu gönder
+  Future<void> _sendEarthquakeReport(
+      double magnitude, double duration, int samples) async {
+    print('[BG] 📍 Deprem raporu hazırlanıyor...');
+
+    // ===== ANLIK CİHAZ DURUMU KONTROLÜ =====
+    // Rapor göndermeden önce gerçek zamanlı ekran ve şarj durumunu kontrol et
+    // Bu, kullanıcının telefonu eline alıp sallamasından kaynaklanan yanlış pozitifleri önler
+    final deviceStateOk = await _checkRealTimeDeviceState();
+    if (!deviceStateOk) {
+      print('[BG] ⚠️ Anlık cihaz durumu uygun değil, rapor gönderilmiyor!');
+      print(
+          '[BG] 📱 Kullanıcı muhtemelen telefonu eline aldı veya şarjdan çıkardı.');
+      return;
+    }
+    print('[BG] ✅ Anlık cihaz durumu kontrol edildi: Ekran kapalı ve şarjda');
+
+    final now = DateTime.now();
+    Position? position;
+    bool konumAlindi = false;
+
+    // ÖNCE dosyadan konum oku (daha hızlı ve güvenilir)
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/user_location.json');
+      if (await file.exists()) {
+        final jsonStr = await file.readAsString();
+        final json = jsonDecode(jsonStr);
+        final lat = json['latitude'];
+        final lon = json['longitude'];
+        if (lat != null && lon != null) {
+          position = Position(
+            latitude: (lat is int) ? lat.toDouble() : lat,
+            longitude: (lon is int) ? lon.toDouble() : lon,
+            accuracy: 0.0,
+            altitude: 0.0,
+            heading: 0.0,
+            speed: 0.0,
+            speedAccuracy: 0.0,
+            altitudeAccuracy: 0.0,
+            headingAccuracy: 0.0,
+            timestamp: now,
+          );
+          print(
+              '[BG] ✅ Konum dosyadan alındı: ${position.latitude},${position.longitude}');
+          konumAlindi = true;
+        }
+      }
+    } catch (e) {
+      print('[BG] Konum dosyadan okunamadı: $e');
+    }
+
+    // Dosyadan alınamadıysa Geolocator dene
+    if (!konumAlindi) {
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.low,
+        ).timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => throw Exception('Geolocator timeout'),
+        );
+        print(
+            '[BG] ✅ Konum Geolocator ile alındı: ${position.latitude},${position.longitude}');
+        konumAlindi = true;
+      } catch (e) {
+        print('[BG] ❌ Geolocator hatası: $e');
+      }
+    }
+
+    // Konum alındıysa rapor gönder
+    if (konumAlindi && position != null) {
+      try {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 10);
+
+        final request = await client.postUrl(
+            Uri.parse('http://188.132.202.24:3000/api/p2p/shake-report'));
+        request.headers.set('Content-Type', 'application/json');
+
+        final jsonBody = jsonEncode({
+          'location': {
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+          },
+          'sensorData': {
+            'magnitude': magnitude,
+            'duration': duration,
+            'samples': samples,
+            'timestamp': now.toIso8601String(),
+            'algorithm': 'deprem-agi-v2',
+          },
+          'deviceId': 'background-device',
+          'userId': 'background-user',
+        });
+
+        print('[BG] 📤 Gönderilen JSON: $jsonBody');
+        request.write(jsonBody);
+        final response = await request.close();
+        final responseBody = await response.transform(utf8.decoder).join();
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          print('⚡ [BG] Deprem raporu GİTTİ! Status: ${response.statusCode}');
+        } else {
+          print('❌ [BG] HTTP hatası: ${response.statusCode} - $responseBody');
+        }
+        client.close();
+      } catch (e) {
+        print('❌ [BG] Rapor gönderilemedi: $e');
+      }
+    } else {
+      print('[BG] ❌ Konum alınamadı, rapor gönderilmiyor.');
+    }
+  }
+
+  // ===== POTANSİYEL DEPREM BİLDİRİMİ GÖNDER =====
+  // Deprem kesinleşmeden önce sunucuya bildir
+  // Sunucu birden fazla cihazdan gelen verileri analiz edebilir
+  Future<void> _sendPotentialEarthquakeReport(
+      double currentStd, double baselineStd) async {
+    print('[BG] 🔔 Potansiyel deprem bildirimi hazırlanıyor...');
+    final now = DateTime.now();
+    Position? position;
+    bool konumAlindi = false;
+
+    // Dosyadan konum oku
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/user_location.json');
+      if (await file.exists()) {
+        final jsonStr = await file.readAsString();
+        final json = jsonDecode(jsonStr);
+        final lat = json['latitude'];
+        final lon = json['longitude'];
+        if (lat != null && lon != null) {
+          position = Position(
+            latitude: (lat is int) ? lat.toDouble() : lat,
+            longitude: (lon is int) ? lon.toDouble() : lon,
+            accuracy: 0.0,
+            altitude: 0.0,
+            heading: 0.0,
+            speed: 0.0,
+            speedAccuracy: 0.0,
+            altitudeAccuracy: 0.0,
+            headingAccuracy: 0.0,
+            timestamp: now,
+          );
+          konumAlindi = true;
+        }
+      }
+    } catch (e) {
+      print('[BG] Konum dosyadan okunamadı: $e');
+    }
+
+    if (konumAlindi && position != null) {
+      try {
+        final client = HttpClient();
+        client.connectionTimeout = const Duration(seconds: 5);
+
+        // Potansiyel deprem için ayrı endpoint kullan
+        final request = await client.postUrl(
+            Uri.parse('http://188.132.202.24:3000/api/p2p/potential-shake'));
+        request.headers.set('Content-Type', 'application/json');
+
+        final jsonBody = jsonEncode({
+          'location': {
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+          },
+          'sensorData': {
+            'currentStd': currentStd,
+            'baselineStd': baselineStd,
+            'ratio': currentStd / baselineStd,
+            'timestamp': now.toIso8601String(),
+            'algorithm': 'deprem-agi-v2',
+            'type': 'potential', // Potansiyel - henüz kesinleşmedi
+          },
+          'deviceId': 'background-device',
+          'userId': 'background-user',
+        });
+
+        print('[BG] 📤 Potansiyel deprem JSON: $jsonBody');
+        request.write(jsonBody);
+        final response = await request.close();
+
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          print(
+              '🔔 [BG] Potansiyel deprem bildirimi GİTTİ! Status: ${response.statusCode}');
+        } else {
+          print(
+              '⚠️ [BG] Potansiyel bildirim HTTP hatası: ${response.statusCode}');
+        }
+        client.close();
+      } catch (e) {
+        print('⚠️ [BG] Potansiyel bildirim gönderilemedi: $e');
+      }
+    }
+  }
+
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
-    print('[BG] onStart: Foreground servis başlatıldı (WebSocket kapalı)');
-    print('[BG] onStart: Sensör dinleme başlatılıyor...');
-    _startSensorListening();
+    print('[BG] onStart: Foreground servis başlatıldı');
+    print('[BG] onStart: Pil izleme başlatılıyor...');
+
+    // Arka plan konum izni kontrolü
+    bool hasBackgroundLocation = false;
+    try {
+      final geolocator = GeolocatorPlatform.instance;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.always) {
+        hasBackgroundLocation = true;
+      }
+    } catch (e) {
+      print('[BG] Konum izin kontrolünde hata: $e');
+    }
+    if (!hasBackgroundLocation) {
+      print('[BG] UYARI: Arka plan konum izni verilmedi!');
+    }
+
+    // Pil izlemeyi başlat - sensör dinleme pil durumuna göre otomatik yönetilecek
+    _startBatteryMonitoring();
   }
 
   Future<void> _handleEarthquakeData(dynamic data, String type) async {
@@ -302,12 +1148,12 @@ class EarthquakeTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp) async {
     print('🔴 Background task durduruluyor');
-    _subscription?.cancel();
-    _listening = false;
+    _stopBatteryMonitoring();
+    _stopSensorListening();
   }
 
   @override
   void onNotificationPressed() {
-    FlutterForegroundTask.launchApp(); // ...existing code...
+    FlutterForegroundTask.launchApp();
   }
 }

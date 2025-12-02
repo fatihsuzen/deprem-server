@@ -386,6 +386,114 @@ app.post('/api/p2p/shake-report', async (req, res) => {
   }
 });
 
+// ===== POTANSİYEL DEPREM ENDPOINT'İ =====
+// Cihazlar deprem algılamaya başladığında hemen bildirir
+// Birden fazla cihazdan gelen veriler analiz edilir
+app.post('/api/p2p/potential-shake', async (req, res) => {
+  try {
+    const report = req.body;
+    
+    // Validasyon
+    if (!report.location || !report.sensorData) {
+      return res.status(400).json({ error: 'Geçersiz potansiyel rapor formatı' });
+    }
+    
+    const timestamp = new Date().toISOString();
+    console.log(`🔔 POTANSİYEL DEPREM BİLDİRİMİ ALINDI!`);
+    console.log(`   📍 Konum: ${report.location.latitude}, ${report.location.longitude}`);
+    console.log(`   📊 Current STD: ${report.sensorData.currentStd?.toFixed(4)}`);
+    console.log(`   📊 Baseline STD: ${report.sensorData.baselineStd?.toFixed(4)}`);
+    console.log(`   📊 Oran: ${report.sensorData.ratio?.toFixed(2)}x`);
+    console.log(`   ⏰ Zaman: ${timestamp}`);
+    
+    // Potansiyel raporları ayrı bir listede tut
+    if (!global.potentialReports) {
+      global.potentialReports = [];
+    }
+    
+    // Raporu ekle
+    global.potentialReports.push({
+      ...report,
+      receivedAt: timestamp,
+    });
+    
+    // Son 60 saniyedeki potansiyel raporları tut
+    const sixtySecondsAgo = Date.now() - 60000;
+    global.potentialReports = global.potentialReports.filter(r => 
+      new Date(r.receivedAt).getTime() > sixtySecondsAgo
+    );
+    
+    // Aynı bölgeden (yaklaşık 50km içinde) kaç rapor var kontrol et
+    const nearbyReports = global.potentialReports.filter(r => {
+      const distance = getDistanceKm(
+        report.location.latitude, report.location.longitude,
+        r.location.latitude, r.location.longitude
+      );
+      return distance < 50; // 50 km içinde
+    });
+    
+    const recentCount = nearbyReports.length;
+    
+    console.log(`   📈 Son 60 sn'de yakın bölgeden ${recentCount} potansiyel rapor`);
+    
+    // Eğer aynı bölgeden 3+ rapor geldiyse, olası deprem uyarısı
+    if (recentCount >= 3) {
+      console.log(`   ⚠️ UYARI: Aynı bölgeden çoklu potansiyel rapor - OLASI DEPREM!`);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Potansiyel deprem bildirimi alındı',
+      recentPotentialReports: recentCount,
+      warning: recentCount >= 3 ? 'Olası deprem tespit edildi!' : null,
+    });
+    
+  } catch (error) {
+    console.error('❌ Potansiyel deprem rapor hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Haversine formülü ile iki nokta arası mesafe (km)
+function getDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Dünya yarıçapı km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+// Potansiyel deprem raporlarını izleme endpoint'i
+app.get('/api/p2p/potential-reports', (req, res) => {
+  try {
+    const reports = global.potentialReports || [];
+    
+    // Son 60 saniyedeki raporları filtrele
+    const sixtySecondsAgo = Date.now() - 60000;
+    const recentReports = reports.filter(r => 
+      new Date(r.receivedAt).getTime() > sixtySecondsAgo
+    );
+    
+    res.json({
+      success: true,
+      count: recentReports.length,
+      reports: recentReports.map(r => ({
+        location: r.location,
+        currentStd: r.sensorData?.currentStd,
+        baselineStd: r.sensorData?.baselineStd,
+        ratio: r.sensorData?.ratio,
+        receivedAt: r.receivedAt,
+      })),
+    });
+  } catch (error) {
+    console.error('❌ Potansiyel rapor listesi hatası:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // P2P Statistics Endpoint
 app.get('/api/p2p/statistics', (req, res) => {
   try {

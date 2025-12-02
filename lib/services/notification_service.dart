@@ -40,23 +40,27 @@ class WakeLockService {
 }
 
 class NotificationService {
-    Future<void> showNotification({required String title, required String body}) async {
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        'deprem_channel',
-        'Deprem Bildirimleri',
-        channelDescription: 'Deprem algılandığında bildirim gönderir',
-        importance: Importance.max,
-        priority: Priority.high,
-        ticker: 'ticker',
-      );
-      const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
-      await _flutterLocalNotificationsPlugin.show(
-        0,
-        title,
-        body,
-        platformDetails,
-      );
-    }
+  Future<void> showNotification(
+      {required String title, required String body}) async {
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'deprem_channel',
+      'Deprem Bildirimleri',
+      channelDescription: 'Deprem algılandığında bildirim gönderir',
+      importance: Importance.max,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      platformDetails,
+    );
+  }
+
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();

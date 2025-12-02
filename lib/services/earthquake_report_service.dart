@@ -42,7 +42,8 @@ class EarthquakeReportService {
       print('[BG] HTTP response status: ${response.statusCode}');
       print('[BG] HTTP response body: ${response.body}');
       if (response.statusCode != 200) {
-        print('[BG] Deprem raporu gönderilemedi! Status: ${response.statusCode}, Body: ${response.body}');
+        print(
+            '[BG] Deprem raporu gönderilemedi! Status: ${response.statusCode}, Body: ${response.body}');
         throw Exception('Deprem raporu gönderilemedi: ${response.body}');
       } else {
         print('[BG] Deprem raporu başarıyla gönderildi!');

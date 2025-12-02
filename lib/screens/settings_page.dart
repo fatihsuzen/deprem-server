@@ -5,6 +5,7 @@ import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../widgets/background_service_controller.dart';
 import 'p2p_test_screen.dart';
+import 'sensor_data_recorder_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -460,6 +461,21 @@ class _SettingsPageState extends State<SettingsPage> {
               context,
               MaterialPageRoute(
                 builder: (context) => P2PTestScreen(),
+              ),
+            );
+          },
+        ),
+        _buildDivider(),
+        _buildSettingTile(
+          icon: Icons.sensors,
+          title: 'Sensör Veri Kaydedici',
+          subtitle: 'Algoritma eşik değerlerini ayarla',
+          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SensorDataRecorderScreen(),
               ),
             );
           },

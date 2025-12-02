@@ -150,6 +150,7 @@ class PriorityNotificationService {
           // FCM token varsa gönder
           if (user.deviceTokens && user.deviceTokens.length > 0) {
             let pushSent = 0;
+            const tokensToRemove = []; // Geçersiz token'ları topla
             const { sendFcmHttpV1Notification } = require('./fcmHttpV1');
             for (const tokenObj of user.deviceTokens) {
               // tokenObj: string veya obje olabilir, normalize et
@@ -174,8 +175,29 @@ class PriorityNotificationService {
                 }
               } catch (pushErr) {
                 console.error(`❌ Push gönderilemedi: ${user.displayName} - Token: ${token} - Hata:`, pushErr.message);
+                
+                // NOT_FOUND veya UNREGISTERED hatası = geçersiz token, sil
+                const errorData = pushErr.response?.data?.error;
+                if (errorData && (errorData.code === 404 || errorData.status === 'NOT_FOUND' || 
+                    errorData.message?.includes('not registered') || errorData.message?.includes('not found'))) {
+                  console.log(`🗑️  Geçersiz token siliniyor: ${token.substring(0, 20)}...`);
+                  tokensToRemove.push(token);
+                }
               }
             }
+            
+            // Geçersiz token'ları sil
+            if (tokensToRemove.length > 0) {
+              try {
+                for (const token of tokensToRemove) {
+                  await user.removeDeviceToken(token);
+                }
+                console.log(`✅ ${tokensToRemove.length} geçersiz token silindi: ${user.displayName}`);
+              } catch (removeErr) {
+                console.error(`⚠️ Token silme hatası: ${removeErr.message}`);
+              }
+            }
+            
             if (pushSent > 0) {
               console.log(`✅ ${user.displayName}: ${distanceText} (bildirim gönderildi)`);
               sentCount++;

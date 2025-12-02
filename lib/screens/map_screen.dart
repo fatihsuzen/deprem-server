@@ -23,7 +23,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // Dinamik (GeoJSON'dan) fay hatları
-  List<Polyline> _dynamicFaultLines = [];
+  List<Polyline<Object>> _dynamicFaultLines = [];
   // Harita hareketini dinlemek için listener
   void _onMapMoved() {
     final center = _mapController.camera.center;
@@ -42,7 +42,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   late AnimationController _fayPulseController;
   late Animation<double> _fayPulseAnimation;
-  // ...existing code...
   final Location _location = Location();
   bool _locationLoading = true;
   LatLng _userLocation =
@@ -118,32 +117,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     )..repeat(reverse: true);
     _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
         CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
+    _waveController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat();
+    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
+    );
+    _mapController = MapController();
     super.initState();
-        _firebaseMessaging.subscribeToTopic('all').then((_) {
-          print('✅ Topic "all" abonesi olundu');
-        });
-        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-          print(
-              '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
-          if (!mounted) return;
-          if (message.notification != null) {
-            final title = message.notification!.title ?? 'Deprem Uyarısı';
-            final body = message.notification!.body ?? '';
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: Text(title),
-                content: Text(body),
-                actions: [
-                  TextButton(
-                    child: Text('Kapat'),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-            );
-          }
-        });
+    _firebaseMessaging.subscribeToTopic('all').then((_) {
+      print('✅ Topic "all" abonesi olundu');
+    });
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print(
+          '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
+      if (!mounted) return;
       if (message.notification != null) {
         final title = message.notification!.title ?? 'Deprem Uyarısı';
         final body = message.notification!.body ?? '';
@@ -162,20 +151,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         );
       }
     });
-    // Harita tile cache başlat
-    // Tile caching kodu kaldırıldı
-    _mapController = MapController();
-    // Toggle durumlarını yükle
     _loadToggleStates();
-    // Dalga animasyonu için
-    _waveController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat();
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
-    );
-    // Konum ve verileri yükle
     _initializeMapData();
   }
 
@@ -1294,7 +1270,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 builder: (context, child) {
                   return PolylineLayer(
                     polylines: [
-                      ..._dynamicFaultLines.map((poly) => Polyline(
+                      ..._dynamicFaultLines.map((poly) => Polyline<Object>(
                             points: poly.points,
                             strokeWidth: 2.0, // Daha ince çizgi
                             color: Colors.deepOrange.withOpacity(

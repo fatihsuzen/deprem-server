@@ -641,6 +641,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ),
+            const SizedBox(height: 12),
+            Card(
+              color: isDarkTheme ? Colors.grey[800] : Colors.white,
+              elevation: 2,
+              child: ListTile(
+                leading: Icon(
+                  Icons.sensors,
+                  color: Colors.purple,
+                  size: 32,
+                ),
+                title: Text(
+                  'Sensör Veri Kaydedici',
+                  style: TextStyle(
+                    color: isDarkTheme ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'Deprem simülasyonu ve algoritma ayarı',
+                  style: TextStyle(
+                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                ),
+                onTap: () {
+                  Navigator.pushNamed(context, '/sensor-recorder');
+                },
+              ),
+            ),
           ],
         ),
       ),

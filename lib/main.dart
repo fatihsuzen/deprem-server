@@ -9,6 +9,7 @@ import 'screens/root.dart';
 import 'screens/login_screen.dart';
 import 'screens/mqtt_test_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/sensor_data_recorder_screen.dart';
 import 'screens/earthquake_alarm_screen.dart';
 import 'services/auth_service.dart';
 import 'services/location_service.dart';
@@ -77,11 +78,13 @@ void main() async {
   // Duplicate deprem bildirimi engelleme
   String? lastEarthquakeId;
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-    print('📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
+    print(
+        '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
     if (message.data['type'] == 'earthquake_alert') {
       // Benzersiz deprem id'si oluştur (location+timestamp)
       final location = message.data['location'] ?? '';
-      final timestampStr = message.data['timestamp'] ?? DateTime.now().toIso8601String();
+      final timestampStr =
+          message.data['timestamp'] ?? DateTime.now().toIso8601String();
       final eqId = '$location|$timestampStr';
       if (lastEarthquakeId == eqId) {
         print('[FCM] Duplicate deprem bildirimi engellendi: $eqId');
@@ -89,10 +92,14 @@ void main() async {
       }
       lastEarthquakeId = eqId;
       // Alanları kontrol et
-      final magnitude = double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
-      final distance = double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
+      final magnitude =
+          double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
+      final distance =
+          double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
       String safeLocation = location;
-      if (safeLocation.isEmpty || safeLocation == 'NaN,NaN' || safeLocation.contains('object')) {
+      if (safeLocation.isEmpty ||
+          safeLocation == 'NaN,NaN' ||
+          safeLocation.contains('object')) {
         safeLocation = 'Bilinmeyen';
       }
       navigatorKey.currentState?.push(
@@ -152,6 +159,9 @@ void _initializeServicesInBackground() async {
     await NotificationService().initialize();
     print('✅ Notification service initialized');
 
+    // ===== FCM TOKEN AL VE KAYDET =====
+    await _initializeFCMToken();
+
     final locationService = LocationService();
     await locationService.initialize();
     print('✅ Location service initialized');
@@ -194,6 +204,44 @@ void _initializeServicesInBackground() async {
     // print('✅ P2P Earthquake Detection started');
   } catch (error) {
     print('❌ Service initialization error: $error');
+  }
+}
+
+// FCM Token'ı al, kaydet ve dinle
+Future<void> _initializeFCMToken() async {
+  try {
+    final messaging = FirebaseMessaging.instance;
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Mevcut token'ı al
+    String? token = await messaging.getToken();
+    if (token != null) {
+      print('🔑 FCM Token alındı: ${token.substring(0, 20)}...');
+      await prefs.setString('fcm_token', token);
+      print('✅ FCM Token SharedPreferences\'a kaydedildi');
+    } else {
+      print('⚠️ FCM Token alınamadı!');
+    }
+    
+    // Token yenilendiğinde dinle
+    messaging.onTokenRefresh.listen((newToken) async {
+      print('🔄 FCM Token yenilendi: ${newToken.substring(0, 20)}...');
+      await prefs.setString('fcm_token', newToken);
+      print('✅ Yeni FCM Token kaydedildi');
+      
+      // Yeni token'ı sunucuya da gönder
+      try {
+        final locationUpdateService = LocationUpdateService();
+        await locationUpdateService.sendLocationOnAppStart();
+        print('✅ Yeni token sunucuya gönderildi');
+      } catch (e) {
+        print('⚠️ Token sunucuya gönderilemedi: $e');
+      }
+    });
+    
+    print('✅ FCM Token initialized');
+  } catch (e) {
+    print('❌ FCM Token initialization error: $e');
   }
 }
 
@@ -311,6 +359,7 @@ class _DepremAppState extends State<DepremApp> {
         '/home': (ctx) => const RootScreen(),
         '/debug/mqtt': (ctx) => const MqttTestScreen(),
         '/report': (ctx) => const ReportScreen(),
+        '/sensor-recorder': (ctx) => const SensorDataRecorderScreen(),
       },
       onGenerateRoute: (settings) {
         // Deprem alarm ekranı - URL parametreleri ile
