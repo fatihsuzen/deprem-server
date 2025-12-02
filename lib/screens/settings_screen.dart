@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/mqtt_service.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
+import '../services/whistle_service.dart';
 import 'p2p_test_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -35,6 +36,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _vibrationEnabled = true;
   bool _backgroundNotificationsEnabled = true;
   bool _shareLocationEnabled = true;
+  
+  // Düdük servisi
+  final WhistleService _whistleService = WhistleService();
+  bool _isWhistlePlaying = false;
 
   Stream<BatteryState>? _batteryStream;
   @override
@@ -50,6 +55,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _checkAndStartDetection();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    // Düdük çalıyorsa durdur
+    if (_isWhistlePlaying) {
+      _whistleService.stopWhistle();
+    }
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -674,6 +688,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+
+            // ARAÇLAR BÖLÜMÜ
+            const SizedBox(height: 32),
+            Text(
+              'Araçlar',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: isDarkTheme ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Düdük Çal Aracı
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDarkTheme ? Colors.grey[800] : Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _isWhistlePlaying 
+                      ? Colors.red 
+                      : (isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!),
+                  width: _isWhistlePlaying ? 2 : 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        _isWhistlePlaying ? Icons.volume_up : Icons.campaign,
+                        color: _isWhistlePlaying ? Colors.red : (isDarkTheme ? Colors.orange : Colors.blue),
+                        size: 32,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Düdük Çal',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isDarkTheme ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              _isWhistlePlaying 
+                                  ? '🔊 Düdük çalıyor - Yerini belli et!'
+                                  : 'Enkaz altındayken yerini belli etmek için kullan',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: _isWhistlePlaying 
+                                    ? Colors.red 
+                                    : (isDarkTheme ? Colors.grey[400] : Colors.grey[600]),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _isWhistlePlaying ? null : () async {
+                            await _whistleService.startWhistle();
+                            setState(() => _isWhistlePlaying = true);
+                            _showSnackBar('🔊 Düdük çalmaya başladı!');
+                          },
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text('Başlat'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: !_isWhistlePlaying ? null : () async {
+                            await _whistleService.stopWhistle();
+                            setState(() => _isWhistlePlaying = false);
+                            _showSnackBar('🔇 Düdük durduruldu');
+                          },
+                          icon: const Icon(Icons.stop),
+                          label: const Text('Durdur'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_isWhistlePlaying) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Düdük sesi çalıyor! Kurtarma ekiplerinin sizi bulmasına yardımcı olun.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.red[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -236,6 +236,12 @@ class MainActivity: FlutterActivity() {
 	private val ALERT_CHANNEL = "deprem_app/alert_activity"
 	private val HTTP_CHANNEL = "deprem_app/http"
 	private val DEVICE_STATE_CHANNEL = "deprem_app/device_state"
+	private val WHISTLE_CHANNEL = "deprem_app/whistle"
+	
+	// Whistle için ToneGenerator
+	private var toneGenerator: android.media.ToneGenerator? = null
+	private var whistleTimer: java.util.Timer? = null
+	private var isWhistlePlaying = false
 
 	override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
 		super.configureFlutterEngine(flutterEngine)
@@ -297,7 +303,7 @@ class MainActivity: FlutterActivity() {
 				// ANLIK şarj durumu kontrolü
 				val batteryIntent = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 				val batteryStatus = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-				val isCharging = batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING || 
+				val isCharging = batteryStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
 								 batteryStatus == BatteryManager.BATTERY_STATUS_FULL
 				
 				// Pil seviyesi
@@ -317,6 +323,21 @@ class MainActivity: FlutterActivity() {
 				result.success(stateMap)
 			} else {
 				result.notImplemented()
+			}
+		}
+
+		// Whistle Channel - Düdük sesi için
+		MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WHISTLE_CHANNEL).setMethodCallHandler { call, result ->
+			when (call.method) {
+				"startWhistle" -> {
+					startWhistle()
+					result.success(true)
+				}
+				"stopWhistle" -> {
+					stopWhistle()
+					result.success(true)
+				}
+				else -> result.notImplemented()
 			}
 		}
 
@@ -430,5 +451,57 @@ class MainActivity: FlutterActivity() {
 				android.util.Log.e("DepremApp", "❌ Native HTTP POST hatası: ${e.message}")
 			}
 		}.start()
+	}
+
+	// Düdük çalmaya başla - enkaz altı için yardım çağrısı
+	private fun startWhistle() {
+		if (isWhistlePlaying) return
+		
+		try {
+			// ToneGenerator oluştur - maksimum ses
+			toneGenerator = android.media.ToneGenerator(
+				android.media.AudioManager.STREAM_ALARM,
+				android.media.ToneGenerator.MAX_VOLUME
+			)
+			
+			isWhistlePlaying = true
+			
+			// Timer ile periyodik olarak yüksek frekanslı ses çal
+			whistleTimer = java.util.Timer()
+			whistleTimer?.scheduleAtFixedRate(object : java.util.TimerTask() {
+				override fun run() {
+					if (isWhistlePlaying) {
+						try {
+							// DTMF_A tonu - yüksek frekanslı, dikkat çekici ses
+							toneGenerator?.startTone(android.media.ToneGenerator.TONE_DTMF_A, 200)
+						} catch (e: Exception) {
+							android.util.Log.e("DepremApp", "Whistle tone error: ${e.message}")
+						}
+					}
+				}
+			}, 0, 300) // Her 300ms'de bir 200ms'lik ses çal
+			
+			android.util.Log.d("DepremApp", "🚨 Düdük sesi başlatıldı!")
+		} catch (e: Exception) {
+			android.util.Log.e("DepremApp", "Whistle start error: ${e.message}")
+		}
+	}
+
+	// Düdük çalmayı durdur
+	private fun stopWhistle() {
+		isWhistlePlaying = false
+		
+		try {
+			whistleTimer?.cancel()
+			whistleTimer = null
+			
+			toneGenerator?.stopTone()
+			toneGenerator?.release()
+			toneGenerator = null
+			
+			android.util.Log.d("DepremApp", "🛑 Düdük sesi durduruldu!")
+		} catch (e: Exception) {
+			android.util.Log.e("DepremApp", "Whistle stop error: ${e.message}")
+		}
 	}
 }
