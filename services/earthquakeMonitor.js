@@ -302,7 +302,6 @@ class EarthquakeMonitor {
         }
       });
       console.log('✅ Kandilli veri çekildi, veri uzunluğu:', response.data.length);
-      // Kandilli ham veri logu kaldırıldı
       const earthquakes = this.parseKandilliData(response.data);
       console.log('✅ Kandilli parse edilen deprem sayısı:', earthquakes.length);
       return earthquakes;
@@ -310,22 +309,6 @@ class EarthquakeMonitor {
       console.warn('⚠️ Kandilli API failed:', error.message);
       return [];
     }
-  // Dosya doğrudan çalıştırılırsa Kandilli test fonksiyonu
-  if (require.main === module) {
-    console.log('--- Kandilli Test Başlatılıyor ---');
-    const monitor = new EarthquakeMonitor();
-    monitor.checkKandilli().then(result => {
-      console.log('Kandilli parse sonucu:', result);
-      console.log('--- Kandilli Test Bitti ---');
-      process.exit(0);
-    }).catch(err => {
-      console.error('Kandilli test hatası:', err);
-      process.exit(1);
-    });
-  }
-  }
-
-  async checkUSGS() {
   }
 
   async checkEMSC() {
