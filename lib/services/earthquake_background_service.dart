@@ -19,8 +19,8 @@ class EarthquakeBackgroundService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'earthquake_alert_high',
-        channelName: 'Deprem Acil Uyarıları',
-        channelDescription: 'Yüksek öncelikli deprem uyarıları',
+        channelName: 'Deprem Hattı',
+        channelDescription: 'Deprem hattı dinleme servisi',
         channelImportance:
             NotificationChannelImportance.LOW, // Normal takip için LOW
         priority: NotificationPriority.LOW, // Normal takip için LOW
@@ -29,6 +29,9 @@ class EarthquakeBackgroundService {
         playSound: false, // Normal takipte ses yok
         enableVibration: false, // Normal takipte titreşim yok
         showWhen: true,
+        buttons: [
+          NotificationButton(id: 'stop', text: 'Durdur'),
+        ],
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
@@ -82,8 +85,8 @@ class EarthquakeBackgroundService {
     }
 
     await FlutterForegroundTask.startService(
-      notificationTitle: 'Deprem Takip Aktif',
-      notificationText: 'Deprem uyarilari icin bekleniyor...',
+      notificationTitle: 'Deprem Hattı Dinlemede',
+      notificationText: 'Deprem hattı dinliyor',
       callback: startCallback,
     );
 
@@ -221,7 +224,7 @@ class EarthquakeTaskHandler extends TaskHandler {
       // Ekran durumunu kontrol et
       _isScreenOn = await _checkScreenState();
 
-      // Koşullar: Şarjda + Pil >= 50% + Ekran kapalı
+      // Koşullar: Şarjda + Pil >= 35% + Ekran kapalı
       final shouldListen =
           _isCharging && _batteryLevel >= minBatteryLevel && !_isScreenOn;
 
@@ -231,36 +234,12 @@ class EarthquakeTaskHandler extends TaskHandler {
       if (shouldListen && !_listening) {
         print('[BG] ✅ Tüm koşullar sağlandı! Sensör dinleme başlatılıyor...');
         _startSensorListening();
-        _updateNotification('Deprem Takip Aktif',
-            '🔋 $_batteryLevel% | 📴 Ekran kapalı | Sensör aktif');
       } else if (!shouldListen && _listening) {
         print('[BG] ⏸️ Koşullar sağlanmıyor. Sensör dinleme duraklatılıyor...');
         _stopSensorListening();
-        String reason = '';
-        if (_isScreenOn) {
-          reason = 'Ekran açık';
-        } else if (!_isCharging) {
-          reason = 'Şarjda değil';
-        } else {
-          reason = 'Pil $_batteryLevel% < $minBatteryLevel%';
-        }
-        _updateNotification('Deprem Takip Beklemede', '⏸️ $reason');
-      } else if (shouldListen && _listening) {
-        // Koşullar hala sağlanıyor, notification güncelle
-        _updateNotification('Deprem Takip Aktif',
-            '🔋 $_batteryLevel% | 📴 Ekran kapalı | Sensör aktif');
-      } else if (!shouldListen && !_listening) {
-        // Dinlemiyoruz ve dinlememeliyiz, sadece bilgi güncelle
-        String status = '';
-        if (_isScreenOn) {
-          status = '📱 Ekran açık - beklemede';
-        } else if (!_isCharging) {
-          status = '🔌 Şarj bekleniyor';
-        } else {
-          status = '🔋 Pil $_batteryLevel% < $minBatteryLevel%';
-        }
-        _updateNotification('Deprem Takip Beklemede', status);
       }
+      // Her durumda sabit notification göster
+      _updateNotification('Deprem Hattı Dinlemede', 'Deprem hattı dinliyor');
     } catch (e) {
       print('[BG] ❌ Pil/Ekran kontrolü hatası: $e');
     }
@@ -1129,10 +1108,10 @@ class EarthquakeTaskHandler extends TaskHandler {
         print('⚠️  Ekran uyandirma hatasi: $e');
       }
 
-      // Background service notification'ı güncelle
+      // Background service notification'ı güncelle - deprem bildirimi sonrası normale dön
       FlutterForegroundTask.updateService(
-        notificationTitle: '🚨 DEPREM! M$magnitude',
-        notificationText: '$location - ŞİMDİ OLDU',
+        notificationTitle: 'Deprem Hattı Dinlemede',
+        notificationText: 'Deprem hattı dinliyor',
       );
 
       print('✅ Background notification gosterildi: M$magnitude - $location');
@@ -1178,5 +1157,21 @@ class EarthquakeTaskHandler extends TaskHandler {
   @override
   void onNotificationPressed() {
     FlutterForegroundTask.launchApp();
+  }
+
+  @override
+  void onNotificationButtonPressed(String id) {
+    if (id == 'stop') {
+      print('[BG] 🛑 Durdur butonuna basıldı, servis durduruluyor...');
+      _stopBatteryMonitoring();
+      _stopSensorListening();
+      FlutterForegroundTask.stopService();
+    }
+  }
+
+  @override
+  void onNotificationDismissed() {
+    // Notification kapatıldığında bir şey yapma
+    print('[BG] Notification kapatıldı');
   }
 }
