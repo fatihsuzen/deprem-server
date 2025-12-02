@@ -13,20 +13,37 @@ import 'friends_service_backend.dart';
 import 'dart:math';
 
 class LocationService {
-  // Son konumu dosyaya kaydet
+  // Son konumu dosyaya kaydet (userId ve deviceId ile birlikte)
   Future<void> saveLastLocationToFile() async {
     if (_latitude == null || _longitude == null) return;
     try {
       final directory = await getApplicationDocumentsDirectory();
       final file = File('${directory.path}/user_location.json');
+
+      // userId'yi al
+      final authService = AuthService();
+      final userId = authService.currentUserId;
+
+      // Benzersiz deviceId oluştur (konum bazlı fallback)
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString('device_id');
+      if (deviceId == null) {
+        // İlk kez çalışıyorsa benzersiz ID oluştur
+        deviceId =
+            'device-${DateTime.now().millisecondsSinceEpoch}-${(_latitude! * 1000).toInt()}';
+        await prefs.setString('device_id', deviceId);
+      }
+
       final data = {
         'latitude': _latitude,
         'longitude': _longitude,
         'timestamp': DateTime.now().toIso8601String(),
+        'userId': userId,
+        'deviceId': deviceId,
       };
       await file.writeAsString(jsonEncode(data));
       print(
-          '✅ Son konum dosyaya kaydedildi: ${data['latitude']},${data['longitude']}');
+          '✅ Son konum dosyaya kaydedildi: ${data['latitude']},${data['longitude']} (userId: $userId)');
     } catch (e) {
       print('❌ Son konum dosyaya kaydedilemedi: $e');
     }

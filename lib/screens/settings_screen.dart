@@ -29,6 +29,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _minMagnitude = UserPreferencesService.defaultMinMagnitude;
   double _maxMagnitude = UserPreferencesService.defaultMaxMagnitude;
   double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
+  
+  // Bildirim ayarları
+  bool _notificationSoundEnabled = true;
+  bool _vibrationEnabled = true;
+  bool _backgroundNotificationsEnabled = true;
+  bool _shareLocationEnabled = true;
 
   Stream<BatteryState>? _batteryStream;
   @override
@@ -60,6 +66,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _minMagnitude = earthquakeSettings['minMagnitude'];
       _maxMagnitude = earthquakeSettings['maxMagnitude'];
       _notificationRadius = earthquakeSettings['notificationRadius'];
+      
+      // Bildirim ayarları
+      _notificationSoundEnabled = earthquakeSettings['notificationSound'] ?? true;
+      _vibrationEnabled = earthquakeSettings['vibration'] ?? true;
+      _backgroundNotificationsEnabled = earthquakeSettings['backgroundNotifications'] ?? true;
+      _shareLocationEnabled = earthquakeSettings['shareLocation'] ?? true;
 
       isLoading = false;
     });
@@ -334,6 +346,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Bildirim Ayarları Bölümü
+            Text(
+              'Bildirim Ayarları',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: isDarkTheme ? Colors.white : Colors.black87,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Bildirim Sesi
+            _buildNotificationSwitch(
+              title: 'Bildirim Sesi',
+              subtitle: 'Deprem bildirimlerinde ses çal',
+              icon: Icons.volume_up,
+              value: _notificationSoundEnabled,
+              onChanged: (value) async {
+                setState(() => _notificationSoundEnabled = value);
+                await _prefsService.setNotificationSound(value);
+                _showSnackBar(value ? 'Bildirim sesi açıldı' : 'Bildirim sesi kapatıldı');
+              },
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Titreşim
+            _buildNotificationSwitch(
+              title: 'Titreşim',
+              subtitle: 'Deprem bildirimlerinde titret',
+              icon: Icons.vibration,
+              value: _vibrationEnabled,
+              onChanged: (value) async {
+                setState(() => _vibrationEnabled = value);
+                await _prefsService.setVibration(value);
+                _showSnackBar(value ? 'Titreşim açıldı' : 'Titreşim kapatıldı');
+              },
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Arka Plan Bildirimleri
+            _buildNotificationSwitch(
+              title: 'Arka Plan Bildirimleri',
+              subtitle: 'Uygulama kapalıyken bildirim al',
+              icon: Icons.notifications_active,
+              value: _backgroundNotificationsEnabled,
+              onChanged: (value) async {
+                setState(() => _backgroundNotificationsEnabled = value);
+                await _prefsService.setBackgroundNotifications(value);
+                _showSnackBar(value ? 'Arka plan bildirimleri açıldı' : 'Arka plan bildirimleri kapatıldı');
+              },
+            ),
+            
+            const SizedBox(height: 12),
+            
+            // Konum Paylaşma
+            _buildNotificationSwitch(
+              title: 'Konum Paylaşma',
+              subtitle: 'Arkadaşlarınızla konumunuzu paylaşın',
+              icon: Icons.location_on,
+              value: _shareLocationEnabled,
+              onChanged: (value) async {
+                setState(() => _shareLocationEnabled = value);
+                await _prefsService.setShareLocation(value);
+                await _syncSettingsToServer();
+                _showSnackBar(value ? 'Konum paylaşma açıldı' : 'Konum paylaşma kapatıldı');
+              },
             ),
 
             const SizedBox(height: 32),
@@ -878,6 +961,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationSwitch({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDarkTheme ? Colors.grey[800] : Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: value 
+                ? (isDarkTheme ? Colors.orange : Colors.blue)
+                : Colors.grey,
+            size: 28,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDarkTheme ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: isDarkTheme ? Colors.orange : Colors.blue,
           ),
         ],
       ),

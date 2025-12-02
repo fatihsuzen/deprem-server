@@ -212,7 +212,7 @@ Future<void> _initializeFCMToken() async {
   try {
     final messaging = FirebaseMessaging.instance;
     final prefs = await SharedPreferences.getInstance();
-    
+
     // Mevcut token'ı al
     String? token = await messaging.getToken();
     if (token != null) {
@@ -222,13 +222,13 @@ Future<void> _initializeFCMToken() async {
     } else {
       print('⚠️ FCM Token alınamadı!');
     }
-    
+
     // Token yenilendiğinde dinle
     messaging.onTokenRefresh.listen((newToken) async {
       print('🔄 FCM Token yenilendi: ${newToken.substring(0, 20)}...');
       await prefs.setString('fcm_token', newToken);
       print('✅ Yeni FCM Token kaydedildi');
-      
+
       // Yeni token'ı sunucuya da gönder
       try {
         final locationUpdateService = LocationUpdateService();
@@ -238,7 +238,7 @@ Future<void> _initializeFCMToken() async {
         print('⚠️ Token sunucuya gönderilemedi: $e');
       }
     });
-    
+
     print('✅ FCM Token initialized');
   } catch (e) {
     print('❌ FCM Token initialization error: $e');

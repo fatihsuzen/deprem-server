@@ -120,7 +120,8 @@ class EarthquakeTaskHandler extends TaskHandler {
 
   // ============ DEPREM AĞI ALGORİTMASI DEĞİŞKENLERİ ============
   // Veri tamponları (Deprem Ağı gibi)
-  static const int bufferSize = 256; // Örnek tamponu boyutu (DÜŞÜRÜLDÜ: 4096→256, ~5 saniye @ 50Hz)
+  static const int bufferSize =
+      256; // Örnek tamponu boyutu (DÜŞÜRÜLDÜ: 4096→256, ~5 saniye @ 50Hz)
   final List<double> _deltaBuffer = []; // Delta değerleri tamponu
   final List<int> _timestampBuffer = []; // Zaman damgaları (ms)
 
@@ -138,18 +139,20 @@ class EarthquakeTaskHandler extends TaskHandler {
   // Eşik değerleri (VERİ ANALİZİNE DAYALI - 02.12.2025)
   // Normal STD: 0.0052, Weak STD: 0.0099, Medium STD: 0.0168, Strong STD: 0.0542
   // Normal Max Delta: 0.0429, Weak Max Delta: 0.0724, Medium Max Delta: 0.1580
-  // Zayıf deprem algılamak için: weak/normal = 1.9x → güvenlik payı ile 1.5x
+  // DÜZELTME: Çok hassas eşikler yanlış pozitife neden oluyordu
   static const double stdMultiplier =
-      1.5; // Baseline STD'nin 1.5 katı = anomali (DÜŞÜRÜLDÜ: 1.7→1.5)
-  static const double deltaMultiplier = 0.8; // Delta çarpanı
+      2.0; // Baseline STD'nin 2 katı = anomali (ARTIRILDI: 1.5→2.0)
+  static const double deltaMultiplier =
+      2.5; // Delta çarpanı (ARTIRILDI: 0.8→2.5)
   static const int minConsecutiveSamples =
-      2; // Minimum ardışık örnek (DÜŞÜRÜLDÜ: 3→2)
+      10; // Minimum ardışık örnek (ARTIRILDI: 2→10)
   static const double minDuration =
-      0.05; // Minimum süre (saniye) (DÜŞÜRÜLDÜ: 0.1→0.05)
-  static const int stabilizationTime = 2; // Stabilizasyon süresi (2 saniye)
+      0.5; // Minimum süre (saniye) (ARTIRILDI: 0.05→0.5)
+  static const int stabilizationTime =
+      3; // Stabilizasyon süresi (ARTIRILDI: 2→3 saniye)
   static const bool instantReport = true; // Anında raporlama
   static const double minAbsoluteThreshold =
-      0.005; // Min mutlak eşik (DÜŞÜRÜLDÜ: 0.008→0.005, normal STD civarı)
+      0.015; // Min mutlak eşik (ARTIRILDI: 0.005→0.015, weak deprem eşiği)
 
   // Son değerler
   double _lastMagnitude = 0.0;
@@ -168,7 +171,7 @@ class EarthquakeTaskHandler extends TaskHandler {
   static const int potentialReportCooldownSeconds = 10; // 10 saniye cooldown
   static const double potentialReportThreshold =
       1.8; // Potansiyel rapor için baseline'ın 1.8 katı (DÜŞÜRÜLDÜ: 2.5→1.8, weak algılanabilsin)
-  
+
   // Detection timeout cooldown - yanlış pozitif döngüsünü önle
   DateTime? _lastDetectionTimeoutTime;
   static const int detectionTimeoutCooldownSeconds = 5; // 5 saniye cooldown
@@ -357,7 +360,8 @@ class EarthquakeTaskHandler extends TaskHandler {
       // İLK ÖRNEĞİ ATLA - _lastMagnitude=0 olduğunda delta ~9.8 olur!
       if (_lastMagnitude == 0.0) {
         _lastMagnitude = magnitude;
-        print('[BG] ⚠️ İlk örnek atlandı (magnitude=${magnitude.toStringAsFixed(2)})');
+        print(
+            '[BG] ⚠️ İlk örnek atlandı (magnitude=${magnitude.toStringAsFixed(2)})');
         return;
       }
 
@@ -400,29 +404,34 @@ class EarthquakeTaskHandler extends TaskHandler {
             // UYARI: Baseline çok yüksekse (>0.02) telefon stabil değil demektir
             // Normal baseline: 0.003-0.008 arasında olmalı
             if (_baselineStd > 0.02) {
-              print('[BG] ⚠️ UYARI: Baseline çok yüksek! (${_baselineStd.toStringAsFixed(4)})');
-              print('[BG] 📱 Telefon sabit bir yüzeyde değil veya titreşimli ortam!');
+              print(
+                  '[BG] ⚠️ UYARI: Baseline çok yüksek! (${_baselineStd.toStringAsFixed(4)})');
+              print(
+                  '[BG] 📱 Telefon sabit bir yüzeyde değil veya titreşimli ortam!');
               print('[BG] 💡 Normal baseline: 0.003-0.008 arası olmalı');
             }
             _stabilizationComplete = true;
             print('[BG] ✅ Stabilizasyon tamamlandı!');
             print('[BG] 📊 Baseline STD: ${_baselineStd.toStringAsFixed(6)}');
-            print('[BG] 📊 Baseline Min: ${_baselineMin.toStringAsFixed(4)}, Max: ${_baselineMax.toStringAsFixed(4)}');
+            print(
+                '[BG] 📊 Baseline Min: ${_baselineMin.toStringAsFixed(4)}, Max: ${_baselineMax.toStringAsFixed(4)}');
             print('[BG] 🗑️ Ana algılama için buffer temizleniyor...');
             _deltaBuffer.clear();
             _timestampBuffer.clear();
           } else {
             // Baseline oluşmadı, daha fazla veri bekle
             if (_sampleIndex % 100 == 0) {
-              print('[BG] ⏳ Baseline henüz oluşmadı, bekleniyor... (buffer=${_deltaBuffer.length})');
+              print(
+                  '[BG] ⏳ Baseline henüz oluşmadı, bekleniyor... (buffer=${_deltaBuffer.length})');
             }
           }
         } else if (monitoringStart != null) {
           // Stabilizasyon devam ediyor
           if (_sampleIndex % 100 == 0) {
-            final remaining = stabilizationTime - 
-                now.difference(monitoringStart).inSeconds;
-            print('[BG] ⏳ Stabilizasyon: ${remaining}s kaldı (baseline=${_baselineStd.toStringAsFixed(6)}, buffer=${_deltaBuffer.length})');
+            final remaining =
+                stabilizationTime - now.difference(monitoringStart).inSeconds;
+            print(
+                '[BG] ⏳ Stabilizasyon: ${remaining}s kaldı (baseline=${_baselineStd.toStringAsFixed(6)}, buffer=${_deltaBuffer.length})');
           }
         }
         return; // Stabilizasyon bitmeden ana algılamaya geçme
@@ -485,7 +494,8 @@ class EarthquakeTaskHandler extends TaskHandler {
 
       // Timeout cooldown kontrolü - son timeout'tan 5 saniye geçmeden yeni detection başlatma
       final detectionCooldownOk = _lastDetectionTimeoutTime == null ||
-          now.difference(_lastDetectionTimeoutTime!).inSeconds >= detectionTimeoutCooldownSeconds;
+          now.difference(_lastDetectionTimeoutTime!).inSeconds >=
+              detectionTimeoutCooldownSeconds;
 
       if (isAnomaly && !_isDetecting && detectionCooldownOk) {
         // Potansiyel deprem başlangıcı
@@ -533,11 +543,11 @@ class EarthquakeTaskHandler extends TaskHandler {
       if (_isDetecting) {
         _detectionSampleCount++;
 
-        // Aşırı değerler ara - DÜŞÜK eşik (hassas algılama)
-        // Eşik: baseline std'nin 0.8 katı VEYA minimum mutlak eşik (hangisi büyükse)
-        // DÜŞÜRÜLDÜ: 1.1→0.8 - orta sarsıntılar algılansın
+        // Aşırı değerler ara - DAHA YÜKSEK eşik (yanlış pozitif önleme)
+        // Eşik: baseline std'nin 2.5 katı VEYA minimum mutlak eşik (hangisi büyükse)
+        // ARTIRILDI: 0.8→2.5 - hafif dokunuşlar algılanmasın
         final double extremeThreshold =
-            max(_baselineStd * 0.8, minAbsoluteThreshold);
+            max(_baselineStd * deltaMultiplier, minAbsoluteThreshold);
         int extremeCount = 0;
         int extremeStart = -1;
         int extremeEnd = -1;
@@ -575,27 +585,25 @@ class EarthquakeTaskHandler extends TaskHandler {
         }
 
         // Debug: Tüm koşulları kontrol et
-        // DİNAMİK STD EŞİĞİ: baseline'ın 1.8 katı (sabit 0.007 yerine)
-        final double minStdThreshold = _baselineStd * 1.8;
+        // DİNAMİK STD EŞİĞİ: baseline'ın 2.5 katı (daha katı)
+        final double minStdThreshold = _baselineStd * 2.5;
         final bool cond1 = consecutiveSamples >= minConsecutiveSamples;
         final bool cond2 = duration >= minDuration;
-        final bool cond3 = extremeCount >= 3;
+        final bool cond3 = extremeCount >= 5;
         final bool cond4 = currentStd >= minStdThreshold;
+        final bool allConditionsMet = cond1 && cond2 && cond3 && cond4;
 
-        // Sadece tüm koşullar sağlandığında veya her 50 sample'da log bas (log spam önleme)
-        if ((cond1 && cond2 && cond3 && cond4) || _detectionSampleCount % 50 == 0) {
+        // SADECE her 50 sample'da log bas (koşullar sağlansa bile spam önleme)
+        if (_detectionSampleCount % 50 == 0) {
           print(
-              '[BG] 🎯 KOŞULLAR: consecutive=$consecutiveSamples>=${minConsecutiveSamples}($cond1), duration=${duration.toStringAsFixed(3)}>=${minDuration}($cond2), extreme=$extremeCount>=3($cond3), std=${currentStd.toStringAsFixed(4)}>=${minStdThreshold.toStringAsFixed(4)}($cond4)');
+              '[BG] 🎯 KOŞULLAR: consecutive=$consecutiveSamples>=${minConsecutiveSamples}($cond1), duration=${duration.toStringAsFixed(3)}>=${minDuration}($cond2), extreme=$extremeCount>=5($cond3), std=${currentStd.toStringAsFixed(4)}>=${minStdThreshold.toStringAsFixed(4)}($cond4)');
         }
 
         // ============ DEPREM TESPİTİ (ANINDA RAPORLAMA) ============
-        // Koşullar: 2+ ardışık örnek VE 0.05+ saniye süre VE 3+ aşırı değer
+        // Koşullar: 10+ ardışık örnek VE 0.5+ saniye süre VE 5+ aşırı değer
         // ANINDA RAPOR: Deprem tespit edildiği anda hemen gönder, bitmesini bekleme!
-        // DİNAMİK EŞİK: baseline'ın 1.8 katı (sabit değer yerine)
-        if (consecutiveSamples >= minConsecutiveSamples &&
-            duration >= minDuration &&
-            extremeCount >= 3 &&
-            currentStd >= minStdThreshold) {
+        // DİNAMİK EŞİK: baseline'ın 2.5 katı (daha katı)
+        if (allConditionsMet) {
           // Cooldown kontrolü - son rapordan beri yeterli süre geçti mi?
           final now = DateTime.now();
           final canReport = _lastReportTime == null ||
@@ -622,6 +630,10 @@ class EarthquakeTaskHandler extends TaskHandler {
             // Rapor zamanını kaydet (cooldown için)
             _lastReportTime = now;
 
+            // HEMEN detection'ı durdur - async rapor gönderimi sırasında log spam önle
+            _isDetecting = false;
+            _detectionSampleCount = 0;
+
             // Rapor gönder (async - arka planda)
             _sendEarthquakeReport(currentStd, duration, consecutiveSamples)
                 .then((_) {
@@ -636,12 +648,11 @@ class EarthquakeTaskHandler extends TaskHandler {
               _baselineMin = 9999.0;
               _baselineMax = -9999.0;
               _baselineStd = 9999.0;
-              _isDetecting = false;
-              _detectionSampleCount = 0;
               _consecutiveEvents = 0;
               _cumulativeDuration = 0.0;
               _lastMagnitude = 0.0;
               _sampleIndex = 0;
+              _stabilizationComplete = false; // Yeniden stabilizasyon gerekli
               _monitoringStartTime = DateTime.now();
               print(
                   '[BG] 🔄 Tüm veriler sıfırlandı, yeni baseline oluşturulacak');
@@ -813,8 +824,10 @@ class EarthquakeTaskHandler extends TaskHandler {
     final now = DateTime.now();
     Position? position;
     bool konumAlindi = false;
+    String? userId;
+    String? deviceId;
 
-    // ÖNCE dosyadan konum oku (daha hızlı ve güvenilir)
+    // ÖNCE dosyadan konum ve kullanıcı bilgisi oku (daha hızlı ve güvenilir)
     try {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/user_location.json');
@@ -823,6 +836,8 @@ class EarthquakeTaskHandler extends TaskHandler {
         final json = jsonDecode(jsonStr);
         final lat = json['latitude'];
         final lon = json['longitude'];
+        userId = json['userId'] as String?;
+        deviceId = json['deviceId'] as String?;
         if (lat != null && lon != null) {
           position = Position(
             latitude: (lat is int) ? lat.toDouble() : lat,
@@ -884,8 +899,10 @@ class EarthquakeTaskHandler extends TaskHandler {
             'timestamp': now.toIso8601String(),
             'algorithm': 'deprem-agi-v2',
           },
-          'deviceId': 'background-device',
-          'userId': 'background-user',
+          'deviceId': deviceId ??
+              'device-${position.latitude.toStringAsFixed(4)}-${position.longitude.toStringAsFixed(4)}',
+          'userId': userId ??
+              'user-${position.latitude.toStringAsFixed(4)}-${position.longitude.toStringAsFixed(4)}',
         });
 
         print('[BG] 📤 Gönderilen JSON: $jsonBody');
@@ -916,8 +933,10 @@ class EarthquakeTaskHandler extends TaskHandler {
     final now = DateTime.now();
     Position? position;
     bool konumAlindi = false;
+    String? userId;
+    String? deviceId;
 
-    // Dosyadan konum oku
+    // Dosyadan konum ve kullanıcı bilgisi oku
     try {
       final dir = await getApplicationDocumentsDirectory();
       final file = File('${dir.path}/user_location.json');
@@ -926,6 +945,8 @@ class EarthquakeTaskHandler extends TaskHandler {
         final json = jsonDecode(jsonStr);
         final lat = json['latitude'];
         final lon = json['longitude'];
+        userId = json['userId'] as String?;
+        deviceId = json['deviceId'] as String?;
         if (lat != null && lon != null) {
           position = Position(
             latitude: (lat is int) ? lat.toDouble() : lat,
@@ -969,8 +990,10 @@ class EarthquakeTaskHandler extends TaskHandler {
             'algorithm': 'deprem-agi-v2',
             'type': 'potential', // Potansiyel - henüz kesinleşmedi
           },
-          'deviceId': 'background-device',
-          'userId': 'background-user',
+          'deviceId': deviceId ??
+              'device-${position.latitude.toStringAsFixed(4)}-${position.longitude.toStringAsFixed(4)}',
+          'userId': userId ??
+              'user-${position.latitude.toStringAsFixed(4)}-${position.longitude.toStringAsFixed(4)}',
         });
 
         print('[BG] 📤 Potansiyel deprem JSON: $jsonBody');

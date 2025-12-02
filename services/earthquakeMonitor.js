@@ -136,6 +136,21 @@ class EarthquakeMonitor {
             const eq = normalizeEarthquake(eqRaw);
             // Debug: normalize edilen deprem objesini logla
             console.log('[DEBUG] Normalize deprem:', JSON.stringify(eq));
+            
+            // ÖNCE eventId ile kontrol et (en güvenilir yöntem)
+            if (eq.eventId) {
+              const existingById = await EarthquakeModel.findOne({ eventId: eq.eventId });
+              if (existingById) {
+                console.log(`🔁 Duplicate deprem (eventId): ${eq.mag} ${eq.place} (${eq.source})`);
+                // Kaynak ekle (varsa)
+                if (!existingById.source.includes(eq.source)) {
+                  existingById.source.push(eq.source);
+                  await existingById.save();
+                }
+                continue; // Sonraki depreme geç
+              }
+            }
+            
             // Duplicate önleme: Zaman, konum ve büyüklük ile arama
             const timeWindowStart = new Date(eq.time.getTime() - 60 * 1000); // -1 dakika
             const timeWindowEnd = new Date(eq.time.getTime() + 60 * 1000);   // +1 dakika
@@ -174,10 +189,24 @@ class EarthquakeMonitor {
             } else {
               // Yeni deprem kaydı
               try {
-                await EarthquakeModel.create(eq);
+                // eventId varsa upsert yap, yoksa create
+                if (eq.eventId) {
+                  await EarthquakeModel.findOneAndUpdate(
+                    { eventId: eq.eventId },
+                    eq,
+                    { upsert: true, new: true }
+                  );
+                } else {
+                  await EarthquakeModel.create(eq);
+                }
                 console.log(`✅ Yeni deprem kaydedildi: ${eq.mag} ${eq.place} (${eq.source})`);
               } catch (dbErr) {
-                console.error('[ERROR] Deprem DB kaydı başarısız:', dbErr, eq);
+                // Duplicate key hatası ise sessizce atla
+                if (dbErr.code === 11000) {
+                  console.log(`🔁 Duplicate deprem (DB): ${eq.mag} ${eq.place} (${eq.source})`);
+                } else {
+                  console.error('[ERROR] Deprem DB kaydı başarısız:', dbErr, eq);
+                }
               }
               // Dosyaya log ekle
               const fs = require('fs');

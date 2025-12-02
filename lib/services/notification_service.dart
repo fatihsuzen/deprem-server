@@ -397,8 +397,18 @@ class NotificationService {
   }) async {
     print('Deprem bildirimi kontrol ediliyor: $title');
 
-    // Kullanıcının bildirim yarıçapı ayarını al
+    // Kullanıcının bildirim ayarlarını al
     final notificationRadius = await _prefsService.getNotificationRadius();
+    final soundEnabled = await _prefsService.getNotificationSound();
+    final vibrationEnabled = await _prefsService.getVibration();
+    final backgroundNotificationsEnabled =
+        await _prefsService.getBackgroundNotifications();
+
+    // Arka plan bildirimleri kapalıysa bildirim gönderme
+    if (!backgroundNotificationsEnabled) {
+      print('❌ Arka plan bildirimleri kapalı, bildirim gönderilmedi');
+      return;
+    }
 
     // Eğer deprem ve kullanıcı konumu verilmişse, mesafeyi kontrol et
     if (earthquakeLat != null &&
@@ -420,16 +430,19 @@ class NotificationService {
       print('✅ Deprem yarıçap içinde, bildirim gönderiliyor');
     }
 
+    print(
+        '📢 Bildirim ayarları - Ses: $soundEnabled, Titreşim: $vibrationEnabled');
+
     // Kritik deprem bildirimi - rapor istemiyle
-    const AndroidNotificationDetails androidDetails =
+    final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       'earthquake_alerts',
       'Deprem Uyarıları',
       channelDescription: 'Acil deprem bildirimleri',
       importance: Importance.max,
       priority: Priority.high,
-      playSound: true,
-      enableVibration: true,
+      playSound: soundEnabled,
+      enableVibration: vibrationEnabled,
       autoCancel: false,
       ongoing: false,
       showWhen: true,
