@@ -459,7 +459,7 @@ class NotificationService {
       ],
     );
 
-    const NotificationDetails details = NotificationDetails(
+    final NotificationDetails details = NotificationDetails(
       android: androidDetails,
     );
 

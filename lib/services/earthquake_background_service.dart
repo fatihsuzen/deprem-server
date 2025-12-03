@@ -29,9 +29,6 @@ class EarthquakeBackgroundService {
         playSound: false, // Normal takipte ses yok
         enableVibration: false, // Normal takipte titreşim yok
         showWhen: true,
-        buttons: [
-          NotificationButton(id: 'stop', text: 'Durdur'),
-        ],
       ),
       iosNotificationOptions: const IOSNotificationOptions(
         showNotification: true,
