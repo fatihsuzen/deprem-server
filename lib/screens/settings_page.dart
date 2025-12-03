@@ -4,8 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../widgets/background_service_controller.dart';
-import 'p2p_test_screen.dart';
-import 'sensor_data_recorder_screen.dart';
+import '../services/whistle_service.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -15,6 +14,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final UserPreferencesService _prefsService = UserPreferencesService();
   final LocationUpdateService _locationUpdateService = LocationUpdateService();
+  final WhistleService _whistleService = WhistleService();
 
   bool _notificationsEnabled = true;
   double _minimumMagnitude = UserPreferencesService.defaultMinMagnitude;
@@ -26,11 +26,21 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _backgroundRefreshEnabled = true;
   bool _shareLocationWithFriends = true;
   bool _isLoading = true;
+  bool _isWhistlePlaying = false;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    // Düdük çalıyorsa durdur
+    if (_isWhistlePlaying) {
+      _whistleService.stopWhistle();
+    }
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -449,37 +459,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
         SizedBox(height: 16),
 
-        // Geliştirici Araçları
-        _buildSectionHeader('Geliştirici Araçları'),
-        _buildSettingTile(
-          icon: Icons.science_outlined,
-          title: 'P2P Deprem Simülasyonu',
-          subtitle: 'Telefonu sallayarak test et',
-          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => P2PTestScreen(),
-              ),
-            );
-          },
-        ),
-        _buildDivider(),
-        _buildSettingTile(
-          icon: Icons.sensors,
-          title: 'Sensör Veri Kaydedici',
-          subtitle: 'Algoritma eşik değerlerini ayarla',
-          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const SensorDataRecorderScreen(),
-              ),
-            );
-          },
-        ),
+        // Araçlar Bölümü
+        _buildSectionHeader('Araçlar'),
+        _buildWhistleTile(),
 
         SizedBox(height: 16),
 
@@ -774,6 +756,147 @@ class _SettingsPageState extends State<SettingsPage> {
           fontWeight: FontWeight.w600,
           color: Colors.grey[600],
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWhistleTile() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: _isWhistlePlaying 
+            ? Border.all(color: Colors.red, width: 2)
+            : null,
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: _isWhistlePlaying 
+                        ? Colors.red.withOpacity(0.1)
+                        : Color(0xFFFF3333).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    _isWhistlePlaying ? Icons.volume_up : Icons.campaign,
+                    color: _isWhistlePlaying ? Colors.red : Color(0xFFFF3333),
+                    size: 22,
+                  ),
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Düdük Çal',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        _isWhistlePlaying 
+                            ? '🔊 Düdük çalıyor - Yerini belli et!'
+                            : 'Enkaz altındayken yerini belli etmek için kullan',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: _isWhistlePlaying ? Colors.red : Colors.grey[600],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _isWhistlePlaying ? null : () async {
+                      await _whistleService.startWhistle();
+                      setState(() => _isWhistlePlaying = true);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('🔊 Düdük çalmaya başladı!'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.play_arrow),
+                    label: Text('Başlat'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: !_isWhistlePlaying ? null : () async {
+                      await _whistleService.stopWhistle();
+                      setState(() => _isWhistlePlaying = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('🔇 Düdük durduruldu'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
+                    icon: Icon(Icons.stop),
+                    label: Text('Durdur'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey,
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_isWhistlePlaying) ...[
+              SizedBox(height: 12),
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.red, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Düdük sesi çalıyor! Kurtarma ekiplerinin sizi bulmasına yardımcı olun.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.red[700],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

@@ -96,6 +96,13 @@ void main() async {
           double.tryParse(message.data['magnitude']?.toString() ?? '') ?? 0.0;
       final distance =
           double.tryParse(message.data['distance']?.toString() ?? '') ?? 0.0;
+      // Deprem merkezi koordinatları
+      final epicenterLat =
+          double.tryParse(message.data['epicenter_lat']?.toString() ?? '');
+      final epicenterLon =
+          double.tryParse(message.data['epicenter_lon']?.toString() ?? '');
+      print('📍 FCM Deprem Merkezi: lat=$epicenterLat, lon=$epicenterLon');
+      
       String safeLocation = location;
       if (safeLocation.isEmpty ||
           safeLocation == 'NaN,NaN' ||
@@ -110,12 +117,14 @@ void main() async {
             distance: distance.isNaN ? 0.0 : distance,
             timestamp: DateTime.tryParse(timestampStr) ?? DateTime.now(),
             source: 'P2P',
+            epicenterLat: epicenterLat,
+            epicenterLon: epicenterLon,
           ),
         ),
       );
-    } else {
-      navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
     }
+    // Diğer bildirimler için navigasyon yapma - sadece log'la
+    // else bloğu kaldırıldı - restart sorununa neden oluyordu
   });
 
   // Background service'i initialize et
@@ -132,6 +141,12 @@ void main() async {
         '[DepremApp] main.dart: Circle ekran açılıyor! Parametre: $earthquakeParams');
     debugPrint(
         '[DepremApp] main.dart: EarthquakeAlertScreen navigation başlatıldı!');
+    
+    // Epicenter koordinatlarını parse et
+    final epicenterLat = double.tryParse(earthquakeParams['epicenter_lat']?.toString() ?? '');
+    final epicenterLon = double.tryParse(earthquakeParams['epicenter_lon']?.toString() ?? '');
+    debugPrint('[DepremApp] main.dart: Epicenter parsed: lat=$epicenterLat, lon=$epicenterLon');
+    
     runApp(MaterialApp(
       debugShowCheckedModeBanner: false,
       home: EarthquakeAlertScreen(
@@ -140,6 +155,8 @@ void main() async {
         distance: (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
         timestamp: DateTime.now(),
         source: 'P2P',
+        epicenterLat: epicenterLat,
+        epicenterLon: epicenterLon,
       ),
     ));
   } else {
@@ -256,6 +273,7 @@ Future<void> _syncUserSettings() async {
       notificationRadius: settings['notificationRadius'],
       minMagnitude: settings['minMagnitude'],
       maxMagnitude: settings['maxMagnitude'],
+      shareLocationWithFriends: settings['shareLocation'],
     );
 
     print('✅ User settings synced to server');

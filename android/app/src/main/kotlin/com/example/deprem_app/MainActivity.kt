@@ -48,6 +48,9 @@ class MainActivity: FlutterActivity() {
 			super.onCreate(savedInstanceState)
 			android.util.Log.d("DepremApp", "onCreate called!")
 			
+			// Deprem alertı geldiğinde kilit ekranı üzerinde gösterim için
+			setupLockScreenVisibility()
+			
 			// Screen state receiver'ı kaydet
 			registerScreenStateReceiver()
 			
@@ -66,6 +69,35 @@ class MainActivity: FlutterActivity() {
 			val params = getEarthquakeParamsFromIntent(intent)
 			android.util.Log.d("DepremApp", "onCreate: params = $params")
 			sendEarthquakeParamsToFlutter(params)
+		}
+
+		// Kilit ekranı üzerinde gösterim için ayarlar
+		private fun setupLockScreenVisibility() {
+			try {
+				if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+					// Android 8.1+ (API 27+)
+					setShowWhenLocked(true)
+					setTurnScreenOn(true)
+					
+					// Keyguard'ı devre dışı bırak (kilit ekranını geç)
+					val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as android.app.KeyguardManager
+					keyguardManager.requestDismissKeyguard(this, null)
+					android.util.Log.d("DepremApp", "✅ Lock screen visibility set (API 27+)")
+				} else {
+					// Android 8.0 ve altı
+					@Suppress("DEPRECATION")
+					window.addFlags(
+						android.view.WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+						android.view.WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
+						android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+						android.view.WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+						android.view.WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
+					)
+					android.util.Log.d("DepremApp", "✅ Lock screen visibility set (Legacy)")
+				}
+			} catch (e: Exception) {
+				android.util.Log.e("DepremApp", "setupLockScreenVisibility hatası: ${e.message}")
+			}
 		}
 
 		override fun onDestroy() {

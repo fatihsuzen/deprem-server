@@ -16,7 +16,7 @@ class UserPreferencesService {
   // Varsayılan değerler
   static const double defaultMinMagnitude = 2.5;
   static const double defaultMaxMagnitude = 10.0;
-  static const double defaultNotificationRadius = 100.0; // km
+  static const double defaultNotificationRadius = 300.0; // km
   static const bool defaultShareLocation = true; // Varsayılan olarak açık
   static const bool defaultNotificationSound = true;
   static const bool defaultVibration = true;

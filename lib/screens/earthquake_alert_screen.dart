@@ -13,6 +13,8 @@ class EarthquakeAlertScreen extends StatefulWidget {
   final DateTime timestamp;
   final String source; // 'P2P' veya 'AFAD'
   final String? userLocation;
+  final double? epicenterLat; // Deprem merkezi enlemi
+  final double? epicenterLon; // Deprem merkezi boylamı
 
   const EarthquakeAlertScreen({
     super.key,
@@ -22,6 +24,8 @@ class EarthquakeAlertScreen extends StatefulWidget {
     required this.timestamp,
     this.source = 'AFAD',
     this.userLocation,
+    this.epicenterLat,
+    this.epicenterLon,
   });
 
   @override
@@ -67,23 +71,38 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
     )..repeat(reverse: true);
 
     // Deprem merkezi konumu
-    final locParts = widget.location.split(',');
     double quakeLat = 39.0;
     double quakeLon = 35.0;
-    if (locParts.length == 2) {
-      try {
-        quakeLat = double.parse(locParts[0].trim());
-        quakeLon = double.parse(locParts[1].trim());
-        if (quakeLat.isNaN || quakeLon.isNaN) {
+    
+    // Önce epicenterLat/epicenterLon parametrelerini kontrol et
+    if (widget.epicenterLat != null && widget.epicenterLon != null &&
+        !widget.epicenterLat!.isNaN && !widget.epicenterLon!.isNaN) {
+      quakeLat = widget.epicenterLat!;
+      quakeLon = widget.epicenterLon!;
+      print('📍 Deprem merkezi (epicenter params): $quakeLat, $quakeLon');
+    } else {
+      // Fallback: location string'inden parse et
+      final locParts = widget.location.split(',');
+      if (locParts.length == 2) {
+        try {
+          quakeLat = double.parse(locParts[0].trim());
+          quakeLon = double.parse(locParts[1].trim());
+          if (quakeLat.isNaN || quakeLon.isNaN) {
+            quakeLat = 39.0;
+            quakeLon = 35.0;
+          }
+          print('📍 Deprem merkezi (location parse): $quakeLat, $quakeLon');
+        } catch (e) {
+          print('⚠️ Location parse hatası, varsayılan konum kullanılıyor');
           quakeLat = 39.0;
           quakeLon = 35.0;
         }
-      } catch (e) {
-        quakeLat = 39.0;
-        quakeLon = 35.0;
+      } else {
+        print('⚠️ Location formatı uygun değil: ${widget.location}, varsayılan konum kullanılıyor');
       }
     }
     quakeLatLng = LatLng(quakeLat, quakeLon);
+    print('🗺️ Final deprem konumu: $quakeLatLng');
 
     // Kullanıcı konumu (server/gps'ten gelen)
     Future<void> setUserLocation() async {

@@ -119,6 +119,8 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
       showBadge: true,
+      enableLights: true,
+      ledColor: Color(0xFFD32F2F),
     );
 
     await _flutterLocalNotificationsPlugin
@@ -145,7 +147,18 @@ class NotificationService {
         final magnitude = double.tryParse(parts[1]) ?? 0.0;
         final location = parts[2];
         final distance = double.tryParse(parts[3]) ?? 0.0;
-        showAlertScreen(magnitude, location, distance, 'AFAD');
+        // Epicenter koordinatları (parts[4] ve parts[5])
+        final epicenterLat = parts.length > 4 ? double.tryParse(parts[4]) : null;
+        final epicenterLon = parts.length > 5 ? double.tryParse(parts[5]) : null;
+        print('📍 Notification tap - epicenter: $epicenterLat, $epicenterLon');
+        showAlertScreen(
+          magnitude, 
+          location, 
+          distance, 
+          'AFAD',
+          epicenterLat: epicenterLat,
+          epicenterLon: epicenterLon,
+        );
       }
     } else {
       // Normal bildirimde ana ekrana yönlendir
@@ -533,11 +546,29 @@ class NotificationService {
     double? userLon,
   }) async {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
-    // Sadece animasyonlu ekranı aç (push bildirim ve native activity yok)
+    print('📍 Epicenter: lat=$earthquakeLat, lon=$earthquakeLon');
+    
+    // HER ZAMAN önce kilit ekranı bildirimi göster (arka planda da çalışır)
+    await showWakeUpNotification(
+      magnitude, 
+      location, 
+      distance,
+      epicenterLat: earthquakeLat,
+      epicenterLon: earthquakeLon,
+    );
+    
+    // Eğer uygulama açıksa animasyonlu ekranı da aç
     if (navigatorKey.currentContext != null) {
-      showAlertScreen(magnitude, location, distance, source);
+      showAlertScreen(
+        magnitude, 
+        location, 
+        distance, 
+        source,
+        epicenterLat: earthquakeLat,
+        epicenterLon: earthquakeLon,
+      );
     } else {
-      print('❌ Uygulama arka planda veya kapalı, animasyonlu ekran açılamıyor');
+      print('ℹ️ Uygulama arka planda, sadece bildirim gösterildi');
     }
   }
 
@@ -545,8 +576,10 @@ class NotificationService {
   Future<void> showWakeUpNotification(
     double magnitude,
     String location,
-    double distance,
-  ) async {
+    double distance, {
+    double? epicenterLat,
+    double? epicenterLon,
+  }) async {
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
       'earthquake_alerts',
@@ -595,12 +628,15 @@ class NotificationService {
       final int notificationId =
           DateTime.now().millisecondsSinceEpoch.remainder(100000);
 
+      // Payload'a epicenter koordinatlarını da ekle
+      final payload = 'earthquake_alert|$magnitude|$location|$distance|${epicenterLat ?? ""}|${epicenterLon ?? ""}';
+
       await _flutterLocalNotificationsPlugin.show(
         notificationId,
         '🚨 DEPREM ALGILANDI!',
         'M$magnitude - ${distance.toStringAsFixed(1)} km uzakta',
         details,
-        payload: 'earthquake_alert|$magnitude|$location|$distance',
+        payload: payload,
       );
 
       print('✅ Uyandırma bildirimi gönderildi!');
@@ -614,14 +650,16 @@ class NotificationService {
     double magnitude,
     String location,
     double distance,
-    String source,
-  ) {
+    String source, {
+    double? epicenterLat,
+    double? epicenterLon,
+  }) {
     if (navigatorKey.currentContext == null) {
       print('❌ Navigator context yok, tam ekran gösterilemiyor');
       return;
     }
 
-    print('✅ Tam ekran alert gösteriliyor');
+    print('✅ Tam ekran alert gösteriliyor (epicenter: $epicenterLat, $epicenterLon)');
 
     Navigator.of(navigatorKey.currentContext!).push(
       MaterialPageRoute(
@@ -631,6 +669,8 @@ class NotificationService {
           distance: distance,
           timestamp: DateTime.now(),
           source: source,
+          epicenterLat: epicenterLat,
+          epicenterLon: epicenterLon,
         ),
         fullscreenDialog: true,
       ),

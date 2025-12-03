@@ -254,9 +254,9 @@ app.get('/api/users/me', async (req, res) => {
         email: user.email,
         location: user.location,
         notificationSettings: user.notificationSettings || {
-          notificationRadius: 100,
+          notificationRadius: 300,
           minMagnitude: 2.5,
-          maxMagnitude: 9.7,
+          maxMagnitude: 10.0,
         },
         lastLocationUpdate: user.lastLocationUpdate,
       }
@@ -287,9 +287,9 @@ app.get('/api/users/all-settings', async (req, res) => {
           lastUpdate: user.location.lastUpdate
         } : null,
         notificationSettings: user.notificationSettings || user.settings || {
-          notificationRadius: 100,
+          notificationRadius: 300,
           minMagnitude: 2.5,
-          maxMagnitude: 9.7
+          maxMagnitude: 10.0
         },
         createdAt: user.createdAt
       };

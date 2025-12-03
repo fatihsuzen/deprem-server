@@ -20,7 +20,7 @@ class EarthquakeBackgroundService {
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'earthquake_alert_high',
         channelName: 'Deprem Hattı',
-        channelDescription: 'Deprem hattı dinleme servisi',
+        channelDescription: 'Deprem hattı izleme servisi',
         channelImportance:
             NotificationChannelImportance.LOW, // Normal takip için LOW
         priority: NotificationPriority.LOW, // Normal takip için LOW
@@ -82,8 +82,8 @@ class EarthquakeBackgroundService {
     }
 
     await FlutterForegroundTask.startService(
-      notificationTitle: 'Deprem Hattı Dinlemede',
-      notificationText: 'Deprem hattı dinliyor',
+      notificationTitle: 'Deprem Hattı İzlemede',
+      notificationText: 'Deprem hattı izliyor',
       callback: startCallback,
     );
 
@@ -236,7 +236,7 @@ class EarthquakeTaskHandler extends TaskHandler {
         _stopSensorListening();
       }
       // Her durumda sabit notification göster
-      _updateNotification('Deprem Hattı Dinlemede', 'Deprem hattı dinliyor');
+      _updateNotification('Deprem Hattı İzlemede', 'Deprem hattı izliyor');
     } catch (e) {
       print('[BG] ❌ Pil/Ekran kontrolü hatası: $e');
     }
@@ -1107,8 +1107,8 @@ class EarthquakeTaskHandler extends TaskHandler {
 
       // Background service notification'ı güncelle - deprem bildirimi sonrası normale dön
       FlutterForegroundTask.updateService(
-        notificationTitle: 'Deprem Hattı Dinlemede',
-        notificationText: 'Deprem hattı dinliyor',
+        notificationTitle: 'Deprem Hattı İzlemede',
+        notificationText: 'Deprem hattı izliyor',
       );
 
       print('✅ Background notification gosterildi: M$magnitude - $location');

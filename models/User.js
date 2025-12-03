@@ -75,11 +75,11 @@ const userSchema = new mongoose.Schema({
   },
   notificationPreferences: {
     enabled: { type: Boolean, default: true, index: true },
-    radiusKm: { type: Number, default: 50 },
-    minMagnitude: { type: Number, default: 4.0 }
+    radiusKm: { type: Number, default: 300 },
+    minMagnitude: { type: Number, default: 2.5 }
   },
   notificationSettings: {
-    notificationRadius: { type: Number, default: 100 }, // km
+    notificationRadius: { type: Number, default: 300 }, // km
     minMagnitude: { type: Number, default: 2.5 },
     maxMagnitude: { type: Number, default: 10.0 }
   },
@@ -91,7 +91,7 @@ const userSchema = new mongoose.Schema({
   settings: {
     minMagnitude: { type: Number, default: 2.5 },
     maxMagnitude: { type: Number, default: 10.0 },
-    notificationRadius: { type: Number, default: 50 },
+    notificationRadius: { type: Number, default: 300 },
     notificationsEnabled: { type: Boolean, default: true },
     soundEnabled: { type: Boolean, default: true },
     vibrationEnabled: { type: Boolean, default: true },

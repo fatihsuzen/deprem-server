@@ -51,6 +51,7 @@ dependencies:
   flutter_svg: ^2.0.9
   onesignal_flutter: ^5.3.4
   share_plus: ^7.2.2
+  audioplayers: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -63,6 +64,7 @@ flutter:
     - assets/images/
     - assets/Icons/
     - Icons/
+    - assets/sos.mp3
     - assets/gem_active_faults_harmonized.geojson
   fonts:
     - family: Gabarito

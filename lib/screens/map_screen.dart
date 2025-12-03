@@ -129,28 +129,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _firebaseMessaging.subscribeToTopic('all').then((_) {
       print('✅ Topic "all" abonesi olundu');
     });
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      print(
-          '📩 FCM mesajı alındı: ${message.notification?.title} - ${message.notification?.body}');
-      if (!mounted) return;
-      if (message.notification != null) {
-        final title = message.notification!.title ?? 'Deprem Uyarısı';
-        final body = message.notification!.body ?? '';
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(body),
-            actions: [
-              TextButton(
-                child: Text('Kapat'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-        );
-      }
-    });
+    // FCM mesajları artık main.dart'ta merkezi olarak işleniyor
+    // Duplicate listener kaldırıldı
     _loadToggleStates();
     _initializeMapData();
   }

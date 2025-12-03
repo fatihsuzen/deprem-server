@@ -10,12 +10,19 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     final magnitude = double.tryParse(message.data['magnitude'] ?? '0') ?? 0.0;
     final location = message.data['location'] ?? 'Bilinmeyen';
     final distance = double.tryParse(message.data['distance'] ?? '0') ?? 0.0;
+    // Deprem merkezi koordinatları
+    final epicenterLat = double.tryParse(message.data['epicenter_lat'] ?? '');
+    final epicenterLon = double.tryParse(message.data['epicenter_lon'] ?? '');
+    print('📍 Background FCM Epicenter: lat=$epicenterLat, lon=$epicenterLon');
+    
     final notificationService = NotificationService();
     await notificationService.showFullScreenEarthquakeAlert(
       magnitude: magnitude,
       location: location,
       distance: distance,
       source: message.data['source'] ?? 'FCM',
+      earthquakeLat: epicenterLat,
+      earthquakeLon: epicenterLon,
     );
   }
 }

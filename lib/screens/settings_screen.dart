@@ -19,9 +19,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool autoStartMqtt = true;
   bool isLoading = true;
   bool _earthquakeDetectionEnabled = false;
-  EarthquakeDetector? _earthquakeDetector;
-  EarthquakeReportService? _reportService;
-  String _deviceId = "";
 
   // Deprem filtreleme ayarları
   final UserPreferencesService _prefsService = UserPreferencesService();
@@ -45,15 +42,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadSettings();
-    // Şarj durumu değişimini dinle
-    final battery = Battery();
-    _batteryStream = battery.onBatteryStateChanged;
-    _batteryStream?.listen((BatteryState state) {
-      // Sadece kullanıcı servisi aktif ettiyse kontrol et
-      if (_earthquakeDetectionEnabled) {
-        _checkAndStartDetection();
-      }
-    });
   }
 
   @override
@@ -88,11 +76,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       isLoading = false;
     });
-    // Cihaz ID'si ve servisleri başlat
-    _deviceId = prefs.getString('device_id') ?? "test-device";
-    _reportService = EarthquakeReportService('http://188.132.202.24:3000/api/p2p-earthquake');
-    _earthquakeDetector = EarthquakeDetector();
-    _checkAndStartDetection();
   }
 
   Future<void> _saveAppTheme(bool value) async {
@@ -137,7 +120,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       backgroundColor: isDarkTheme ? Colors.grey[850] : Colors.white,
       body: SingleChildScrollView(
-
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
               const SizedBox(height: 32),
 
               // Earthquake Detection Service Toggle
@@ -210,50 +196,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ),
                           );
                         }
-                        _checkAndStartDetection();
                       },
-                        // Şarjda olup olmadığını kontrol et
-                        Future<bool> _isDeviceCharging() async {
-                          final battery = Battery();
-                          final status = await battery.batteryState;
-                          // BatteryState.charging veya BatteryState.full ise şarja takılı
-                          return status == BatteryState.charging || status == BatteryState.full;
-                        }
-
-                        // Servisi başlat/durdur
-                        Future<void> _checkAndStartDetection() async {
-                          if (_earthquakeDetectionEnabled && await _isDeviceCharging()) {
-                            // Servisi başlat
-                            if (_earthquakeDetector != null && _reportService != null) {
-                              _earthquakeDetector!.startListening(
-                                deviceId: _deviceId,
-                                reportService: _reportService!,
-                              );
-                            }
-                          } else {
-                            // Servisi durdur (geliştirilebilir)
-                            // Şu an için dinlemeyi durdurma fonksiyonu yok, eklenebilir
-                          }
-                        }
                       activeColor: Colors.orange,
                       activeTrackColor: Colors.orange.withOpacity(0.3),
                     ),
                   ],
                 ),
               ),
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Deprem Filtreleme Bölümü (YENİ)
-            Text(
-              'Deprem Filtreleme',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: isDarkTheme ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
+
+              const SizedBox(height: 32),
+
+              // Deprem Filtreleme Bölümü (YENİ)
+              Text(
+                'Deprem Filtreleme',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: isDarkTheme ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 16),
 
             // Minimum Büyüklük
             _buildMagnitudeSlider(
@@ -847,6 +808,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         notificationRadius: _notificationRadius,
         minMagnitude: _minMagnitude,
         maxMagnitude: _maxMagnitude,
+        shareLocationWithFriends: _shareLocationEnabled,
       );
       print('✅ Ayarlar sunucuya senkronize edildi');
     } catch (e) {
