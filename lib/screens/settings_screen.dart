@@ -5,7 +5,6 @@ import '../services/mqtt_service.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../services/whistle_service.dart';
-import 'p2p_test_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -823,85 +822,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ],
-              ),
-            ),
-
-            // GELİŞTİRİCİ ARAÇLARI (YENİ)
-            const SizedBox(height: 32),
-            Text(
-              'Geliştirici Araçları',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: isDarkTheme ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              color: isDarkTheme ? Colors.grey[800] : Colors.white,
-              elevation: 2,
-              child: ListTile(
-                leading: Icon(
-                  Icons.science,
-                  color: Colors.orange,
-                  size: 32,
-                ),
-                title: Text(
-                  'P2P Sistem Testi',
-                  style: TextStyle(
-                    color: isDarkTheme ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  'Sensör ve backend testleri',
-                  style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios,
-                  color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const P2PTestScreen(),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              color: isDarkTheme ? Colors.grey[800] : Colors.white,
-              elevation: 2,
-              child: ListTile(
-                leading: Icon(
-                  Icons.sensors,
-                  color: Colors.purple,
-                  size: 32,
-                ),
-                title: Text(
-                  'Sensör Veri Kaydedici',
-                  style: TextStyle(
-                    color: isDarkTheme ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: Text(
-                  'Deprem simülasyonu ve algoritma ayarı',
-                  style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                trailing: Icon(
-                  Icons.arrow_forward_ios,
-                  color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                ),
-                onTap: () {
-                  Navigator.pushNamed(context, '/sensor-recorder');
-                },
               ),
             ),
           ],

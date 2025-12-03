@@ -11,6 +11,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             android.util.Log.d("DepremApp", "MyFirebaseMessagingService: onMessageReceived ÇAĞRILDI! remoteMessage = $remoteMessage")
         val data = remoteMessage.data
         android.util.Log.d("DepremApp", "MyFirebaseMessagingService: onMessageReceived, data = $data")
+        
+        // Sadece earthquake_alert tipindeki mesajları işle
+        // Diğer mesajlar Flutter tarafında FCM plugin ile işlenecek
+        if (data["type"] != "earthquake_alert") {
+            android.util.Log.d("DepremApp", "MyFirebaseMessagingService: type != earthquake_alert, Flutter'a bırakılıyor")
+            return // Uygulama açıkken Flutter tarafı zaten bildirimi alacak
+        }
+        
         if (data["type"] == "earthquake_alert") {
             val magnitude = data["magnitude"]?.toDoubleOrNull() ?: 0.0
             val location = data["location"] ?: ""
