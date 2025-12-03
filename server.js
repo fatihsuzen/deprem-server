@@ -134,6 +134,14 @@ app.post('/api/users/update-location', async (req, res) => {
             return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
         }
         await user.updateLocation(latitude, longitude, address);
+        
+        // deviceInfo.lastSeen güncelle (çevrimiçi durumu için)
+        if (!user.deviceInfo) {
+            user.deviceInfo = {};
+        }
+        user.deviceInfo.lastSeen = new Date();
+        await user.save();
+        
         // FCM token kaydetme
         if (fcmToken) {
             await user.addDeviceToken(fcmToken, platform);
@@ -170,7 +178,7 @@ app.post('/api/users/update-location', async (req, res) => {
 // User notification settings update
 app.post('/api/users/notification-settings', async (req, res) => {
   try {
-    const { notificationRadius, minMagnitude, maxMagnitude } = req.body;
+    const { notificationRadius, minMagnitude, maxMagnitude, shareLocationWithFriends } = req.body;
     const uid = req.headers['x-firebase-uid'];
 
     if (!uid) {
@@ -198,12 +206,18 @@ app.post('/api/users/notification-settings', async (req, res) => {
     if (maxMagnitude !== undefined) {
       user.notificationSettings.maxMagnitude = maxMagnitude;
     }
+    if (shareLocationWithFriends !== undefined) {
+      user.notificationSettings.shareLocationWithFriends = shareLocationWithFriends;
+    }
 
     await user.save();
     
     console.log(`⚙️  Bildirim ayarları güncellendi: ${user.displayName}`);
     console.log(`   Yarıçap: ${user.notificationSettings.notificationRadius} km`);
     console.log(`   Büyüklük: ${user.notificationSettings.minMagnitude}-${user.notificationSettings.maxMagnitude}`);
+    if (shareLocationWithFriends !== undefined) {
+      console.log(`   Konum paylaşımı: ${user.notificationSettings.shareLocationWithFriends}`);
+    }
 
     res.json({
       success: true,
