@@ -32,7 +32,7 @@ async function sendFcmHttpV1Notification({ title, body, token, topic, data }) {
     }
   };
   
-  // Sadece title ve body varsa notification alanını ekle (P2P için)
+  // Her zaman notification alanını ekle
   if (title && body) {
     message.message.notification = {
       title: title,

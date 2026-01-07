@@ -167,9 +167,9 @@ class PriorityNotificationService {
               try {
                 if (platform === 'android' || platform === 'ios') {
                   await sendFcmHttpV1Notification({
-                    // Sadece P2P depremler için notification göster, normal depremler sessiz olsun
-                    title: isP2P ? notificationData.title : undefined,
-                    body: isP2P ? notificationData.body : undefined,
+                    // Her zaman notification göster, priority data içinde
+                    title: notificationData.title,
+                    body: notificationData.body,
                     token,
                     data: notificationData
                   });

@@ -73,8 +73,17 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         android.util.Log.d("DepremApp", "MyFirebaseMessagingService: Uygulama kapalı/background, MainActivity başlatılıyor")
         
         if (data["type"] == "earthquake_alert") {
-            // ÖNCELİKLE ekranı uyandır!
-            wakeUpScreen()
+            val p2pCircle = data["p2p_circle"] ?: "false"
+            val isP2P = p2pCircle == "true"
+            
+            // Sadece P2P depremler için ekranı uyandır!
+            if (isP2P) {
+                android.util.Log.d("DepremApp", "MyFirebaseMessagingService: P2P deprem, ekran uyandırılıyor")
+                wakeUpScreen()
+            } else {
+                android.util.Log.d("DepremApp", "MyFirebaseMessagingService: Normal deprem, ekran uyandırılmayacak")
+            }
+            
             val magnitude = data["magnitude"]?.toDoubleOrNull() ?: 0.0
             val location = data["location"] ?: ""
             val distance = data["distance"]?.toDoubleOrNull() ?: 0.0
@@ -83,7 +92,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                val depth = data["depth"] ?: ""
                val region = data["region"] ?: ""
                val source = data["source"] ?: ""
-               val p2pCircle = data["p2p_circle"] ?: "false"
                val message = data["message"] ?: ""
                val arrivalSeconds = data["arrival_seconds"] ?: ""
                val direction = data["direction"] ?: ""
