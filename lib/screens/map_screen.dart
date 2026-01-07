@@ -601,6 +601,7 @@ class _MapScreenState extends State<MapScreen>
       _showFaultLines = prefs.getBool('mapToggle_faultLines') ?? true;
       _showLatestQuakePopup =
           prefs.getBool('mapToggle_latestQuakePopup') ?? true;
+      _isLeftPanelExpanded = prefs.getBool('mapToggle_leftPanelExpanded') ?? true;
     });
   }
 
@@ -1831,10 +1832,11 @@ class _MapScreenState extends State<MapScreen>
                   ),
                   padding: EdgeInsets.all(8),
                   constraints: BoxConstraints(),
-                  onPressed: () {
+                  onPressed: () async {
                     setState(() {
                       _isLeftPanelExpanded = !_isLeftPanelExpanded;
                     });
+                    await _saveToggleState('leftPanelExpanded', _isLeftPanelExpanded);
                   },
                 ),
               ),
