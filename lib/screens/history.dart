@@ -169,70 +169,151 @@ class _HistoryPageState extends State<HistoryPage> {
       int distanceFiltered = 0;
       int passed = 0;
 
-      final filtered = earthquakes
-          .where((eq) {
-            final mag = (eq['mag'] is int)
-                ? (eq['mag'] as int).toDouble()
-                : eq['mag'] as double;
+      final filtered = earthquakes.where((eq) {
+        final mag = (eq['mag'] is int)
+            ? (eq['mag'] as int).toDouble()
+            : eq['mag'] as double;
 
-            // Magnitude kontrolü
-            if (mag < _minMagnitude || mag > _maxMagnitude) {
-              magFiltered++;
-              return false;
+        // Magnitude kontrolü
+        if (mag < _minMagnitude || mag > _maxMagnitude) {
+          magFiltered++;
+          return false;
+        }
+
+        // Mesafe kontrolü (eğer konum varsa)
+        if (_userLat != null && _userLon != null) {
+          final lat = (eq['lat'] is int)
+              ? (eq['lat'] as int).toDouble()
+              : eq['lat'] as double;
+          final lon = (eq['lon'] is int)
+              ? (eq['lon'] as int).toDouble()
+              : eq['lon'] as double;
+
+          final distance = _calculateDistance(
+            _userLat!,
+            _userLon!,
+            lat,
+            lon,
+          );
+
+          if (distance > _notificationRadius) {
+            distanceFiltered++;
+            if (distanceFiltered <= 3) {
+              print(
+                  '   ❌ Uzak: ${eq['place']} - ${distance.toStringAsFixed(1)} km (>${_notificationRadius} km)');
             }
+            return false;
+          }
 
-            // Mesafe kontrolü (eğer konum varsa)
-            if (_userLat != null && _userLon != null) {
-              final lat = (eq['lat'] is int)
-                  ? (eq['lat'] as int).toDouble()
-                  : eq['lat'] as double;
-              final lon = (eq['lon'] is int)
-                  ? (eq['lon'] as int).toDouble()
-                  : eq['lon'] as double;
+          passed++;
+          if (passed <= 5) {
+            print(
+                '   ✅ Geçti: ${eq['place']} - ${distance.toStringAsFixed(1)} km (M${mag.toStringAsFixed(1)})');
+          }
+          return true;
+        }
 
-              final distance = _calculateDistance(
-                _userLat!,
-                _userLon!,
-                lat,
-                lon,
-              );
+        return true;
+      }).toList();
 
-              if (distance > _notificationRadius) {
-                distanceFiltered++;
-                if (distanceFiltered <= 3) {
-                  print(
-                      '   ❌ Uzak: ${eq['place']} - ${distance.toStringAsFixed(1)} km (>${_notificationRadius} km)');
+      // Zamana göre sırala - en yeni deprem en üstte
+      filtered.sort((a, b) {
+        try {
+          final timeA = a['time'] as String? ?? '';
+          final timeB = b['time'] as String? ?? '';
+
+          // DateTime'a parse et
+          DateTime? dateA = DateTime.tryParse(timeA);
+          DateTime? dateB = DateTime.tryParse(timeB);
+
+          // AFAD formatı (HH:mm) için bugünün tarihiyle birleştir
+          if (dateA == null && timeA.contains(':') && !timeA.contains('T')) {
+            try {
+              final now = DateTime.now();
+              final parts = timeA.split(':');
+              if (parts.length >= 2) {
+                final hour = int.tryParse(parts[0]);
+                final minute = int.tryParse(parts[1]);
+                if (hour != null && minute != null) {
+                  dateA = DateTime(now.year, now.month, now.day, hour, minute);
+                  // Eğer gelecek bir saat ise (gece yarısından sonra), dün olarak kabul et
+                  if (dateA.isAfter(now)) {
+                    dateA = dateA.subtract(Duration(days: 1));
+                  }
                 }
-                return false;
               }
-
-              passed++;
-              if (passed <= 5) {
-                print(
-                    '   ✅ Geçti: ${eq['place']} - ${distance.toStringAsFixed(1)} km (M${mag.toStringAsFixed(1)})');
-              }
-              return true;
+            } catch (e) {
+              // Parse hatasını yoksay
             }
+          }
 
-            return true;
-          })
-          .take(30)
-          .toList();
+          if (dateB == null && timeB.contains(':') && !timeB.contains('T')) {
+            try {
+              final now = DateTime.now();
+              final parts = timeB.split(':');
+              if (parts.length >= 2) {
+                final hour = int.tryParse(parts[0]);
+                final minute = int.tryParse(parts[1]);
+                if (hour != null && minute != null) {
+                  dateB = DateTime(now.year, now.month, now.day, hour, minute);
+                  // Eğer gelecek bir saat ise (gece yarısından sonra), dün olarak kabul et
+                  if (dateB.isAfter(now)) {
+                    dateB = dateB.subtract(Duration(days: 1));
+                  }
+                }
+              }
+            } catch (e) {
+              // Parse hatasını yoksay
+            }
+          }
+
+          // Eğer hala parse edilemezse string karşılaştır
+          if (dateA == null || dateB == null) {
+            return timeB.compareTo(timeA);
+          }
+
+          // DateTime'a göre sırala (en yeni önce)
+          return dateB.compareTo(dateA);
+        } catch (e) {
+          print('⚠️ Zaman sıralama hatası: $e');
+          return 0;
+        }
+      });
+
+      // Debug: İlk 5 depremin zaman ve kaynak bilgisi
+      print('\n🔍 İlk 5 deprem (sıralama sonrası):');
+      for (int i = 0; i < (filtered.length > 5 ? 5 : filtered.length); i++) {
+        final eq = filtered[i];
+        final timeStr = eq['time'] as String? ?? '';
+        final source = eq['source'] ?? 'UNKNOWN';
+        final place = eq['place'] ?? 'Unknown';
+        final parsedTime = DateTime.tryParse(timeStr);
+        final now = DateTime.now();
+        final diff = parsedTime != null ? now.difference(parsedTime) : null;
+        print('   ${i + 1}. [$source] $place');
+        print('      Time: $timeStr');
+        print('      Parsed: $parsedTime');
+        print(
+            '      Ago: ${diff != null ? "${diff.inMinutes} dakika" : "PARSE ERROR"}');
+      }
+
+      // En fazla 30 deprem göster
+      final limited = filtered.take(30).toList();
 
       print('\n📈 History - Filtreleme sonucu:');
       print('   Magnitude filtresi: $magFiltered elendi');
       print('   Mesafe filtresi: $distanceFiltered elendi');
       print('   Geçenler: $passed');
-      print('   Gösterilecek: ${filtered.length}\n');
+      print('   Gösterilecek: ${limited.length}\n');
 
       if (!mounted) return;
       setState(() {
-        _earthquakes = filtered;
+        _earthquakes = limited;
         _isLoading = false;
       });
 
       print(
-        '✅ ${filtered.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde)',
+        '✅ ${limited.length} geçmiş deprem yüklendi (${_minMagnitude}-${_maxMagnitude} arası, ${_notificationRadius.toInt()} km içinde), zamana göre sıralandı',
       );
     } catch (e) {
       print('❌ Geçmiş depremler yükleme hatası: $e');

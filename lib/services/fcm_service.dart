@@ -29,13 +29,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         double.tryParse(message.data['earthquakeLat'] ?? '');
     final epicenterLon = double.tryParse(message.data['epicenter_lon'] ?? '') ??
         double.tryParse(message.data['earthquakeLon'] ?? '');
-    print('📍 Background FCM Epicenter: lat=$epicenterLat, lon=$epicenterLon');
+    final depth = double.tryParse(message.data['depth'] ?? '');
+    print(
+        '📍 Background FCM Epicenter: lat=$epicenterLat, lon=$epicenterLon, depth=$depth');
 
     // P2P deprem mi kontrol et
     final isP2P = message.data['p2p_circle'] == 'true';
     // Gerçek kaynağı al (AFAD, Kandilli, USGS, EMSC, P2P vb.)
     final source = message.data['source'] ?? (isP2P ? 'P2P' : 'AFAD');
-    print('🔍 Background FCM Deprem tipi: ${isP2P ? "P2P" : "Normal"} - Kaynak: $source');
+    print(
+        '🔍 Background FCM Deprem tipi: ${isP2P ? "P2P" : "Normal"} - Kaynak: $source');
 
     final notificationService = NotificationService();
     await notificationService.showFullScreenEarthquakeAlert(
@@ -45,8 +48,10 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       source: source,
       earthquakeLat: epicenterLat,
       earthquakeLon: epicenterLon,
+      depth: depth,
       isP2P: isP2P,
     );
+    return; // Background handler'ı sonlandır, çift bildirim önlensin
   }
 }
 

@@ -25,6 +25,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'screens/earthquake_alert_screen.dart';
 import 'l10n/app_localizations.dart';
+import 'screens/earthquake_info_screen.dart';
 
 // Global navigation key
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -138,7 +139,9 @@ void main() async {
       final epicenterLon =
           double.tryParse(message.data['epicenter_lon']?.toString() ?? '') ??
               double.tryParse(message.data['earthquakeLon']?.toString() ?? '');
-      print('📍 FCM Deprem Merkezi: lat=$epicenterLat, lon=$epicenterLon');
+      final depth = double.tryParse(message.data['depth']?.toString() ?? '');
+      print(
+          '📍 FCM Deprem Merkezi: lat=$epicenterLat, lon=$epicenterLon, depth=$depth');
 
       String safeLocation = location;
       if (safeLocation.isEmpty ||
@@ -178,6 +181,7 @@ void main() async {
           source,
           epicenterLat: epicenterLat,
           epicenterLon: epicenterLon,
+          depth: depth,
         );
       }
     }
@@ -394,29 +398,43 @@ class _DepremAppState extends State<DepremApp> {
       );
     }
 
-    // 1. Deprem parametresi varsa, doğrudan deprem uyarı ekranını göster
+    // 1. Deprem parametresi varsa, p2p_circle parametresine göre ekranı aç
     if (widget.earthquakeParams != null) {
       final params = widget.earthquakeParams!;
       final epicenterLat =
           double.tryParse(params['epicenter_lat']?.toString() ?? '');
       final epicenterLon =
           double.tryParse(params['epicenter_lon']?.toString() ?? '');
+      final depth = double.tryParse(params['depth']?.toString() ?? '');
       final magnitude =
           double.tryParse(params['magnitude']?.toString() ?? '') ?? 0.0;
       final distance =
           double.tryParse(params['distance']?.toString() ?? '') ?? 0.0;
+      final source = params['source']?.toString() ?? 'AFAD';
+      final isP2P = params['p2p_circle']?.toString() == 'true';
 
       return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: EarthquakeAlertScreen(
-          magnitude: magnitude,
-          location: params['location'] as String? ?? '',
-          distance: distance,
-          timestamp: DateTime.now(),
-          source: 'P2P',
-          epicenterLat: epicenterLat,
-          epicenterLon: epicenterLon,
-        ),
+        home: isP2P
+            ? EarthquakeAlertScreen(
+                magnitude: magnitude,
+                location: params['location'] as String? ?? '',
+                distance: distance,
+                timestamp: DateTime.now(),
+                source: source,
+                epicenterLat: epicenterLat,
+                epicenterLon: epicenterLon,
+              )
+            : EarthquakeInfoScreen(
+                magnitude: magnitude,
+                location: params['location'] as String? ?? '',
+                distance: distance,
+                timestamp: DateTime.now(),
+                source: source,
+                epicenterLat: epicenterLat,
+                epicenterLon: epicenterLon,
+                depth: depth,
+              ),
       );
     }
 

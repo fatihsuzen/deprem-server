@@ -15,6 +15,7 @@ class EarthquakeInfoScreen extends StatefulWidget {
   final String source;
   final double? epicenterLat;
   final double? epicenterLon;
+  final double? depth;
 
   const EarthquakeInfoScreen({
     super.key,
@@ -25,6 +26,7 @@ class EarthquakeInfoScreen extends StatefulWidget {
     this.source = 'AFAD',
     this.epicenterLat,
     this.epicenterLon,
+    this.depth,
   });
 
   @override
@@ -82,6 +84,8 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
     debugPrint('   epicenterLat: ${widget.epicenterLat}');
     debugPrint('   epicenterLon: ${widget.epicenterLon}');
     debugPrint('   source: ${widget.source}');
+    debugPrint(
+        '   depth: ${widget.depth} (${widget.depth == null ? "NULL" : widget.depth! > 0 ? "VALID" : "ZERO OR NEGATIVE"})');
     _loadSettings();
     _initializeLocation();
   }
@@ -349,7 +353,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
                 child: FlutterMap(
                   options: MapOptions(
                     initialCenter: quakeLatLng,
-                    initialZoom: 9.0,
+                    initialZoom: 7.0,
                   ),
                   children: [
                     TileLayer(
@@ -431,6 +435,16 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
                         : widget.location,
                   ),
                   Divider(color: Colors.grey.withOpacity(0.2)),
+                  // Derinlik
+                  if (widget.depth != null && widget.depth != 0)
+                    _buildInfoRow(
+                      icon: Icons.arrow_downward,
+                      iconColor: Colors.orange,
+                      label: _currentLocale == 'tr' ? 'Derinlik' : 'Depth',
+                      value: '${widget.depth!.abs().toStringAsFixed(1)} km',
+                    ),
+                  if (widget.depth != null && widget.depth != 0)
+                    Divider(color: Colors.grey.withOpacity(0.2)),
                   // Koordinatlar
                   _buildInfoRow(
                     icon: Icons.my_location,

@@ -51,6 +51,27 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return // Uygulama açıkken Flutter tarafı zaten bildirimi alacak
         }
         
+        // Uygulama açıksa Flutter tarafı halleder, native'de bir şey yapmaya gerek yok
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val runningAppProcesses = activityManager.runningAppProcesses
+        var isAppInForeground = false
+        if (runningAppProcesses != null) {
+            for (processInfo in runningAppProcesses) {
+                if (processInfo.importance == android.app.ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND 
+                    && processInfo.processName == packageName) {
+                    isAppInForeground = true
+                    break
+                }
+            }
+        }
+        
+        if (isAppInForeground) {
+            android.util.Log.d("DepremApp", "MyFirebaseMessagingService: Uygulama açık, Flutter tarafı hallediyor")
+            return // Flutter'ın onMessage.listen handler'ı çalışacak
+        }
+        
+        android.util.Log.d("DepremApp", "MyFirebaseMessagingService: Uygulama kapalı/background, MainActivity başlatılıyor")
+        
         if (data["type"] == "earthquake_alert") {
             // ÖNCELİKLE ekranı uyandır!
             wakeUpScreen()
@@ -59,12 +80,14 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             val distance = data["distance"]?.toDoubleOrNull() ?: 0.0
                val epicenterLon = data["epicenter_lon"] ?: ""
                val epicenterLat = data["epicenter_lat"] ?: ""
+               val depth = data["depth"] ?: ""
                val region = data["region"] ?: ""
                val source = data["source"] ?: ""
+               val p2pCircle = data["p2p_circle"] ?: "false"
                val message = data["message"] ?: ""
                val arrivalSeconds = data["arrival_seconds"] ?: ""
                val direction = data["direction"] ?: ""
-            android.util.Log.d("DepremApp", "MyFirebaseMessagingService: earthquake_alert received! magnitude=$magnitude, location=$location, distance=$distance")
+            android.util.Log.d("DepremApp", "MyFirebaseMessagingService: earthquake_alert received! magnitude=$magnitude, location=$location, distance=$distance, p2p_circle=$p2pCircle")
 
             // Deprem parametrelerini SharedPreferences'a kaydet
             val prefs = getSharedPreferences("deprem_alert", MODE_PRIVATE)
@@ -75,8 +98,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 .putLong("timestamp", System.currentTimeMillis())
                 .putString("epicenter_lon", epicenterLon)
                 .putString("epicenter_lat", epicenterLat)
+                .putString("depth", depth)
                 .putString("region", region)
                 .putString("source", source)
+                .putString("p2p_circle", p2pCircle)
                 .putString("message", message)
                 .putString("arrival_seconds", arrivalSeconds)
                 .putString("direction", direction)
@@ -93,8 +118,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                     json.put("distance", distance)
                     json.put("epicenter_lon", epicenterLon)
                     json.put("epicenter_lat", epicenterLat)
+                    json.put("depth", depth)
                     json.put("region", region)
                     json.put("source", source)
+                    json.put("p2p_circle", p2pCircle)
                     json.put("message", message)
                     json.put("arrival_seconds", arrivalSeconds)
                     json.put("direction", direction)
@@ -119,8 +146,10 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             intent.putExtra("distance", distance)
                intent.putExtra("epicenter_lon", epicenterLon)
                intent.putExtra("epicenter_lat", epicenterLat)
+               intent.putExtra("depth", depth)
                intent.putExtra("region", region)
                intent.putExtra("source", source)
+               intent.putExtra("p2p_circle", p2pCircle)
                intent.putExtra("message", message)
                intent.putExtra("arrival_seconds", arrivalSeconds)
                intent.putExtra("direction", direction)

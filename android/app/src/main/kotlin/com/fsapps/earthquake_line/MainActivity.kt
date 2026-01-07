@@ -213,12 +213,14 @@ class MainActivity: FlutterActivity() {
 			params["distance"] = distance
 			params["epicenter_lon"] = intent.getStringExtra("epicenter_lon") ?: ""
 			params["epicenter_lat"] = intent.getStringExtra("epicenter_lat") ?: ""
+			params["depth"] = intent.getStringExtra("depth") ?: ""
 			params["region"] = intent.getStringExtra("region") ?: ""
 			params["source"] = intent.getStringExtra("source") ?: ""
+			params["p2p_circle"] = intent.getStringExtra("p2p_circle") ?: "false"
 			params["message"] = intent.getStringExtra("message") ?: ""
 			params["arrival_seconds"] = intent.getStringExtra("arrival_seconds") ?: ""
 			params["direction"] = intent.getStringExtra("direction") ?: ""
-			android.util.Log.d("DepremApp", "Intent params (fixed): magnitude=$magnitude, distance=$distance")
+			android.util.Log.d("DepremApp", "Intent params (fixed): magnitude=$magnitude, distance=$distance, p2p_circle=${params["p2p_circle"]}")
 			android.util.Log.d("DepremApp", "Intent params: $params")
 			return params
 		}
@@ -244,8 +246,10 @@ class MainActivity: FlutterActivity() {
 		val timestamp = prefs.getLong("timestamp", 0L)
 		val epicenterLon = prefs.getString("epicenter_lon", null)
 		val epicenterLat = prefs.getString("epicenter_lat", null)
+		val depth = prefs.getString("depth", null)
 		val region = prefs.getString("region", null)
 		val source = prefs.getString("source", null)
+		val p2pCircle = prefs.getString("p2p_circle", "false")
 		val message = prefs.getString("message", null)
 		val arrivalSeconds = prefs.getString("arrival_seconds", null)
 		val direction = prefs.getString("direction", null)
@@ -257,8 +261,10 @@ class MainActivity: FlutterActivity() {
 			params["timestamp"] = timestamp
 			params["epicenter_lon"] = epicenterLon ?: ""
 			params["epicenter_lat"] = epicenterLat ?: ""
+			params["depth"] = depth ?: ""
 			params["region"] = region ?: ""
 			params["source"] = source ?: ""
+			params["p2p_circle"] = p2pCircle ?: "false"
 			params["message"] = message ?: ""
 			params["arrival_seconds"] = arrivalSeconds ?: ""
 			params["direction"] = direction ?: ""
@@ -281,6 +287,7 @@ class MainActivity: FlutterActivity() {
 				params["distance"] = json.optDouble("distance", 0.0)
 				params["epicenter_lon"] = json.optString("epicenter_lon", "")
 				params["epicenter_lat"] = json.optString("epicenter_lat", "")
+				params["depth"] = json.optString("depth", "")
 				params["region"] = json.optString("region", "")
 				params["source"] = json.optString("source", "")
 				params["message"] = json.optString("message", "")
@@ -493,6 +500,33 @@ class MainActivity: FlutterActivity() {
 		}
 		android.util.Log.d("DepremApp", "sendEarthquakeParamsToFlutter: params = $params")
 		MethodChannel(engine.dartExecutor.binaryMessenger, "deprem_app/earthquake_params").invokeMethod("updateEarthquakeParams", params)
+		
+		// Parametreler Flutter'a gönderildikten sonra temizle
+		if (params != null) {
+			clearEarthquakeParams()
+		}
+	}
+	
+	// Deprem parametrelerini temizle (her açılışta eski deprem ekranı açılmasın)
+	private fun clearEarthquakeParams() {
+		android.util.Log.d("DepremApp", "clearEarthquakeParams: Clearing earthquake params...")
+		
+		// SharedPreferences'ı temizle
+		val prefs = getSharedPreferences("deprem_alert", Context.MODE_PRIVATE)
+		prefs.edit().clear().apply()
+		
+		// Dosyayı sil
+		try {
+			val file = java.io.File(filesDir, "deprem_alert.json")
+			if (file.exists()) {
+				file.delete()
+				android.util.Log.d("DepremApp", "clearEarthquakeParams: File deleted")
+			}
+		} catch (e: Exception) {
+			android.util.Log.e("DepremApp", "clearEarthquakeParams: File delete error: ${e.message}")
+		}
+		
+		android.util.Log.d("DepremApp", "clearEarthquakeParams: Cleared!")
 	}
 
 	private fun wakeUpScreen() {

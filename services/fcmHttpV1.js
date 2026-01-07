@@ -25,15 +25,20 @@ async function sendFcmHttpV1Notification({ title, body, token, topic, data }) {
       stringifiedData[key] = value === undefined || value === null ? '' : String(value);
     }
   }
+  
   const message = {
     message: {
-      notification: {
-        title: title || 'Deprem Uyarısı',
-        body: body || 'Yeni deprem algılandı! Lütfen güvenli bir yere geçin.'
-      },
       data: stringifiedData,
     }
   };
+  
+  // Sadece title ve body varsa notification alanını ekle (P2P için)
+  if (title && body) {
+    message.message.notification = {
+      title: title,
+      body: body
+    };
+  }
 
   if (token) message.message.token = token;
   if (topic) message.message.topic = topic;

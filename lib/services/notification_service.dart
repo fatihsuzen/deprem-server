@@ -157,10 +157,22 @@ class NotificationService {
             parts.length > 5 ? double.tryParse(parts[5]) : null;
         // Source parametresi (parts[6]) - P2P, AFAD, Kandilli, USGS, EMSC vb.
         final source = parts.length > 6 ? parts[6] : 'AFAD';
+        // Depth parametresi (parts[7])
+        final depth = parts.length > 7 ? double.tryParse(parts[7]) : null;
         final isP2P = source == 'P2P';
 
         print('🔔 Parsed data:');
         print('   magnitude: $magnitude (raw: ${parts[1]})');
+        print('   location: $location');
+        print('   distance: $distance');
+        print(
+            '   epicenterLat: $epicenterLat (raw: ${parts.length > 4 ? parts[4] : "N/A"})');
+        print(
+            '   epicenterLon: $epicenterLon (raw: ${parts.length > 5 ? parts[5] : "N/A"})');
+        print(
+            '   source: $source (raw: ${parts.length > 6 ? parts[6] : "N/A"})');
+        print('   depth: $depth (raw: ${parts.length > 7 ? parts[7] : "N/A"})');
+        print('   isP2P: $isP2P');
         print('   location: $location');
         print('   distance: $distance (raw: ${parts[3]})');
         print('   epicenterLat: $epicenterLat, epicenterLon: $epicenterLon');
@@ -187,6 +199,7 @@ class NotificationService {
             source,
             epicenterLat: epicenterLat,
             epicenterLon: epicenterLon,
+            depth: depth,
           );
         }
       }
@@ -559,22 +572,30 @@ class NotificationService {
     double? earthquakeLon,
     double? userLat,
     double? userLon,
+    double? depth,
     bool isP2P = false,
   }) async {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
-    print('📍 Epicenter: lat=$earthquakeLat, lon=$earthquakeLon');
+    print('📍 Epicenter: lat=$earthquakeLat, lon=$earthquakeLon, depth=$depth');
     print('🔍 Deprem tipi: ${isP2P ? "P2P" : "Normal"} - Kaynak: $source');
 
-    // HER ZAMAN önce kilit ekranı bildirimi göster (arka planda da çalışır)
-    await showWakeUpNotification(
-      magnitude,
-      location,
-      distance,
-      epicenterLat: earthquakeLat,
-      epicenterLon: earthquakeLon,
-      isP2P: isP2P,
-      source: source,
-    );
+    // SADECE P2P depremler için telefonu uyandır ve bildirim göster
+    if (isP2P) {
+      print('⚠️ P2P DEPREMI - Telefon uyandırılıyor ve bildirim gösteriliyor');
+      await showWakeUpNotification(
+        magnitude,
+        location,
+        distance,
+        epicenterLat: earthquakeLat,
+        epicenterLon: earthquakeLon,
+        depth: depth,
+        isP2P: isP2P,
+        source: source,
+      );
+    } else {
+      print(
+          'ℹ️ Normal deprem - FCM notification yeterli, ekstra bildirim gösterilmiyor');
+    }
 
     // Native tam ekran alerti sadece P2P depremlerde çağır
     if (isP2P) {
@@ -608,6 +629,7 @@ class NotificationService {
           source,
           epicenterLat: earthquakeLat,
           epicenterLon: earthquakeLon,
+          depth: depth,
         );
       }
     } else {
@@ -622,6 +644,7 @@ class NotificationService {
     double distance, {
     double? epicenterLat,
     double? epicenterLon,
+    double? depth,
     bool isP2P = false,
     String source = 'AFAD',
   }) async {
@@ -635,8 +658,8 @@ class NotificationService {
       playSound: true,
       enableVibration: true,
       fullScreenIntent: true, // TAM EKRAN AÇMA
-      autoCancel: false,
-      ongoing: true,
+      autoCancel: true, // Bildirime tıklandığında otomatik silinsin
+      ongoing: false, // Kalıcı bildirim olmasın, kullanıcı silebilsin
       category: AndroidNotificationCategory.alarm,
       visibility: NotificationVisibility.public,
       color: const Color(0xFFD32F2F),
@@ -671,17 +694,25 @@ class NotificationService {
       // Not: source parametresi çağıran taraftan geliyor (P2P, AFAD, Kandilli, USGS, EMSC vb.)
       // isP2P sadece ekran tipini belirlemek için kullanılıyor
       final payload =
-          'earthquake_alert|$magnitude|$location|$distance|${lat ?? ""}|${lon ?? ""}|$source';
+          'earthquake_alert|$magnitude|$location|$distance|${lat ?? ""}|${lon ?? ""}|$source|${depth ?? ""}';
+
+      print('📦 Notification payload created: $payload');
+      print('   depth value: $depth (${depth == null ? "NULL" : "VALID"})');
+
+      // P2P bildirimleri için benzersiz ID, normal depremler için sabit ID
+      final notificationId =
+          isP2P ? DateTime.now().millisecondsSinceEpoch.remainder(100000) : 0;
 
       await _flutterLocalNotificationsPlugin.show(
-        0, // notificationId yerine sabit 0 kullanıldı
+        notificationId,
         '🚨 DEPREM ALGILANDI!',
         'M$magnitude - ${distance.toStringAsFixed(1)} km uzakta',
         details,
         payload: payload,
       );
 
-      print('✅ Uyandırma bildirimi gönderildi!');
+      print(
+          '✅ Uyandırma bildirimi gönderildi! (ID: $notificationId, isP2P: $isP2P)');
     } catch (e) {
       print('❌ Uyandırma bildirimi hatası: $e');
     }
@@ -728,6 +759,7 @@ class NotificationService {
     String source, {
     double? epicenterLat,
     double? epicenterLon,
+    double? depth,
   }) {
     if (navigatorKey.currentContext == null) {
       print('❌ Navigator context yok, bilgi ekranı gösterilemiyor');
@@ -735,7 +767,7 @@ class NotificationService {
     }
 
     print(
-        '✅ Deprem bilgi ekranı gösteriliyor (epicenter: $epicenterLat, $epicenterLon)');
+        '✅ Deprem bilgi ekranı gösteriliyor (epicenter: $epicenterLat, $epicenterLon, depth: $depth)');
 
     Navigator.of(navigatorKey.currentContext!).push(
       MaterialPageRoute(
@@ -747,6 +779,7 @@ class NotificationService {
           source: source,
           epicenterLat: epicenterLat,
           epicenterLon: epicenterLon,
+          depth: depth,
         ),
       ),
     );
