@@ -1,6 +1,6 @@
 name: deprem_app
 description: Deprem bildirim uygulaması
-version: 1.3.3+11
+version: 1.3.4+12
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
