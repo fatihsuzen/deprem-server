@@ -91,12 +91,14 @@ class ChatService {
 
     try {
       final headers = await _getUserHeaders();
+      final userId = headers['user-id'] ?? 'anonymous';
       final displayName = headers['display-name'] ?? 'Kullanici';
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/join'),
         headers: headers,
         body: json.encode({
+          'userId': userId,
           'displayName': displayName,
           'photoURL': null,
         }),
@@ -126,10 +128,14 @@ class ChatService {
 
     try {
       final headers = await _getUserHeaders();
+      final userId = headers['user-id'] ?? 'anonymous';
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/leave'),
         headers: headers,
+        body: json.encode({
+          'userId': userId,
+        }),
       );
 
       print('📡 Leave room API Response: ${response.statusCode}');
@@ -190,12 +196,14 @@ class ChatService {
 
     try {
       final headers = await _getUserHeaders();
+      final userId = headers['user-id'] ?? 'anonymous';
       final displayName = headers['display-name'] ?? 'Kullanici';
 
       final response = await http.post(
         Uri.parse('$baseUrl/rooms/$roomId/messages'),
         headers: headers,
         body: json.encode({
+          'userId': userId,
           'message': message,
           'displayName': displayName,
         }),
