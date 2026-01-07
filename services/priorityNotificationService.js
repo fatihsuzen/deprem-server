@@ -126,6 +126,7 @@ class PriorityNotificationService {
             ? earthquake.location
             : (earthquake.location?.name || 'Bilinmeyen');
           const notificationData = {
+            type: 'earthquake_alert',
             title: isP2P
               ? `🟢 P2P Deprem Algılandı!`
               : `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
@@ -144,7 +145,10 @@ class PriorityNotificationService {
             userLon: String(parseFloat(userLon)),
             time: String(earthquake.time),
             priority: 'high',
+            source: String(earthquake.source || 'AFAD'),
             p2p_circle: isP2P ? 'true' : 'false',
+            epicenter_lat: String(parseFloat(earthquake.lat)),
+            epicenter_lon: String(parseFloat(earthquake.lon)),
           };
 
           // FCM token varsa gönder

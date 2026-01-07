@@ -5,6 +5,7 @@ import 'dart:math';
 import '../main.dart';
 import 'user_preferences_service.dart';
 import '../screens/earthquake_alert_screen.dart';
+import '../screens/earthquake_info_screen.dart';
 import 'package:flutter/services.dart';
 
 class NativeAlertService {
@@ -72,9 +73,9 @@ class NotificationService {
   Future<void> initialize() async {
     print('NotificationService başlatılıyor...');
 
-    // Android ayarları - daha basit yaklaşım
+    // Android ayarları - özel bildirim ikonu kullan
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_notification');
 
     // Genel ayarlar
     const InitializationSettings initSettings = InitializationSettings(
@@ -137,28 +138,57 @@ class NotificationService {
   }
 
   void _handleNotificationTap(NotificationResponse response) {
-    print('Bildirim yanıtı işleniyor: ${response.payload}');
+    print('🔔 Bildirim yanıtı işleniyor: ${response.payload}');
 
-    // Sadece deprem alert'inde tam ekran aç, diğerlerinde ana ekrana yönlendir
+    // Deprem bildirimine tıklandığında bilgi ekranı aç
     if (response.payload != null &&
         response.payload!.startsWith('earthquake_alert|')) {
       final parts = response.payload!.split('|');
+      print('🔔 Payload parts: $parts (count: ${parts.length})');
+
       if (parts.length >= 4) {
         final magnitude = double.tryParse(parts[1]) ?? 0.0;
         final location = parts[2];
         final distance = double.tryParse(parts[3]) ?? 0.0;
         // Epicenter koordinatları (parts[4] ve parts[5])
-        final epicenterLat = parts.length > 4 ? double.tryParse(parts[4]) : null;
-        final epicenterLon = parts.length > 5 ? double.tryParse(parts[5]) : null;
-        print('📍 Notification tap - epicenter: $epicenterLat, $epicenterLon');
-        showAlertScreen(
-          magnitude, 
-          location, 
-          distance, 
-          'AFAD',
-          epicenterLat: epicenterLat,
-          epicenterLon: epicenterLon,
-        );
+        final epicenterLat =
+            parts.length > 4 ? double.tryParse(parts[4]) : null;
+        final epicenterLon =
+            parts.length > 5 ? double.tryParse(parts[5]) : null;
+        // Source parametresi (parts[6]) - P2P, AFAD, Kandilli, USGS, EMSC vb.
+        final source = parts.length > 6 ? parts[6] : 'AFAD';
+        final isP2P = source == 'P2P';
+
+        print('🔔 Parsed data:');
+        print('   magnitude: $magnitude (raw: ${parts[1]})');
+        print('   location: $location');
+        print('   distance: $distance (raw: ${parts[3]})');
+        print('   epicenterLat: $epicenterLat, epicenterLon: $epicenterLon');
+        print('   source: $source, isP2P: $isP2P');
+
+        if (isP2P) {
+          // P2P deprem - Sismik dalgalı animasyon ekranı
+          print('🔔 P2P deprem tespit edildi, sismik dalgalı ekran açılıyor');
+          showAlertScreen(
+            magnitude,
+            location,
+            distance,
+            source,
+            epicenterLat: epicenterLat,
+            epicenterLon: epicenterLon,
+          );
+        } else {
+          // Normal deprem - Sakin bilgi ekranı
+          print('🔔 Normal deprem tespit edildi, bilgi ekranı açılıyor');
+          showInfoScreen(
+            magnitude,
+            location,
+            distance,
+            source,
+            epicenterLat: epicenterLat,
+            epicenterLon: epicenterLon,
+          );
+        }
       }
     } else {
       // Normal bildirimde ana ekrana yönlendir
@@ -203,22 +233,7 @@ class NotificationService {
         print('✅ Bildirim izinleri zaten verilmiş');
       }
 
-      // Exact alarms permission (Android 12+) - optional ve bir kez iste
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final exactAlarmsRequested =
-            prefs.getBool('exact_alarms_requested') ?? false;
-
-        if (!exactAlarmsRequested) {
-          await androidImplementation.requestExactAlarmsPermission();
-          await prefs.setBool('exact_alarms_requested', true);
-          print('✅ Exact alarms izni istendi (ilk kez)');
-        } else {
-          print('ℹ️ Exact alarms izni daha önce istendi');
-        }
-      } catch (e) {
-        print('! Exact alarms izni hatası: $e');
-      }
+      // Exact alarms permission (Android 12+) kaldırıldı. Artık istenmiyor.
     } else {
       print('❌ Android implementation bulunamadı');
     }
@@ -466,7 +481,7 @@ class NotificationService {
         AndroidNotificationAction(
           'report_action',
           'RAPOR ET',
-          icon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          icon: DrawableResourceAndroidBitmap('@drawable/ic_notification'),
           showsUserInterface: true,
         ),
       ],
@@ -544,29 +559,57 @@ class NotificationService {
     double? earthquakeLon,
     double? userLat,
     double? userLon,
+    bool isP2P = false,
   }) async {
     print('🚨 TAM EKRAN DEPREM UYARISI: M$magnitude - $location');
     print('📍 Epicenter: lat=$earthquakeLat, lon=$earthquakeLon');
-    
+    print('🔍 Deprem tipi: ${isP2P ? "P2P" : "Normal"} - Kaynak: $source');
+
     // HER ZAMAN önce kilit ekranı bildirimi göster (arka planda da çalışır)
     await showWakeUpNotification(
-      magnitude, 
-      location, 
+      magnitude,
+      location,
       distance,
       epicenterLat: earthquakeLat,
       epicenterLon: earthquakeLon,
+      isP2P: isP2P,
+      source: source,
     );
-    
-    // Eğer uygulama açıksa animasyonlu ekranı da aç
-    if (navigatorKey.currentContext != null) {
-      showAlertScreen(
-        magnitude, 
-        location, 
-        distance, 
-        source,
-        epicenterLat: earthquakeLat,
-        epicenterLon: earthquakeLon,
+
+    // Native tam ekran alerti sadece P2P depremlerde çağır
+    if (isP2P) {
+      await NativeAlertService.showNativeEarthquakeAlertActivity(
+        magnitude: magnitude,
+        location: location,
+        distance: distance,
       );
+    }
+
+    // Eğer uygulama açıksa ekranı aç
+    if (navigatorKey.currentContext != null) {
+      if (isP2P) {
+        // P2P - Sismik dalgalı animasyon ekranı
+        print('✅ P2P deprem - Sismik dalgalı ekran açılıyor');
+        showAlertScreen(
+          magnitude,
+          location,
+          distance,
+          source,
+          epicenterLat: earthquakeLat,
+          epicenterLon: earthquakeLon,
+        );
+      } else {
+        // Normal deprem - Bilgi ekranı
+        print('✅ Normal deprem - Bilgi ekranı açılıyor');
+        showInfoScreen(
+          magnitude,
+          location,
+          distance,
+          source,
+          epicenterLat: earthquakeLat,
+          epicenterLon: earthquakeLon,
+        );
+      }
     } else {
       print('ℹ️ Uygulama arka planda, sadece bildirim gösterildi');
     }
@@ -579,6 +622,8 @@ class NotificationService {
     double distance, {
     double? epicenterLat,
     double? epicenterLon,
+    bool isP2P = false,
+    String source = 'AFAD',
   }) async {
     final AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
@@ -602,37 +647,34 @@ class NotificationService {
         htmlFormatBigText: true,
         contentTitle: '🚨 DEPREM ALGILANDI!',
         htmlFormatContentTitle: true,
-        summaryText: 'HEMEN ÖNLEM ALIN',
-        htmlFormatSummaryText: true,
       ),
-      actions: const <AndroidNotificationAction>[
-        AndroidNotificationAction(
-          'open_alert',
-          'DETAY GÖR',
-          showsUserInterface: true,
-          cancelNotification: false,
-        ),
-        AndroidNotificationAction(
-          'dismiss',
-          'KAPAT',
-          cancelNotification: true,
-        ),
-      ],
     );
-
-    final NotificationDetails details = NotificationDetails(
-      android: androidDetails,
-    );
-
+    final NotificationDetails details =
+        NotificationDetails(android: androidDetails);
     try {
-      final int notificationId =
-          DateTime.now().millisecondsSinceEpoch.remainder(100000);
-
-      // Payload'a epicenter koordinatlarını da ekle
-      final payload = 'earthquake_alert|$magnitude|$location|$distance|${epicenterLat ?? ""}|${epicenterLon ?? ""}';
+      double? lat = epicenterLat;
+      double? lon = epicenterLon;
+      // Eğer epicenterLat/Lon boşsa, location string'inden doldur
+      if ((lat == null || lon == null || lat.isNaN || lon.isNaN) &&
+          location.contains(',')) {
+        final locParts = location.split(',');
+        if (locParts.length == 2) {
+          try {
+            lat = double.parse(locParts[0].trim());
+            lon = double.parse(locParts[1].trim());
+          } catch (e) {
+            print('❌ Location string parse hatası (bildirim): $e');
+          }
+        }
+      }
+      // Payload'a epicenter koordinatlarını ve kaynak bilgisini ekle
+      // Not: source parametresi çağıran taraftan geliyor (P2P, AFAD, Kandilli, USGS, EMSC vb.)
+      // isP2P sadece ekran tipini belirlemek için kullanılıyor
+      final payload =
+          'earthquake_alert|$magnitude|$location|$distance|${lat ?? ""}|${lon ?? ""}|$source';
 
       await _flutterLocalNotificationsPlugin.show(
-        notificationId,
+        0, // notificationId yerine sabit 0 kullanıldı
         '🚨 DEPREM ALGILANDI!',
         'M$magnitude - ${distance.toStringAsFixed(1)} km uzakta',
         details,
@@ -645,7 +687,7 @@ class NotificationService {
     }
   }
 
-  // Tam ekran alert göster
+  // Tam ekran alert göster (sismik dalga animasyonlu - acil durumlar için)
   void showAlertScreen(
     double magnitude,
     String location,
@@ -659,7 +701,8 @@ class NotificationService {
       return;
     }
 
-    print('✅ Tam ekran alert gösteriliyor (epicenter: $epicenterLat, $epicenterLon)');
+    print(
+        '✅ Tam ekran alert gösteriliyor (epicenter: $epicenterLat, $epicenterLon)');
 
     Navigator.of(navigatorKey.currentContext!).push(
       MaterialPageRoute(
@@ -673,6 +716,38 @@ class NotificationService {
           epicenterLon: epicenterLon,
         ),
         fullscreenDialog: true,
+      ),
+    );
+  }
+
+  // Sakin deprem bilgi ekranı (bildirime tıklandığında)
+  void showInfoScreen(
+    double magnitude,
+    String location,
+    double distance,
+    String source, {
+    double? epicenterLat,
+    double? epicenterLon,
+  }) {
+    if (navigatorKey.currentContext == null) {
+      print('❌ Navigator context yok, bilgi ekranı gösterilemiyor');
+      return;
+    }
+
+    print(
+        '✅ Deprem bilgi ekranı gösteriliyor (epicenter: $epicenterLat, $epicenterLon)');
+
+    Navigator.of(navigatorKey.currentContext!).push(
+      MaterialPageRoute(
+        builder: (context) => EarthquakeInfoScreen(
+          magnitude: magnitude,
+          location: location,
+          distance: distance,
+          timestamp: DateTime.now(),
+          source: source,
+          epicenterLat: epicenterLat,
+          epicenterLon: epicenterLon,
+        ),
       ),
     );
   }
@@ -708,6 +783,50 @@ class NotificationService {
       print('Test bildirimi gönderildi!');
     } catch (e) {
       print('Test bildirimi hatası: $e');
+    }
+  }
+
+  // Test deprem bildirimi - Info ekranını test etmek için
+  Future<void> showTestEarthquakeNotification() async {
+    print('🧪 Test deprem bildirimi gönderiliyor...');
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'earthquake_channel',
+      'Deprem Uyarıları',
+      channelDescription: 'Test deprem bildirimi',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      ticker: 'Test Deprem',
+    );
+
+    const NotificationDetails details = NotificationDetails(
+      android: androidDetails,
+    );
+
+    // Test verileri
+    const double magnitude = 5.2;
+    const String location = 'İstanbul - Test Bölgesi';
+    const double distance = 45.5;
+    const double epicenterLat = 40.9;
+    const double epicenterLon = 29.0;
+
+    final payload =
+        'earthquake_alert|$magnitude|$location|$distance|$epicenterLat|$epicenterLon';
+
+    try {
+      await _flutterLocalNotificationsPlugin.show(
+        998,
+        '🧪 TEST: DEPREM ALGILANDI!',
+        'M$magnitude - ${distance.toStringAsFixed(1)} km uzakta - $location',
+        details,
+        payload: payload,
+      );
+      print('✅ Test deprem bildirimi gönderildi! Payload: $payload');
+    } catch (e) {
+      print('❌ Test deprem bildirimi hatası: $e');
     }
   }
 

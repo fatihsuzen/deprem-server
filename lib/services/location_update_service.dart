@@ -51,7 +51,7 @@ class LocationUpdateService {
     }
   }
 
-  /// Konum iznini kontrol et ve iste
+  /// Konum iznini kontrol et (izin isteme UI tarafından yapılmalı)
   Future<bool> checkAndRequestPermission() async {
     bool serviceEnabled;
     PermissionStatus permissionGranted;
@@ -66,14 +66,12 @@ class LocationUpdateService {
       }
     }
 
-    // İzin kontrolü
+    // İzin kontrolü (sadece kontrol, isteme yapmıyoruz)
+    // NOT: İzin isteme işlemi PermissionService ile UI tarafından yapılmalıdır
     permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        print('❌ Konum izni verilmedi');
-        return false;
-      }
+    if (permissionGranted != PermissionStatus.granted) {
+      print('❌ Konum izni verilmedi. Lütfen uygulama ayarlarından izin verin.');
+      return false;
     }
 
     print('✅ Konum izni var');

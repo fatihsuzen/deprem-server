@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../services/chat_service.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart';
 import 'chat_screen.dart';
 
 class ChatPage extends StatefulWidget {
@@ -61,6 +62,8 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(
@@ -77,7 +80,7 @@ class _ChatPageState extends State<ChatPage> {
             Icon(Icons.login, size: 64, color: Colors.grey[400]),
             SizedBox(height: 16),
             Text(
-              'Sohbet için giriş yapmanız gerekiyor',
+              l10n?.get('login_required_chat') ?? 'Please login to access chat',
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
           ],
@@ -95,7 +98,7 @@ class _ChatPageState extends State<ChatPage> {
             Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
             SizedBox(height: 16),
             Text(
-              'Chat odaları yükleniyor...',
+              l10n?.get('loading_chat_rooms') ?? 'Loading chat rooms...',
               style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             ),
           ],
@@ -126,7 +129,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildChatRoomCard(Map<String, dynamic> room) {
     final activeUserCount = room['activeUserCount'] ?? 0;
     final lastMessage = room['lastMessage'];
-    
+
     return Container(
       margin: EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -172,60 +175,69 @@ class _ChatPageState extends State<ChatPage> {
 
                 // Oda bilgileri
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                  child: Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            room['name'] ?? 'Adsız Oda',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                room['name'] ??
+                                    l10n?.get('unnamed_room') ??
+                                    'Unnamed Room',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      SizedBox(height: 6),
-                      Row(
-                        children: [
-                          Icon(Icons.people, size: 14, color: Colors.grey[600]),
-                          SizedBox(width: 4),
-                          Text(
-                            '$activeUserCount üye',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
+                          SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.people,
+                                  size: 14, color: Colors.grey[600]),
+                              SizedBox(width: 4),
+                              Text(
+                                '$activeUserCount ${l10n?.get('members') ?? 'members'}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              if (lastMessage != null) ...[
+                                SizedBox(width: 12),
+                                Icon(Icons.access_time,
+                                    size: 14, color: Colors.grey[600]),
+                                SizedBox(width: 4),
+                                Text(
+                                  l10n?.get('just_now') ?? 'Just now',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                           if (lastMessage != null) ...[
-                            SizedBox(width: 12),
-                            Icon(Icons.access_time, size: 14, color: Colors.grey[600]),
-                            SizedBox(width: 4),
+                            SizedBox(height: 6),
                             Text(
-                              'şimdi',
+                              '${lastMessage['displayName']}: ${lastMessage['message']}',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
+                                fontSize: 13,
+                                color: Colors.grey[700],
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ],
-                      ),
-                      if (lastMessage != null) ...[
-                        SizedBox(height: 6),
-                        Text(
-                          '${lastMessage['displayName']}: ${lastMessage['message']}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ],
+                      );
+                    },
                   ),
                 ),
 

@@ -1,6 +1,6 @@
 name: deprem_app
 description: Deprem bildirim uygulaması
-version: 1.3.2+5
+version: 1.3.3+11
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -9,10 +9,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   flutter_map: ^8.2.2
   flutter_map_tile_caching: ^10.1.1
   latlong2: ^0.9.1
-  location: ^5.0.3
+  location: ^6.0.2
   geocoding: ^3.0.0
   http: ^1.1.0
   flutter_local_notifications: ^17.2.2
@@ -31,12 +33,13 @@ dependencies:
   firebase_auth: ^4.19.0
   cloud_firestore: ^4.17.0
   google_maps_flutter: ^2.4.1
-  intl: ^0.18.0
+  intl: ^0.20.2
   
   # Sensors & Background
   sensors_plus: ^4.0.2
   mqtt_client: ^9.0.9
-  flutter_foreground_task: ^8.10.0
+  permission_handler: ^11.0.1
+  flutter_foreground_task: ^8.17.0
   battery_plus: 6.0.2
   # workmanager: ^0.5.2 # DISABLED - causing build issues
   
@@ -57,6 +60,24 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.5
+
+# Uygulama ikonu yapılandırması
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "Icons/app_icon.png"
+  adaptive_icon_background: "#FF3A3D"
+  adaptive_icon_foreground: "Icons/app_icon.png"
+
+# Native Splash Screen yapılandırması
+flutter_native_splash:
+  color: "#FF3A3D"
+  image: assets/images/logo.png # Buraya yeni PNG ikonunuzu ekleyin
+  android_12:
+    color: "#FF3A3D"
+    image: assets/images/logo.png
 
 flutter:
   uses-material-design: true

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:math';
 import '../services/location_service.dart';
+import '../l10n/app_localizations.dart';
 
 class EarthquakeAlertScreen extends StatefulWidget {
   final double magnitude;
@@ -46,10 +48,12 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
   bool _isLocationReady = false;
   double distanceKm = 0.0;
   double waveBase = 0.0;
+  String _currentLocale = 'tr';
 
   @override
   void initState() {
     super.initState();
+    _loadLocale();
 
     // Tam ekran modu
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -70,69 +74,78 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
       vsync: this,
     )..repeat(reverse: true);
 
-    // Deprem merkezi konumu
+    // Deprem merkezi konumu (öncelik epicenterLat/Lon, sonra location string, en son Türkiye merkezi)
     double quakeLat = 39.0;
     double quakeLon = 35.0;
-    
-    // Önce epicenterLat/epicenterLon parametrelerini kontrol et
-    if (widget.epicenterLat != null && widget.epicenterLon != null &&
-        !widget.epicenterLat!.isNaN && !widget.epicenterLon!.isNaN) {
+    bool validEpicenter = false;
+    if (widget.epicenterLat != null &&
+        widget.epicenterLon != null &&
+        !widget.epicenterLat!.isNaN &&
+        !widget.epicenterLon!.isNaN) {
       quakeLat = widget.epicenterLat!;
       quakeLon = widget.epicenterLon!;
+      validEpicenter = true;
       print('📍 Deprem merkezi (epicenter params): $quakeLat, $quakeLon');
-    } else {
-      // Fallback: location string'inden parse et
+    }
+    if (!validEpicenter) {
       final locParts = widget.location.split(',');
       if (locParts.length == 2) {
         try {
-          quakeLat = double.parse(locParts[0].trim());
-          quakeLon = double.parse(locParts[1].trim());
-          if (quakeLat.isNaN || quakeLon.isNaN) {
-            quakeLat = 39.0;
-            quakeLon = 35.0;
+          final lat = double.parse(locParts[0].trim());
+          final lon = double.parse(locParts[1].trim());
+          if (!lat.isNaN && !lon.isNaN) {
+            quakeLat = lat;
+            quakeLon = lon;
+            print('📍 Deprem merkezi (location parse): $quakeLat, $quakeLon');
+          } else {
+            print('⚠️ Location parse NaN, varsayılan konum kullanılıyor');
           }
-          print('📍 Deprem merkezi (location parse): $quakeLat, $quakeLon');
         } catch (e) {
           print('⚠️ Location parse hatası, varsayılan konum kullanılıyor');
-          quakeLat = 39.0;
-          quakeLon = 35.0;
         }
       } else {
-        print('⚠️ Location formatı uygun değil: ${widget.location}, varsayılan konum kullanılıyor');
+        print(
+            '⚠️ Location formatı uygun değil: ${widget.location}, varsayılan konum kullanılıyor');
       }
     }
     quakeLatLng = LatLng(quakeLat, quakeLon);
     print('🗺️ Final deprem konumu: $quakeLatLng');
 
-    // Kullanıcı konumu (server/gps'ten gelen)
     Future<void> setUserLocation() async {
-      LatLng? lastLocation;
+      final prefs = await SharedPreferences.getInstance();
       final userLocParts = (widget.userLocation ?? '').split(',');
       if (widget.userLocation != null && userLocParts.length == 2) {
-        userLatLng = LatLng(double.parse(userLocParts[0].trim()),
-            double.parse(userLocParts[1].trim()));
-      } else {
-        // Dosyadan son konumu oku
         try {
-          final locationService = LocationService();
-          lastLocation = await locationService.readLastLocationFromFile();
+          final lat = double.parse(userLocParts[0].trim());
+          final lon = double.parse(userLocParts[1].trim());
+          if (!lat.isNaN && !lon.isNaN) {
+            userLatLng = LatLng(lat, lon);
+          } else {
+            userLatLng = LatLng(39.0, 35.0);
+          }
         } catch (e) {
-          lastLocation = null;
+          userLatLng = LatLng(39.0, 35.0);
         }
-        userLatLng =
-            lastLocation ?? LatLng(39.0, 35.0); // fallback: Türkiye merkezi
+      } else {
+        final lat = prefs.getDouble('last_latitude');
+        final lon = prefs.getDouble('last_longitude');
+        if (lat != null && lon != null && !lat.isNaN && !lon.isNaN) {
+          userLatLng = LatLng(lat, lon);
+        } else {
+          userLatLng = LatLng(39.0, 35.0);
+        }
       }
+      // Mesafeyi hesapla
+      distanceKm =
+          const Distance().as(LengthUnit.Kilometer, quakeLatLng, userLatLng);
       setState(() {
-        distanceKm =
-            const Distance().as(LengthUnit.Kilometer, quakeLatLng, userLatLng);
         _isLocationReady = true;
       });
 
-      // Sismik dalga animasyonu: deprem merkezinden kullanıcıya yayılma
-      // Dalga yayılma hızı (7 km/sn)
-      const double waveSpeedKmPerSec = 7.0;
+      // Sismik dalga hızı: 5 km/sn
+      const double waveSpeedKmPerSec = 5.0;
       final int secondsToReach =
-          max(3, (distanceKm / waveSpeedKmPerSec).ceil());
+          max(1, (distanceKm / waveSpeedKmPerSec).ceil());
       final waveDuration = Duration(seconds: secondsToReach);
       _waveController = AnimationController(
         duration: waveDuration,
@@ -141,24 +154,8 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
       _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
         CurvedAnimation(parent: _waveController, curve: Curves.linear),
       );
-
-      // Dalga animasyonu ekran kapanana kadar sürekli tekrar etsin
-      void repeatWave() {
-        if (mounted) {
-          _waveController.forward(from: 0.0).then((_) {
-            if (mounted) {
-              setState(() {
-                waveBase += 0.5;
-              });
-              repeatWave();
-            }
-          });
-        }
-      }
-
-      repeatWave();
-
-      // Dinamik geri sayım: Sismik dalga kullanıcıya ulaşana kadar
+      // Animasyon ve geri sayım senkron
+      _waveController.forward(from: 0.0);
       setState(() {
         _secondsLeft = secondsToReach;
       });
@@ -169,11 +166,8 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
         });
         if (_secondsLeft <= 0) {
           timer.cancel();
-          // Otomatik kapatma kaldırıldı, sadece kullanıcı kapatınca kapanacak
         }
       });
-
-      // Telefonun titreşimini başlat
       _startVibration();
     }
 
@@ -211,19 +205,31 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
     return Colors.orange.shade500;
   }
 
+  Future<void> _loadLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _currentLocale = prefs.getString('app_locale') ?? 'tr';
+      });
+    }
+  }
+
   String _getAlertMessage() {
     if (widget.distance < 10) {
-      return 'HEMEN SIĞINAK ALIN!';
+      return _currentLocale == 'tr' ? 'HEMEN SIĞINAK ALIN!' : 'TAKE COVER NOW!';
     } else if (widget.distance < 50) {
-      return 'GÜVENLİ BİR YERE GEÇİN!';
+      return _currentLocale == 'tr'
+          ? 'GÜVENLİ BİR YERE GEÇİN!'
+          : 'MOVE TO A SAFE PLACE!';
     } else {
-      return 'HAZIRLIKLI OLUN!';
+      return _currentLocale == 'tr' ? 'HAZIRLIKLI OLUN!' : 'BE PREPARED!';
     }
   }
 
   String _getDistanceText() {
     if (widget.distance < 1) {
-      return '${(widget.distance * 1000).toStringAsFixed(0)} metre';
+      final meters = (widget.distance * 1000).toStringAsFixed(0);
+      return _currentLocale == 'tr' ? '$meters metre' : '$meters meters';
     }
     return '${widget.distance.toStringAsFixed(1)} km';
   }
@@ -256,7 +262,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
       );
     }
 
-    // Harita view: hem deprem hem kullanıcı markerı, dalga animasyonu depremden kullanıcıya doğru
+    // Harita ve animasyon overlay ile deprem merkezi markerı üstte olacak şekilde
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
@@ -280,154 +286,98 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                     children: [
                       FlutterMap(
                         options: MapOptions(
-                          initialCenter: LatLng(
-                            (quakeLatLng.latitude + userLatLng.latitude) / 2,
-                            (quakeLatLng.longitude + userLatLng.longitude) / 2,
-                          ),
-                          initialZoom: 7.0,
+                          initialCenter: quakeLatLng,
+                          initialZoom: 10.0,
                           interactionOptions: const InteractionOptions(
-                              enableMultiFingerGestureRace: false,
-                              flags: InteractiveFlag.none),
+                            flags: InteractiveFlag.pinchZoom |
+                                InteractiveFlag.drag,
+                          ),
                         ),
                         children: [
                           TileLayer(
                             urlTemplate:
                                 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                             subdomains: ['a', 'b', 'c'],
-                            userAgentPackageName: 'dev.deprem_bildirim',
                           ),
                           MarkerLayer(
                             markers: [
-                              // Deprem merkezi markerı ve dalga animasyonu
                               Marker(
                                 point: quakeLatLng,
-                                width: 600,
-                                height: 600,
-                                child: AnimatedBuilder(
-                                  animation: _waveAnimation,
-                                  builder: (context, child) {
-                                    final maxRadiusKm = distanceKm + 100;
-                                    final waveRadiusKm = maxRadiusKm *
-                                        (waveBase + _waveAnimation.value);
-                                    final wavePixel = 40.0 + waveRadiusKm * 2;
-                                    return Stack(
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Container(
-                                          width: wavePixel,
-                                          height: wavePixel,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.red.withOpacity(0.45 -
-                                                _waveAnimation.value * 0.15),
-                                            border: Border.all(
-                                              color: Colors.redAccent
-                                                  .withOpacity(0.7 -
-                                                      _waveAnimation.value *
-                                                          0.3),
-                                              width: 4,
-                                            ),
-                                          ),
-                                        ),
-                                        Container(
-                                          width: 38,
-                                          height: 38,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: alertColor,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                  color: Colors.black38,
-                                                  blurRadius: 8),
-                                            ],
-                                          ),
-                                          child: Icon(Icons.location_on,
-                                              color: Colors.white, size: 26),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                                width: 54,
+                                height: 54,
+                                rotate: false,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: alertColor,
+                                    boxShadow: [
+                                      BoxShadow(
+                                          color: Colors.black38, blurRadius: 8),
+                                    ],
+                                  ),
+                                  child: const Icon(Icons.location_on,
+                                      color: Colors.white, size: 36),
                                 ),
                               ),
-                              // Kullanıcı konumu markerı
                               Marker(
                                 point: userLatLng,
-                                width: 38,
-                                height: 38,
+                                width: 36,
+                                height: 36,
+                                rotate: false,
                                 child: Container(
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     color: Colors.blueAccent,
                                     boxShadow: [
                                       BoxShadow(
-                                          color: Colors.black38, blurRadius: 8),
+                                          color: Colors.black26, blurRadius: 6),
                                     ],
                                   ),
-                                  child: Icon(Icons.person_pin_circle,
-                                      color: Colors.white, size: 26),
+                                  child: const Icon(Icons.person_pin_circle,
+                                      color: Colors.white, size: 22),
                                 ),
-                              ),
-                            ],
-                          ),
-                          // Dalga animasyonu: depremden kullanıcıya doğru bir çizgi
-                          PolylineLayer(
-                            polylines: [
-                              Polyline(
-                                points: [quakeLatLng, userLatLng],
-                                color: alertColor.withOpacity(0.5),
-                                strokeWidth: 4,
                               ),
                             ],
                           ),
                         ],
                       ),
-                      // ...potansiyel deprem açıklaması kaldırıldı...
+                      // Sismik dalga animasyonu overlay (merkezde, haritanın üstünde)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: Center(
+                            child: AnimatedBuilder(
+                              animation: _waveAnimation,
+                              builder: (context, child) {
+                                final wavePixel =
+                                    180.0 + (_waveAnimation.value * 80);
+                                return Container(
+                                  width: wavePixel,
+                                  height: wavePixel,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.red.withOpacity(0.18 +
+                                        0.12 * (1 - _waveAnimation.value)),
+                                    border: Border.all(
+                                      color: Colors.redAccent.withOpacity(0.4 +
+                                          0.2 * (1 - _waveAnimation.value)),
+                                      width: 4,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    _getAlertMessage(),
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: alertColor,
-                    ),
-                  ),
-                  const SizedBox(width: 18),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.timer, color: alertColor, size: 22),
-                        const SizedBox(width: 6),
-                        Text(
-                          '$_secondsLeft',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: alertColor,
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Text('sn', style: TextStyle(fontSize: 16)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
               Text(
-                'Tahmini Deprem: ${widget.magnitude.toStringAsFixed(1)}',
+                _currentLocale == 'tr'
+                    ? 'Tahmini Deprem: ${widget.magnitude.toStringAsFixed(1)}'
+                    : 'Estimated Earthquake: ${widget.magnitude.toStringAsFixed(1)}',
                 style: const TextStyle(
                   fontSize: 22,
                   color: Colors.red,
@@ -449,6 +399,23 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                   color: Colors.white70,
                 ),
               ),
+              const SizedBox(height: 16),
+              Text(
+                _currentLocale == 'tr'
+                    ? 'Sarsıntı $_secondsLeft sn sonra ulaşacak'
+                    : 'Shaking expected in $_secondsLeft s',
+                style: const TextStyle(
+                  fontSize: 20,
+                  color: Colors.orangeAccent,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                        color: Colors.black,
+                        blurRadius: 4,
+                        offset: Offset(1, 1)),
+                  ],
+                ),
+              ),
               const SizedBox(height: 32),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -461,9 +428,9 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 ),
                 onPressed: _closeAlert,
-                child: const Text('Kapat',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text(_currentLocale == 'tr' ? 'Kapat' : 'Close',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
               ),
             ],
           ),

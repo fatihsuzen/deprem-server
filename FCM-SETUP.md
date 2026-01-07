@@ -157,7 +157,7 @@ tail -f server.log
 **Çözüm:**
 - `google-services.json` dosyasını `android/app/` klasörüne ekle
 - Firebase Console'da Android uygulaması eklenmiş mi kontrol et
-- Package name doğru mu: `com.example.deprem_app`
+- Package name doğru mu: `com.fsapps.earthquake_line`
 
 ### Problem: Bildirim gelmiyor
 **Kontrol:**

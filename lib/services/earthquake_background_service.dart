@@ -57,23 +57,17 @@ class EarthquakeBackgroundService {
     print('[BG] Foreground servis başlatılıyor...');
 
     // Arka plan konum izni kontrolü (Android 10+)
+    // NOT: İzin isteme işlemi UI tarafından (PermissionService ile) yapılmalıdır
+    // Burada sadece mevcut durumu kontrol ediyoruz
     try {
-      // Geolocator ile runtime izin kontrolü
       final geolocator = GeolocatorPlatform.instance;
       LocationPermission permission = await geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        permission = await geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.whileInUse) {
-        // Android 10+ için arka plan izni ayrıca istenmeli
-        print(
-            '[BG] Arka plan konum izni (ACCESS_BACKGROUND_LOCATION) isteniyor...');
-        permission = await geolocator.requestPermission();
-      }
+
       if (permission != LocationPermission.always) {
         print(
-            '[BG] UYARI: Arka plan konum izni verilmedi! Arka planda deprem raporu gönderilemez.');
+            '[BG] UYARI: Arka plan konum izni verilmedi! Servisi başlatmadan önce UI\'dan izin alın.');
+        print('[BG] Mevcut izin durumu: $permission');
+        // Servis yine de başlatılabilir, ancak arka plan konumu olmayacak
       } else {
         print('[BG] Arka plan konum izni verildi.');
       }
@@ -84,6 +78,9 @@ class EarthquakeBackgroundService {
     await FlutterForegroundTask.startService(
       notificationTitle: 'Deprem Hattı İzlemede',
       notificationText: 'Deprem hattı izliyor',
+      notificationButtons: [
+        const NotificationButton(id: 'stop', text: 'Durdur'),
+      ],
       callback: startCallback,
     );
 
@@ -121,7 +118,7 @@ class EarthquakeTaskHandler extends TaskHandler {
   // ============ DEPREM AĞI ALGORİTMASI DEĞİŞKENLERİ ============
   // Veri tamponları (Deprem Ağı gibi)
   static const int bufferSize =
-      256; // Örnek tamponu boyutu (DÜŞÜRÜLDÜ: 4096→256, ~5 saniye @ 50Hz)
+      128; // Örnek tamponu boyutu (~2.5 saniye @ 50Hz) - HIZLI ALGILAMA
   final List<double> _deltaBuffer = []; // Delta değerleri tamponu
   final List<int> _timestampBuffer = []; // Zaman damgaları (ms)
 
@@ -136,23 +133,31 @@ class EarthquakeTaskHandler extends TaskHandler {
   int _consecutiveEvents = 0; // Ardışık olay sayısı
   double _cumulativeDuration = 0.0; // Kümülatif süre
 
-  // Eşik değerleri (VERİ ANALİZİNE DAYALI - 02.12.2025)
-  // Normal STD: 0.0052, Weak STD: 0.0099, Medium STD: 0.0168, Strong STD: 0.0542
-  // Normal Max Delta: 0.0429, Weak Max Delta: 0.0724, Medium Max Delta: 0.1580
-  // DÜZELTME: Çok hassas eşikler yanlış pozitife neden oluyordu
+  // ============ DEPREM ALGILAMA EŞİKLERİ (HASSASİYET DAHA DA AZALTILDI) ============
+  // Gerçek deprem verileri:
+  // - Zayıf deprem: STD ~0.01, Delta ~0.07
+  // - Orta deprem: STD ~0.017, Delta ~0.16
+  // - Güçlü deprem: STD ~0.05, Delta ~0.3+
+  // Normal (sabit telefon): STD ~0.003-0.008, Delta ~0.01-0.03
+
+  // HASSASİYET AZALTILDI - YANLIŞ POZİTİFLERİ ÖNLEMEK İÇİN DEĞERLER DAHA DA ARTIRILDI
   static const double stdMultiplier =
-      2.0; // Baseline STD'nin 2 katı = anomali (ARTIRILDI: 1.5→2.0)
+      5.0; // Baseline STD'nin 5 katı = anomali (Önceki: 4.0)
   static const double deltaMultiplier =
-      2.5; // Delta çarpanı (ARTIRILDI: 0.8→2.5)
+      5.0; // Delta çarpanı (Önceki: 5.0 - aynı kaldı)
   static const int minConsecutiveSamples =
-      10; // Minimum ardışık örnek (ARTIRILDI: 2→10)
-  static const double minDuration =
-      0.5; // Minimum süre (saniye) (ARTIRILDI: 0.05→0.5)
-  static const int stabilizationTime =
-      3; // Stabilizasyon süresi (ARTIRILDI: 2→3 saniye)
+      15; // Minimum ardışık örnek (~0.30 saniye) (Önceki: 12)
+  static const double minDuration = 1.0; // Minimum süre (saniye) - 1 SANİYE
+  static const int stabilizationTime = 3; // Stabilizasyon süresi (saniye)
   static const bool instantReport = true; // Anında raporlama
   static const double minAbsoluteThreshold =
-      0.015; // Min mutlak eşik (ARTIRILDI: 0.005→0.015, weak deprem eşiği)
+      0.04; // Min mutlak delta eşiği (Önceki: 0.02)
+
+  // Minimum STD eşiği - bu değerin altında anomali sayılmaz
+  // Telefon titreşimi veya küçük hareketleri filtreler
+  // DEĞER ARTIRILDI - EN ÖNEMLİ DEĞİŞİKLİK
+  static const double minStdForAnomaly =
+      0.025; // Minimum STD eşiği (Önceki: 0.018)
 
   // Son değerler
   double _lastMagnitude = 0.0;
@@ -168,21 +173,23 @@ class EarthquakeTaskHandler extends TaskHandler {
 
   // Potansiyel deprem bildirimi için cooldown ve eşik
   DateTime? _lastPotentialReportTime;
-  static const int potentialReportCooldownSeconds = 10; // 10 saniye cooldown
+  static const int potentialReportCooldownSeconds =
+      5; // 5 saniye cooldown - HIZLI
   static const double potentialReportThreshold =
-      1.8; // Potansiyel rapor için baseline'ın 1.8 katı (DÜŞÜRÜLDÜ: 2.5→1.8, weak algılanabilsin)
+      2.0; // Potansiyel rapor için baseline'ın 2 katı
 
   // Detection timeout cooldown - yanlış pozitif döngüsünü önle
   DateTime? _lastDetectionTimeoutTime;
-  static const int detectionTimeoutCooldownSeconds = 5; // 5 saniye cooldown
+  static const int detectionTimeoutCooldownSeconds =
+      3; // 3 saniye cooldown - HIZLI
   // ============================================================
 
   // Ekran durumunu dosyadan oku (isolate'da MethodChannel çalışmadığından)
   Future<bool> _checkScreenState() async {
     try {
       // Android filesDir yolunu doğrudan kullan
-      // Android'de: /data/data/com.example.deprem_app/files/screen_state.json
-      const String packageName = 'com.example.deprem_app';
+      // Android'de: /data/data/com.fsapps.earthquake_line/files/screen_state.json
+      const String packageName = 'com.fsapps.earthquake_line';
       final String filesPath = '/data/data/$packageName/files';
       final file = File('$filesPath/screen_state.json');
 
@@ -265,8 +272,18 @@ class EarthquakeTaskHandler extends TaskHandler {
   }
 
   void _stopBatteryMonitoring() {
-    _batteryStateSubscription?.cancel();
-    _batteryCheckTimer?.cancel();
+    try {
+      _batteryStateSubscription?.cancel();
+    } catch (e) {
+      print('[BG] Battery subscription cancel error: $e');
+    }
+    _batteryStateSubscription = null;
+    try {
+      _batteryCheckTimer?.cancel();
+    } catch (e) {
+      print('[BG] Battery timer cancel error: $e');
+    }
+    _batteryCheckTimer = null;
   }
 
   void _updateNotification(String title, String text) {
@@ -280,9 +297,20 @@ class EarthquakeTaskHandler extends TaskHandler {
   void _stopSensorListening() {
     if (!_listening) return;
     print('[BG] Sensör dinleme durduruluyor...');
-    _subscription?.cancel();
+    try {
+      _subscription?.cancel();
+    } catch (e) {
+      print('[BG] Sensor subscription cancel error: $e');
+    }
     _subscription = null;
     _listening = false;
+    // Foreground servis durdurulurken tüm stream ve timer'ları güvenli şekilde kapat
+    Future<void> onDestroy() async {
+      print(
+          '[BG] Foreground servis durduruluyor, tüm stream ve timerlar kapatılıyor...');
+      _stopBatteryMonitoring();
+      _stopSensorListening();
+    }
 
     // Deprem Ağı değişkenlerini sıfırla
     _resetDetectionState();
@@ -451,9 +479,14 @@ class EarthquakeTaskHandler extends TaskHandler {
         }
       }
 
-      // Anomali tespiti: Standart sapma baseline'ın 1.5 katından büyükse
+      // Anomali tespiti:
+      // 1. Standart sapma baseline'ın stdMultiplier katından büyük olmalı
+      // 2. Current STD minimum eşiğin üzerinde olmalı (küçük titreşimleri filtrele)
+      // 3. Baseline geçerli olmalı
       final double threshold = _baselineStd * stdMultiplier;
-      final bool isAnomaly = currentStd > threshold && _baselineStd < 9999.0;
+      final bool isAnomaly = currentStd > threshold &&
+          currentStd > minStdForAnomaly &&
+          _baselineStd < 9999.0;
 
       // Her 200 örnekte detaylı log (debug için - log spam önleme)
       if (_sampleIndex % 200 == 0) {
@@ -561,11 +594,11 @@ class EarthquakeTaskHandler extends TaskHandler {
         }
 
         // Debug: Tüm koşulları kontrol et
-        // DİNAMİK STD EŞİĞİ: baseline'ın 2.5 katı (daha katı)
-        final double minStdThreshold = _baselineStd * 2.5;
+        // HIZLI ALGILAMA: baseline'ın 2.5 katı veya minimum 0.01 STD
+        final double minStdThreshold = max(_baselineStd * 2.5, 0.01);
         final bool cond1 = consecutiveSamples >= minConsecutiveSamples;
         final bool cond2 = duration >= minDuration;
-        final bool cond3 = extremeCount >= 5;
+        final bool cond3 = extremeCount >= 5; // Minimum 5 aşırı değer
         final bool cond4 = currentStd >= minStdThreshold;
         final bool allConditionsMet = cond1 && cond2 && cond3 && cond4;
 
@@ -576,9 +609,8 @@ class EarthquakeTaskHandler extends TaskHandler {
         }
 
         // ============ DEPREM TESPİTİ (ANINDA RAPORLAMA) ============
-        // Koşullar: 10+ ardışık örnek VE 0.5+ saniye süre VE 5+ aşırı değer
-        // ANINDA RAPOR: Deprem tespit edildiği anda hemen gönder, bitmesini bekleme!
-        // DİNAMİK EŞİK: baseline'ın 2.5 katı (daha katı)
+        // HIZLI ALGILAMA: 8+ ardışık örnek VE 0.3+ saniye süre VE 5+ aşırı değer
+        // ANINDA RAPOR: Deprem tespit edildiği anda hemen gönder!
         if (allConditionsMet) {
           // Cooldown kontrolü - son rapordan beri yeterli süre geçti mi?
           final now = DateTime.now();
@@ -647,13 +679,13 @@ class EarthquakeTaskHandler extends TaskHandler {
           }
         }
 
-        // 3 saniye içinde yeterli olay yoksa iptal
-        if (_detectionSampleCount > 150) {
-          // ~3 saniye @ 50Hz
+        // 2 saniye içinde yeterli olay yoksa iptal - HIZLI
+        if (_detectionSampleCount > 100) {
+          // ~2 saniye @ 50Hz
           print('[BG] ⏱️ Algılama zaman aşımı, sıfırlanıyor...');
           _isDetecting = false;
           _detectionSampleCount = 0;
-          // Timeout cooldown başlat - 5 saniye boyunca yeni detection başlatma
+          // Timeout cooldown başlat - yeni detection'dan önce bekle
           _lastDetectionTimeoutTime = DateTime.now();
           print('[BG] ⏸️ ${detectionTimeoutCooldownSeconds}s cooldown başladı');
         }
@@ -1147,8 +1179,16 @@ class EarthquakeTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp) async {
     print('🔴 Background task durduruluyor');
-    _stopBatteryMonitoring();
-    _stopSensorListening();
+    try {
+      _stopBatteryMonitoring();
+    } catch (e) {
+      print('[BG] Battery monitoring stop error: $e');
+    }
+    try {
+      _stopSensorListening();
+    } catch (e) {
+      print('[BG] Sensor listening stop error: $e');
+    }
   }
 
   @override

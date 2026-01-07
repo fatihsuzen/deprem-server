@@ -1,0 +1,6 @@
+# flutter_native_splash configuration
+flutter_native_splash:
+  color: "#FF3A3D" # Uygulamanın kırmızı teması
+  android: true
+  ios: true
+  android_gravity: fill

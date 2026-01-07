@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:location/location.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
+import '../l10n/app_localizations.dart';
 import 'dart:math' show sin, cos, sqrt, asin;
 
 class HistoryPage extends StatefulWidget {
@@ -31,6 +32,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _loadSettings() async {
     final settings = await _prefsService.getAllSettings();
+    if (!mounted) return;
     setState(() {
       _minMagnitude = settings['minMagnitude'];
       _maxMagnitude = settings['maxMagnitude'];
@@ -60,7 +62,9 @@ class _HistoryPageState extends State<HistoryPage> {
       // İzin kontrol et
       PermissionStatus permission = await location.hasPermission();
       if (permission == PermissionStatus.denied) {
-        permission = await location.requestPermission();
+        // İzin isteme işlemi PermissionService ile UI'dan yapılmalıdır
+        print('❌ Konum izni yok. Lütfen uygulama ayarlarından izin verin.');
+        return;
         if (permission != PermissionStatus.granted) {
           print('⚠️ History - Konum izni yok, cache kullanılıyor');
           await _loadCachedLocation();
@@ -72,6 +76,7 @@ class _HistoryPageState extends State<HistoryPage> {
       final locationData = await location.getLocation();
 
       if (locationData.latitude != null && locationData.longitude != null) {
+        if (!mounted) return;
         setState(() {
           _userLat = locationData.latitude;
           _userLon = locationData.longitude;
@@ -99,6 +104,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final lat = prefs.getDouble('lastLatitude');
     final lon = prefs.getDouble('lastLongitude');
 
+    if (!mounted) return;
     if (lat != null && lon != null) {
       setState(() {
         _userLat = lat;
@@ -139,6 +145,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   Future<void> _loadEarthquakes() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isLoading = true;
       });
@@ -218,6 +225,7 @@ class _HistoryPageState extends State<HistoryPage> {
       print('   Geçenler: $passed');
       print('   Gösterilecek: ${filtered.length}\n');
 
+      if (!mounted) return;
       setState(() {
         _earthquakes = filtered;
         _isLoading = false;
@@ -228,21 +236,23 @@ class _HistoryPageState extends State<HistoryPage> {
       );
     } catch (e) {
       print('❌ Geçmiş depremler yükleme hatası: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     }
   }
 
-  String _getTimeAgoText(int minutesAgo) {
+  String _getTimeAgoText(int minutesAgo, {BuildContext? ctx}) {
+    final l10n = ctx != null ? AppLocalizations.of(ctx) : null;
     if (minutesAgo < 60) {
-      return '$minutesAgo dk önce';
+      return '$minutesAgo ${l10n?.get('min_ago') ?? 'min ago'}';
     } else if (minutesAgo < 1440) {
       // 24 saat = 1440 dakika
       final hours = (minutesAgo / 60).floor();
-      return '$hours saat önce';
+      return '$hours ${l10n?.get('hours_ago_short') ?? 'hours ago'}';
     } else {
-      return '1 gün önce';
+      return l10n?.get('day_ago') ?? '1 day ago';
     }
   }
 
@@ -251,11 +261,13 @@ class _HistoryPageState extends State<HistoryPage> {
     return _earthquakes.take(30).toList();
   }
 
-  String _getIntensity(double magnitude) {
-    if (magnitude >= 5.0) return 'Şiddetli';
-    if (magnitude >= 4.0) return 'Belirgin';
-    if (magnitude >= 3.0) return 'Hafif';
-    return 'Çok Hafif';
+  String _getIntensity(double magnitude, {BuildContext? ctx}) {
+    final l10n = ctx != null ? AppLocalizations.of(ctx) : null;
+    if (magnitude >= 5.0) return l10n?.get('intensity_severe') ?? 'Severe';
+    if (magnitude >= 4.0)
+      return l10n?.get('intensity_noticeable') ?? 'Noticeable';
+    if (magnitude >= 3.0) return l10n?.get('intensity_light') ?? 'Light';
+    return l10n?.get('intensity_very_light') ?? 'Very Light';
   }
 
   Color _getMagnitudeColor(double magnitude) {
@@ -279,22 +291,28 @@ class _HistoryPageState extends State<HistoryPage> {
     final depth = (earthquake['depth'] is int)
         ? (earthquake['depth'] as int).toDouble()
         : earthquake['depth'] as double;
-    final intensity = _getIntensity(magnitude);
+    final l10n = AppLocalizations.of(context);
+    final intensity = _getIntensity(magnitude, ctx: context);
 
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      isScrollControlled: true,
       builder: (ctx) {
         return Container(
           padding: const EdgeInsets.all(24.0),
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(ctx).size.height * 0.50,
+            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Deprem Detayları',
+                l10n?.get('earthquake_details') ?? 'Earthquake Details',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 24),
@@ -333,7 +351,9 @@ class _HistoryPageState extends State<HistoryPage> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      earthquake['place'] ?? 'Bilinmeyen Konum',
+                      earthquake['place'] ??
+                          l10n?.get('unknown_location') ??
+                          'Unknown Location',
                       style: TextStyle(fontSize: 16, color: Colors.black87),
                     ),
                   ),
@@ -347,7 +367,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   Icon(Icons.layers, color: Color(0xFFFF3333), size: 24),
                   SizedBox(width: 12),
                   Text(
-                    'Derinlik: ${depth.toStringAsFixed(1)} km',
+                    '${l10n?.get('depth') ?? 'Depth'}: ${depth.toStringAsFixed(1)} km',
                     style: TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ],
@@ -360,7 +380,8 @@ class _HistoryPageState extends State<HistoryPage> {
                   Icon(Icons.access_time, color: Color(0xFFFF3333), size: 24),
                   SizedBox(width: 12),
                   Text(
-                    _getTimeAgoText(earthquake['minutesAgo'] as int),
+                    _getTimeAgoText(earthquake['minutesAgo'] as int,
+                        ctx: context),
                     style: TextStyle(fontSize: 16, color: Colors.black87),
                   ),
                 ],
@@ -374,32 +395,34 @@ class _HistoryPageState extends State<HistoryPage> {
                     Icon(Icons.source, color: Color(0xFFFF3333), size: 24),
                     SizedBox(width: 12),
                     Text(
-                      'Kaynak: ${earthquake['source']}',
+                      '${l10n?.get('source') ?? 'Source'}: ${earthquake['source']}',
                       style: TextStyle(fontSize: 16, color: Colors.black87),
                     ),
                   ],
                 ),
-              SizedBox(height: 32),
-
-              // Kapat Butonu
+              const SizedBox(height: 24),
+              // Kapat butonu (tam genişlikte, diğer popup'lardaki gibi)
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFFF3333),
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  label: Text(
+                    l10n?.get('close') ??
+                        (Localizations.localeOf(ctx).languageCode == 'tr'
+                            ? 'Kapat'
+                            : 'Close'),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
                   ),
-                  child: Text(
-                    'Kapat',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFF3333),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -412,6 +435,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         // Filtre butonları ve ayarlar bilgisi
@@ -443,7 +467,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     Icon(Icons.filter_alt, size: 14, color: Colors.grey[600]),
                     SizedBox(width: 6),
                     Text(
-                      'Büyüklük: ${_minMagnitude.toStringAsFixed(1)}-${_maxMagnitude.toStringAsFixed(1)} | Mesafe: ${_notificationRadius.toInt()} km',
+                      '${l10n?.get('magnitude_label') ?? 'Magnitude'}: ${_minMagnitude.toStringAsFixed(1)}-${_maxMagnitude.toStringAsFixed(1)} | ${l10n?.get('distance_label') ?? 'Distance'}: ${_notificationRadius.toInt()} km',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[700],
@@ -475,7 +499,8 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                           SizedBox(height: 16),
                           Text(
-                            'Deprem kaydı bulunamadı',
+                            l10n?.get('no_earthquake_records') ??
+                                'No earthquake records found',
                             style: TextStyle(
                                 fontSize: 16, color: Colors.grey[600]),
                           ),
@@ -483,7 +508,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ElevatedButton.icon(
                             onPressed: _loadEarthquakes,
                             icon: Icon(Icons.refresh),
-                            label: Text('Yenile'),
+                            label: Text(l10n?.get('refresh') ?? 'Refresh'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Color(0xFFFF3333),
                               foregroundColor: Colors.white,
@@ -645,7 +670,7 @@ class _HistoryPageState extends State<HistoryPage> {
                       Row(
                         children: [
                           Text(
-                            _getTimeAgoText(minutesAgo),
+                            _getTimeAgoText(minutesAgo, ctx: context),
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[500],

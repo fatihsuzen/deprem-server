@@ -3,14 +3,14 @@ import 'dart:math';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'earthquake_report_service.dart';
+import 'screen_state_service.dart'; // EKLENDİ
 
 /// Java algoritmasındaki eşik değerlerine sadık deprem algılama servisi
 class EarthquakeDetector {
-  // Eşik değerleri (Java algoritmasından alınmıştır)
-  static const double shakeThreshold = 1.2; // m/s^2 (test ekranı ile aynı)
-  static const int minShakeCount =
-      2; // art arda kaç sarsıntı olmalı (test ile aynı)
-  static const int shakeWindowMs = 3000; // sarsıntı aralığı (ms, test ile aynı)
+  // Eşik değerleri (Hassasiyet düşürüldü ve zaman penceresi daraltıldı)
+  static const double shakeThreshold = 1.8; // m/s^2 (Daha güçlü sarsıntı eşiği)
+  static const int minShakeCount = 3; // Art arda gereken sarsıntı sayısı
+  static const int shakeWindowMs = 1000; // Sarsıntı zaman penceresi 1 saniyeye düşürüldü
   StreamSubscription<AccelerometerEvent>? _subscription;
 
   int _shakeCount = 0;
@@ -41,6 +41,15 @@ class EarthquakeDetector {
         _lastShakeTime = now;
         if (_shakeCount >= minShakeCount) {
           _shakeCount = 0;
+
+          // YENİ KONTROL: Ekran açıksa rapor gönderme
+          if (await ScreenStateService.isScreenOn()) {
+            if (onDetected != null) {
+              onDetected('Ekran açık olduğu için P2P raporu gönderilmedi.');
+            }
+            return; // Rapor göndermeyi durdur
+          }
+
           // Deprem algılandı, konum al ve sunucuya gönder
           Position position = await Geolocator.getCurrentPosition(
               desiredAccuracy: LocationAccuracy.high);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/friends_service_backend.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart';
 
 class FriendsPageAPI extends StatefulWidget {
   const FriendsPageAPI({super.key});
@@ -67,19 +68,19 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     } catch (e) {
       print('❌ Veri yükleme hatası: $e');
       setState(() => _isLoading = false);
-      _showSnackBar('Veriler yüklenemedi: $e', isError: true);
+      _showSnackBarLocalized('data_load_failed', isError: true);
     }
   }
 
   Future<void> _addFriendByCode() async {
     final code = _shareCodeController.text.trim().toUpperCase();
     if (code.isEmpty) {
-      _showSnackBar('Lütfen bir share code girin', isError: true);
+      _showSnackBarLocalized('enter_share_code', isError: true);
       return;
     }
 
     if (code.length != 6) {
-      _showSnackBar('Share code 6 karakter olmalıdır', isError: true);
+      _showSnackBarLocalized('share_code_length', isError: true);
       return;
     }
 
@@ -104,10 +105,10 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     final success = await _friendsService.acceptFriendRequest(requestId);
 
     if (success) {
-      _showSnackBar('Arkadaşlık isteği kabul edildi', isError: false);
+      _showSnackBarLocalized('request_accepted', isError: false);
       await _loadData();
     } else {
-      _showSnackBar('İstek kabul edilemedi', isError: true);
+      _showSnackBarLocalized('request_accept_failed', isError: true);
       setState(() => _isLoading = false);
     }
   }
@@ -118,29 +119,31 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     final success = await _friendsService.rejectFriendRequest(requestId);
 
     if (success) {
-      _showSnackBar('Arkadaşlık isteği reddedildi', isError: false);
+      _showSnackBarLocalized('request_rejected', isError: false);
       await _loadData();
     } else {
-      _showSnackBar('İstek reddedilemedi', isError: true);
+      _showSnackBarLocalized('request_reject_failed', isError: true);
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> _removeFriend(String friendUID, String friendName) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Arkadaşı Kaldır'),
-        content: Text('$friendName arkadaşlarınızdan kaldırılsın mı?'),
+        title: Text(l10n?.get('remove_friend_title') ?? 'Remove Friend'),
+        content: Text(
+            '${l10n?.get('remove_friend_confirm')?.replaceAll('{name}', friendName) ?? 'Remove $friendName from friends?'}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('İptal'),
+            child: Text(l10n?.get('cancel') ?? 'Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Kaldır'),
+            child: Text(l10n?.get('remove') ?? 'Remove'),
           ),
         ],
       ),
@@ -153,17 +156,30 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     final success = await _friendsService.removeFriend(friendUID);
 
     if (success) {
-      _showSnackBar('$friendName arkadaşlarınızdan kaldırıldı', isError: false);
+      _showSnackBar(
+          l10n
+                  ?.get('friend_removed_success')
+                  ?.replaceAll('{name}', friendName) ??
+              '$friendName removed from friends',
+          isError: false);
       await _loadData();
     } else {
-      _showSnackBar('Arkadaş kaldırılamadı', isError: true);
+      _showSnackBarLocalized('friend_remove_failed', isError: true);
       setState(() => _isLoading = false);
     }
   }
 
   void _copyShareCode() {
+    final l10n = AppLocalizations.of(context);
     Clipboard.setData(ClipboardData(text: _myShareCode));
-    _showSnackBar('Share code kopyalandı: $_myShareCode', isError: false);
+    _showSnackBar(
+        '${l10n?.get('share_code_copied') ?? 'Share code copied'}: $_myShareCode',
+        isError: false);
+  }
+
+  void _showSnackBarLocalized(String key, {required bool isError}) {
+    final l10n = AppLocalizations.of(context);
+    _showSnackBar(l10n?.get(key) ?? key, isError: isError);
   }
 
   void _showSnackBar(String message, {required bool isError}) {
@@ -189,6 +205,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: Column(
         children: [
@@ -213,9 +230,9 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
             ),
             child: Column(
               children: [
-                const Text(
-                  'Benim Share Code\'um',
-                  style: TextStyle(
+                Text(
+                  l10n?.get('my_share_code') ?? 'My Share Code',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
                   ),
@@ -237,7 +254,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                     IconButton(
                       onPressed: _myShareCode.isEmpty ? null : _copyShareCode,
                       icon: const Icon(Icons.copy, color: Colors.white),
-                      tooltip: 'Kopyala',
+                      tooltip: l10n?.get('copy') ?? 'Copy',
                     ),
                   ],
                 ),
@@ -254,7 +271,8 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                   child: TextField(
                     controller: _shareCodeController,
                     decoration: InputDecoration(
-                      hintText: 'Arkadaş Share Code',
+                      hintText:
+                          l10n?.get('friend_share_code') ?? 'Friend Share Code',
                       prefixIcon: const Icon(Icons.person_add),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(30),
@@ -304,9 +322,15 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
             unselectedLabelColor: Colors.grey,
             indicatorColor: const Color(0xFFFF3A3D),
             tabs: [
-              Tab(text: 'Arkadaşlar (${_friends.length})'),
-              Tab(text: 'Gelen (${_pendingRequests.length})'),
-              Tab(text: 'Giden (${_sentRequests.length})'),
+              Tab(
+                  text:
+                      '${l10n?.get('friends') ?? 'Friends'} (${_friends.length})'),
+              Tab(
+                  text:
+                      '${l10n?.get('incoming_requests') ?? 'Incoming'} (${_pendingRequests.length})'),
+              Tab(
+                  text:
+                      '${l10n?.get('outgoing_requests') ?? 'Outgoing'} (${_sentRequests.length})'),
             ],
           ),
 
@@ -317,9 +341,9 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                 : TabBarView(
                     controller: _tabController,
                     children: [
-                      _buildFriendsList(),
-                      _buildPendingRequestsList(),
-                      _buildSentRequestsList(),
+                      _buildFriendsList(l10n),
+                      _buildPendingRequestsList(l10n),
+                      _buildSentRequestsList(l10n),
                     ],
                   ),
           ),
@@ -328,7 +352,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     );
   }
 
-  Widget _buildFriendsList() {
+  Widget _buildFriendsList(AppLocalizations? l10n) {
     if (_friends.isEmpty) {
       return Center(
         child: Column(
@@ -337,12 +361,13 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
             Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Henüz arkadaşınız yok',
+              l10n?.get('no_friends') ?? 'No friends yet',
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
             const SizedBox(height: 8),
             Text(
-              'Yukarıdan share code girerek arkadaş ekleyin',
+              l10n?.get('add_friend_hint') ??
+                  'Add friends by entering share code above',
               style: TextStyle(color: Colors.grey[500], fontSize: 14),
               textAlign: TextAlign.center,
             ),
@@ -405,7 +430,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                 ],
               ),
               title: Text(
-                friend['displayName'] ?? 'Bilinmeyen',
+                friend['displayName'] ?? l10n?.get('unknown') ?? 'Unknown',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Column(
@@ -440,7 +465,9 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      isOnline ? 'Çevrimiçi' : 'Çevrimdışı',
+                      isOnline
+                          ? l10n?.get('online') ?? 'Online'
+                          : l10n?.get('offline') ?? 'Offline',
                       style: TextStyle(
                         fontSize: 11,
                         color: isOnline ? Colors.green : Colors.grey,
@@ -461,7 +488,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     );
   }
 
-  Widget _buildPendingRequestsList() {
+  Widget _buildPendingRequestsList(AppLocalizations? l10n) {
     if (_pendingRequests.isEmpty) {
       return Center(
         child: Column(
@@ -470,7 +497,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
             Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Gelen istek yok',
+              l10n?.get('no_incoming_requests') ?? 'No incoming requests',
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
           ],
@@ -521,7 +548,9 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            fromUser['displayName'] ?? 'Bilinmeyen',
+                            fromUser['displayName'] ??
+                                l10n?.get('unknown') ??
+                                'Unknown',
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16),
                           ),
@@ -559,7 +588,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                             ? null
                             : () => _acceptRequest(request['_id']),
                         icon: const Icon(Icons.check),
-                        label: const Text('Kabul Et'),
+                        label: Text(l10n?.get('accept') ?? 'Accept'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.green,
                           foregroundColor: Colors.white,
@@ -573,7 +602,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                             ? null
                             : () => _rejectRequest(request['_id']),
                         icon: const Icon(Icons.close),
-                        label: const Text('Reddet'),
+                        label: Text(l10n?.get('reject') ?? 'Reject'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
@@ -589,7 +618,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
     );
   }
 
-  Widget _buildSentRequestsList() {
+  Widget _buildSentRequestsList(AppLocalizations? l10n) {
     if (_sentRequests.isEmpty) {
       return Center(
         child: Column(
@@ -598,7 +627,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
             Icon(Icons.send_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
-              'Gönderilen istek yok',
+              l10n?.get('no_outgoing_requests') ?? 'No outgoing requests',
               style: TextStyle(color: Colors.grey[600], fontSize: 16),
             ),
           ],
@@ -639,11 +668,11 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
                   : null,
             ),
             title: Text(
-              toUser['displayName'] ?? 'Bilinmeyen',
+              toUser['displayName'] ?? l10n?.get('unknown') ?? 'Unknown',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              'Bekliyor...',
+              l10n?.get('waiting_for_approval') ?? 'Waiting for approval...',
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
             trailing: Icon(Icons.schedule, color: Colors.orange[700]),
@@ -654,83 +683,75 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
   }
 
   void _showFriendOptions(Map<String, dynamic> friend) {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      isScrollControlled: true,
       builder: (ctx) {
         final location = friend['location'];
         return Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircleAvatar(
-                radius: 36,
-                backgroundColor: const Color(0xFFFF3A3D),
-                backgroundImage: friend['photoURL'] != null &&
-                        friend['photoURL'].toString().isNotEmpty
-                    ? NetworkImage(friend['photoURL'])
-                    : null,
-                child: friend['photoURL'] == null ||
-                        friend['photoURL'].toString().isEmpty
-                    ? Text(
-                        (friend['displayName'] ?? 'U')[0].toUpperCase(),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold),
-                      )
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                friend['displayName'] ?? 'Bilinmeyen',
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                friend['email'] ?? '',
-                style: const TextStyle(color: Colors.grey),
-              ),
-              if (location != null && location['address'] != null) ...[
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.location_on, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        location['address'],
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  ],
+          child: Container(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(ctx).size.height * 0.35,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.60,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: const Color(0xFFFF3A3D),
+                  backgroundImage: friend['photoURL'] != null &&
+                          friend['photoURL'].toString().isNotEmpty
+                      ? NetworkImage(friend['photoURL'])
+                      : null,
+                  child: friend['photoURL'] == null ||
+                          friend['photoURL'].toString().isEmpty
+                      ? Text(
+                          (friend['displayName'] ?? 'U')[0].toUpperCase(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold),
+                        )
+                      : null,
                 ),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _removeFriend(
-                        friend['uid'], friend['displayName'] ?? 'Bilinmeyen');
-                  },
-                  icon: const Icon(Icons.person_remove, color: Colors.red),
-                  label: const Text('Arkadaşlıktan Çıkar'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                const SizedBox(height: 16),
+                Text(
+                  friend['displayName'] ?? l10n?.get('unknown') ?? 'Unknown',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                // Email bilgisi kaldırıldı
+                // Konum bilgisi kaldırıldı
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _removeFriend(
+                          friend['uid'],
+                          friend['displayName'] ??
+                              l10n?.get('unknown') ??
+                              'Unknown');
+                    },
+                    icon: const Icon(Icons.person_remove, color: Colors.red),
+                    label: Text(l10n?.get('remove_friend') ?? 'Remove Friend'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

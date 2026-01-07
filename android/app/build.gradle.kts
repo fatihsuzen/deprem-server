@@ -6,7 +6,7 @@ plugins {
 apply(from = "../flutter_gradle_plugin.gradle")
 
 android {
-    namespace = "com.example.deprem_app"
+    namespace = "com.fsapps.earthquake_line"
     compileSdk = 34
 
     compileOptions {
@@ -19,7 +19,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.deprem_app"
+        applicationId = "com.fsapps.earthquake_line"
         minSdk = 21
         targetSdk = 34
         versionCode = 1

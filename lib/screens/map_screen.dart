@@ -10,18 +10,30 @@ import '../services/auth_service.dart';
 import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
+import '../l10n/app_localizations.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter/services.dart';
+// ...existing code...
+
+// TEST: Bu dosyanın yüklendiğini doğrula
+void _testMapScreenLoaded() {
+  print('🔴🔴🔴 MAP_SCREEN.DART YUKLENDI - lib/screens/map_screen.dart 🔴🔴🔴');
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
 
   @override
-  _MapScreenState createState() => _MapScreenState();
+  _MapScreenState createState() {
+    _testMapScreenLoaded();
+    return _MapScreenState();
+  }
 }
 
-class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
+class _MapScreenState extends State<MapScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late Key _flutterMapKey;
   // Dinamik (GeoJSON'dan) fay hatları
   List<Polyline<Object>> _dynamicFaultLines = [];
   // Harita hareketini dinlemek için listener
@@ -55,6 +67,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   List<Map<String, dynamic>> _quakes =
       []; // Sadece serverdan gelen deprem verisi
   Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
+  String _currentLocale = 'tr'; // Dil ayarı
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
   final UserPreferencesService _prefsService = UserPreferencesService();
@@ -111,6 +124,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
     _fayPulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -125,12 +139,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
     );
     _mapController = MapController();
+    _flutterMapKey = UniqueKey();
     super.initState();
     _firebaseMessaging.subscribeToTopic('all').then((_) {
       print('✅ Topic "all" abonesi olundu');
     });
     // FCM mesajları artık main.dart'ta merkezi olarak işleniyor
     // Duplicate listener kaldırıldı
+    _loadLocale();
     _loadToggleStates();
     _initializeMapData();
   }
@@ -458,7 +474,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
     // 3. Konum alındıktan sonra haritayı konuma focus et
     if (mounted && !_locationLoading) {
-      _mapController.move(_userLocation, 11.0);
+      _mapController.move(_userLocation, 7.0);
       print(
           '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
       // Dinamik fay hatlarını konumdan sonra yükle
@@ -492,6 +508,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       setState(() {
         _userLocation = LatLng(savedLat, savedLon);
         _locationLoading = false;
+        // Konum güncellendiğinde haritayı o konuma taşı
+        _mapController.move(_userLocation, 13.0);
       });
       print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
       // Konum güncellendiğinde FCM token varsa sunucuya gönder
@@ -508,6 +526,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         // Konum güncellendiğinde FCM token varsa sunucuya gönder
         if (_userFcmToken != null) {
           await _sendLocationAndSettingsToServer();
+        }
+        // Konum güncellendiğinde haritayı o konuma taşı
+        if (mounted) {
+          _mapController.move(_userLocation, 13.0);
         }
       } catch (e) {
         print('❌ Konum yükleme hatası: $e');
@@ -527,13 +549,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       }
     }
 
+    // İzin kontrolü (sadece kontrol, isteme yapmıyoruz)
+    // NOT: İzin isteme işlemi PermissionService ile root ekranında yapılmıştır
     PermissionStatus permissionGranted = await _location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await _location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) {
-        setState(() => _locationLoading = false);
-        return;
-      }
+    if (permissionGranted != PermissionStatus.granted) {
+      setState(() => _locationLoading = false);
+      print('❌ Konum izni yok. Root ekranından izin alınması gerekiyor.');
+      return;
     }
 
     final locationData = await _location.getLocation();
@@ -551,6 +573,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       print(
           '✅ Kullanıcı konumu alındı ve kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
     }
+  }
+
+  Future<void> _loadLocale() async {
+    print('🔵🔵🔵 _loadLocale() BASLADI 🔵🔵🔵');
+    final prefs = await SharedPreferences.getInstance();
+    final locale = prefs.getString('app_locale') ?? 'tr';
+    print('🔵🔵🔵 SharedPreferences app_locale = "$locale" 🔵🔵🔵');
+    if (mounted) {
+      setState(() {
+        _currentLocale = locale;
+        // Locale değiştiğinde haritayı sıfırla
+        _flutterMapKey = UniqueKey();
+      });
+    }
+    print('🔵🔵🔵 _currentLocale = "$_currentLocale" olarak ayarlandi 🔵🔵🔵');
   }
 
   Future<void> _loadToggleStates() async {
@@ -575,6 +612,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       _minMagnitude = settings['minMagnitude'];
       _maxMagnitude = settings['maxMagnitude'];
       _notificationRadius = settings['notificationRadius'];
+      // Ayarlar değiştiğinde haritayı sıfırla
+      _flutterMapKey = UniqueKey();
     });
 
     print(
@@ -654,7 +693,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       print('👥 Arkadaş listesi yükleniyor...');
       final friends = await _friendsService.getFriends();
       print('🟢 Backendden gelen arkadaşlar JSON: $friends');
-      print('✅ ${friends.length} arkadaş yüklendi');
+      print('✅ ${friends.length} arkadaş yüklendi sa');
 
       // Her arkadaşın konum bilgisini parse et
       int withLocation = 0;
@@ -704,20 +743,29 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fayPulseController.dispose();
     _waveController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // UniqueKey ile rebuild sağlandığı için burada ekstra bir refresh gerekmez
+    // Eğer başka bir işlem gerekiyorsa buraya eklenebilir, şimdilik boş bırakıldı
+  }
+
   String _formatTimeAgo(int minutes) {
-    if (minutes < 1) return '< 1dk';
-    if (minutes < 60) return '${minutes}dk';
+    final isEnglish = _currentLocale == 'en';
+    if (minutes < 1) return isEnglish ? '< 1m' : '< 1dk';
+    if (minutes < 60) return isEnglish ? '${minutes}m' : '${minutes}dk';
 
     int hours = minutes ~/ 60;
-    if (hours < 24) return '${hours}s';
+    if (hours < 24) return isEnglish ? '${hours}h' : '${hours}s';
 
     int days = hours ~/ 24;
-    return '${days}g';
+    return isEnglish ? '${days}d' : '${days}g';
   }
 
   Color _colorForMag(double m) {
@@ -730,6 +778,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void _showFriendInfo(Map<String, dynamic> friend) {
     final location = friend['location'];
     final isOnline = friend['isOnline'] ?? false;
+    final l10n = AppLocalizations(Locale(_currentLocale));
 
     showModalBottomSheet(
       context: context,
@@ -756,7 +805,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 16),
               Text(
-                friend['displayName'] ?? 'Bilinmeyen',
+                friend['displayName'] ??
+                    (l10n?.get('unknown_user') ?? 'Bilinmeyen'),
                 style:
                     const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
@@ -774,7 +824,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 child: Text(
-                  isOnline ? 'Çevrimiçi' : 'Çevrimdışı',
+                  isOnline
+                      ? (l10n?.get('online') ?? 'Çevrimiçi')
+                      : (l10n?.get('offline') ?? 'Çevrimdışı'),
                   style: TextStyle(
                     fontSize: 14,
                     color: isOnline ? Colors.green : Colors.grey,
@@ -799,7 +851,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   ],
                 ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -808,9 +860,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     backgroundColor: const Color(0xFFFF3A3D),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Kapat'),
+                  child: Text(l10n?.get('close') ?? 'Kapat'),
                 ),
               ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -819,6 +872,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   void _showAssemblyAreaInfo(Map<String, dynamic> area) {
+    final l10n = AppLocalizations(Locale(_currentLocale));
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -864,12 +919,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ],
               ),
               const SizedBox(height: 24),
-              _buildInfoRow(
-                  Icons.people, 'Kapasite', '${area['capacity']} kişi'),
+              _buildInfoRow(Icons.people, l10n?.get('capacity') ?? 'Kapasite',
+                  '${area['capacity']} ${l10n?.get('persons') ?? 'kişi'}'),
               const SizedBox(height: 12),
-              _buildInfoRow(Icons.category, 'Tür',
+              _buildInfoRow(Icons.category, l10n?.get('type') ?? 'Tür',
                   area['type']?.toString().toUpperCase() ?? 'GENEL'),
-              const SizedBox(height: 24),
+              const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -878,9 +933,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     backgroundColor: Colors.green,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Kapat'),
+                  child: Text(l10n?.get('close') ?? 'Kapat'),
                 ),
               ),
+              const SizedBox(height: 16),
             ],
           ),
         );
@@ -954,8 +1010,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   void _onTapMarker(Map<String, dynamic> q) {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     final mag = double.tryParse(q['mag'].toString()) ?? 0.0;
-    final place = q['place'] ?? 'Konum';
+    final place = q['place'] ?? (l10n?.get('location') ?? 'Konum');
     final time = q['time'] ?? '--:--';
 
     // Debug: Tüm deprem verisini logla
@@ -963,7 +1020,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         '🔍 Deprem verisi: timestamp=${q['timestamp']}, date=${q['date']}, time=${q['time']}');
 
     // Tarih formatını düzelt
-    String formattedDate = 'Tarih bilgisi yok';
+    String formattedDate = l10n?.get('no_date_info') ?? 'Tarih bilgisi yok';
     if (q['timestamp'] != null) {
       try {
         DateTime dt;
@@ -973,33 +1030,34 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         } else if (q['timestamp'] is String) {
           dt = DateTime.parse(q['timestamp']).toLocal();
         } else {
-          throw Exception('Geçersiz timestamp tipi');
+          throw Exception(
+              l10n?.get('invalid_timestamp') ?? 'Geçersiz timestamp tipi');
         }
 
         print('✅ Parse edilen tarih: ${dt.toString()}');
 
         final months = [
-          'Ocak',
-          'Şubat',
-          'Mart',
-          'Nisan',
-          'Mayıs',
-          'Haziran',
-          'Temmuz',
-          'Ağustos',
-          'Eylül',
-          'Ekim',
-          'Kasım',
-          'Aralık'
+          l10n?.get('month_january') ?? 'Ocak',
+          l10n?.get('month_february') ?? 'Şubat',
+          l10n?.get('month_march') ?? 'Mart',
+          l10n?.get('month_april') ?? 'Nisan',
+          l10n?.get('month_may') ?? 'Mayıs',
+          l10n?.get('month_june') ?? 'Haziran',
+          l10n?.get('month_july') ?? 'Temmuz',
+          l10n?.get('month_august') ?? 'Ağustos',
+          l10n?.get('month_september') ?? 'Eylül',
+          l10n?.get('month_october') ?? 'Ekim',
+          l10n?.get('month_november') ?? 'Kasım',
+          l10n?.get('month_december') ?? 'Aralık'
         ];
         final days = [
-          'Pazartesi',
-          'Salı',
-          'Çarşamba',
-          'Perşembe',
-          'Cuma',
-          'Cumartesi',
-          'Pazar'
+          l10n?.get('day_monday') ?? 'Pazartesi',
+          l10n?.get('day_tuesday') ?? 'Salı',
+          l10n?.get('day_wednesday') ?? 'Çarşamba',
+          l10n?.get('day_thursday') ?? 'Perşembe',
+          l10n?.get('day_friday') ?? 'Cuma',
+          l10n?.get('day_saturday') ?? 'Cumartesi',
+          l10n?.get('day_sunday') ?? 'Pazar'
         ];
         formattedDate =
             '${dt.day} ${months[dt.month - 1]} ${days[dt.weekday - 1]} ${dt.year}';
@@ -1007,7 +1065,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       } catch (e) {
         print(
             '❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}');
-        formattedDate = q['date'] ?? 'Tarih bilgisi yok';
+        formattedDate =
+            q['date'] ?? (l10n?.get('no_date_info') ?? 'Tarih bilgisi yok');
       }
     } else if (q['date'] != null) {
       formattedDate = q['date'];
@@ -1016,36 +1075,43 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     // Magnitude açıklaması
     String magDescription = '';
     if (mag < 2.0) {
-      magDescription = 'Mikro deprem';
+      magDescription = l10n?.get('mag_micro') ?? 'Mikro deprem';
     } else if (mag < 3.0) {
-      magDescription = 'Çok hafif';
+      magDescription = l10n?.get('mag_very_light') ?? 'Çok hafif';
     } else if (mag < 4.0) {
-      magDescription = 'Hafif';
+      magDescription = l10n?.get('mag_light') ?? 'Hafif';
     } else if (mag < 5.0) {
-      magDescription = 'Orta';
+      magDescription = l10n?.get('mag_medium') ?? 'Orta';
     } else if (mag < 6.0) {
-      magDescription = 'Kuvvetli';
+      magDescription = l10n?.get('mag_strong') ?? 'Kuvvetli';
     } else if (mag < 7.0) {
-      magDescription = 'Çok kuvvetli';
+      magDescription = l10n?.get('mag_very_strong') ?? 'Çok kuvvetli';
     } else {
-      magDescription = 'Yıkıcı';
+      magDescription = l10n?.get('mag_destructive') ?? 'Yıkıcı';
     }
 
     showModalBottomSheet(
-        context: context,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (ctx) {
-          return Container(
-            padding: const EdgeInsets.all(24.0),
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final screenHeight = MediaQuery.of(ctx).size.height;
+        return Container(
+          constraints: BoxConstraints(
+            minHeight: screenHeight * 0.47,
+            maxHeight: screenHeight * 0.7,
+          ),
+          padding: const EdgeInsets.all(24.0),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Başlık
                 Text(
-                  'Deprem Bilgisi',
+                  l10n?.get('earthquake_info') ?? 'Earthquake Information',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -1152,16 +1218,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     onPressed: () => Navigator.pop(ctx),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFFFF3333),
-                      padding: EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
                     child: Text(
-                      'Kapat',
+                      l10n?.get('close') ?? 'Kapat',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1169,8 +1235,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
-          );
-        });
+          ),
+        );
+      },
+    );
   }
 
   void _zoomIn() {
@@ -1211,6 +1279,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(Locale(_currentLocale));
+
+    // DEBUG: Locale ve çevirileri kontrol et
+    print('🌐 Build - _currentLocale: $_currentLocale');
+    print('🌐 Build - earthquakes: ${l10n.get('earthquakes')}');
+
     // Marker rendering istatistikleri
     final earthquakesInRange = _quakes.where((q) {
       final lat =
@@ -1231,17 +1305,21 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Stack(
       children: [
         FlutterMap(
+          key: _flutterMapKey,
           mapController: _mapController,
           options: MapOptions(
             initialCenter: _userLocation,
             initialZoom: 3.5, // Daha geniş alan için zoom'u küçült
+            // Sadece kaydırma ve zoom, rotasyon kesinlikle yok!
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+            ),
           ),
           children: [
             TileLayer(
               urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
               subdomains: ['a', 'b', 'c'],
               userAgentPackageName: 'dev.deprem_bildirim',
-              // tileProvider kaldırıldı, default tileProvider kullanılacak
             ),
             // Sadece dinamik fay hatları katmanı (statik kod devre dışı)
             if (_showFaultLines)
@@ -1563,64 +1641,70 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Builder(
+                  builder: (context) {
+                    final l10n = AppLocalizations(Locale(_currentLocale));
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              l10n?.get('latest_earthquake') ??
+                                  'Latest Earthquake',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              '${(_latestQuake!['mag'] as num).toDouble().toStringAsFixed(1)} Mw',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: _colorForMag(
+                                    (_latestQuake!['mag'] as num).toDouble()),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _latestQuake!['place'],
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 6),
                         Text(
-                          'Son Deprem',
+                          '${_latestQuake!['minutesAgo']} ${l10n?.get('min_ago') ?? 'min ago'}',
                           style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w600,
                             color: Colors.grey[600],
                           ),
                         ),
-                        Icon(
-                          Icons.close,
-                          size: 16,
-                          color: Colors.grey[600],
-                        ),
                       ],
-                    ),
-                    SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Text(
-                          '${(_latestQuake!['mag'] as num).toDouble().toStringAsFixed(1)} Mw',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: _colorForMag(
-                                (_latestQuake!['mag'] as num).toDouble()),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _latestQuake!['place'],
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      '${_latestQuake!['minutesAgo']} dk önce',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -1648,7 +1732,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               children: [
                 _buildCheckboxItem(
                   icon: Icons.warning,
-                  label: 'Depremler',
+                  label: l10n.get('earthquakes'),
                   isChecked: _showEarthquakes,
                   color: Colors.red,
                   onChanged: (value) {
@@ -1658,7 +1742,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
                 _buildCheckboxItem(
                   icon: Icons.people,
-                  label: 'Arkadaşlar',
+                  label: l10n.get('friends'),
                   isChecked: _showFriends,
                   color: Colors.purple,
                   onChanged: (value) {
@@ -1668,7 +1752,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
                 _buildCheckboxItem(
                   icon: Icons.group,
-                  label: 'Toplanma',
+                  label: l10n.get('assembly_areas'),
                   isChecked: _showAssemblyAreas,
                   color: Colors.green,
                   onChanged: (value) {
@@ -1678,7 +1762,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
                 _buildCheckboxItem(
                   icon: Icons.format_line_spacing,
-                  label: 'Fay Hatları',
+                  label: l10n.get('fault_lines'),
                   isChecked: _showFaultLines,
                   color: Colors.red,
                   onChanged: (value) {
@@ -1771,6 +1855,24 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
   double _selectedMagnitude = 1.0;
   String _searchCity = '';
   bool _showCityList = false;
+  String _currentLocale = 'tr';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocale();
+  }
+
+  Future<void> _loadLocale() async {
+    final prefs = await SharedPreferences.getInstance();
+    final locale = prefs.getString('app_locale') ?? 'tr';
+    print('🌍 ReportSheet _loadLocale: app_locale = $locale');
+    setState(() {
+      _currentLocale = locale;
+    });
+    print(
+        '🌍 ReportSheet _loadLocale: _currentLocale güncellendi = $_currentLocale');
+  }
 
   final List<String> _cities = [
     'Adana',
@@ -1870,8 +1972,10 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
         .toList();
   }
 
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
+    final loc = AppLocalizations.of(context);
 
     return Container(
       height: screenHeight * 0.7,
@@ -1887,25 +1991,25 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Deprem Bildir',
+                Text(loc?.get('report_earthquake') ?? 'Deprem Bildir',
                     style:
                         TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 SizedBox(height: 20),
-                Text('Hangi İldesin',
+                Text(loc?.get('which_city') ?? 'Hangi İldesin',
                     style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: Colors.black)),
                 SizedBox(height: 8),
-                _buildCitySearchField(),
+                _buildCitySearchField(loc),
               ],
             ),
           ),
           // Conditional content: City list OR Magnitude options
           Expanded(
             child: _showCityList
-                ? _buildExpandedCityList()
-                : _buildMagnitudeSection(),
+                ? _buildExpandedCityList(loc)
+                : _buildMagnitudeSection(loc),
           ),
           Container(
             padding: EdgeInsets.all(16),
@@ -1926,16 +2030,19 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
+                      final localLoc = AppLocalizations.of(context);
                       if (_selectedCity.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Lütfen bir şehir seçiniz')),
+                          SnackBar(
+                              content: Text(localLoc?.get('select_city') ??
+                                  'Lütfen bir şehir seçiniz')),
                         );
                         return;
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                             content: Text(
-                                '$_selectedCity bölgesinde deprem bildirildi!')),
+                                '$_selectedCity ${localLoc?.get('earthquake_reported')?.replaceAll('{city}', '') ?? 'bölgesinde deprem bildirildi!'}')),
                       );
                       Navigator.pop(context);
                     },
@@ -1945,7 +2052,7 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text('Bildir',
+                    child: Text(loc?.get('report_button') ?? 'Bildir',
                         style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -1962,7 +2069,7 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: Text('Vazgeç',
+                    child: Text(loc?.get('cancel') ?? 'Vazgeç',
                         style: TextStyle(color: Colors.black, fontSize: 16)),
                   ),
                 ),
@@ -1974,12 +2081,12 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
     );
   }
 
-  Widget _buildCitySearchField() {
+  Widget _buildCitySearchField(AppLocalizations? loc) {
     return Column(
       children: [
         TextField(
           decoration: InputDecoration(
-            hintText: 'Şehir arayınız...',
+            hintText: loc?.get('search_city') ?? 'Şehir arayınız...',
             prefixIcon: Icon(Icons.search, color: Colors.grey),
             suffixIcon: _searchCity.isNotEmpty || _showCityList
                 ? GestureDetector(
@@ -2011,7 +2118,7 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                 children: [
                   Icon(Icons.check_circle, color: Color(0xFFFF3333), size: 20),
                   SizedBox(width: 8),
-                  Text('Seçili: $_selectedCity',
+                  Text('${loc?.get('selected') ?? 'Seçili'}: $_selectedCity',
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Color(0xFFFF3333))),
@@ -2023,12 +2130,12 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
     );
   }
 
-  Widget _buildExpandedCityList() {
+  Widget _buildExpandedCityList(AppLocalizations? loc) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: _filteredCities.isEmpty
           ? Center(
-              child: Text('Sonuç bulunamadı',
+              child: Text(loc?.get('no_results') ?? 'Sonuç bulunamadı',
                   style: TextStyle(color: Colors.grey)),
             )
           : ListView.builder(
@@ -2051,13 +2158,13 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
     );
   }
 
-  Widget _buildMagnitudeSection() {
+  Widget _buildMagnitudeSection(AppLocalizations? loc) {
     return SingleChildScrollView(
       padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Tahmini Büyüklük',
+          Text(loc?.get('estimated_magnitude') ?? 'Tahmini Büyüklük',
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
           SizedBox(height: 12),
           ..._buildMagnitudeOptions(),

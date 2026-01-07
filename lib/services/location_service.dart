@@ -132,13 +132,14 @@ class LocationService {
       }
 
       // İzin kontrol
+      // NOT: İzin isteme işlemi artık PermissionService tarafından UI'dan yapılmalıdır
+      // Burada sadece mevcut durumu kontrol ediyoruz
       loc.PermissionStatus permissionGranted = await location.hasPermission();
       if (permissionGranted == loc.PermissionStatus.denied) {
-        permissionGranted = await location.requestPermission();
-        if (permissionGranted != loc.PermissionStatus.granted) {
-          _setLocationError("Konum izni verilmedi");
-          return false;
-        }
+        print(
+            '[LocationService] Konum izni yok. UI\'dan izin alınması gerekiyor.');
+        _setLocationError("Konum izni verilmedi");
+        return false;
       }
 
       // Konum al
@@ -344,7 +345,7 @@ class LocationService {
       if (success && _latitude != null && _longitude != null) {
         // Adres bilgisini al
         String address =
-            await _getAddressFromCoordinates(_latitude!, _longitude!);
+            await getAddressFromCoordinates(_latitude!, _longitude!);
 
         // Server'a gönder
         await _sendLocationToServer(_latitude!, _longitude!, address);
@@ -358,7 +359,7 @@ class LocationService {
   }
 
   // Koordinatlardan adres al
-  Future<String> _getAddressFromCoordinates(
+  Future<String> getAddressFromCoordinates(
       double latitude, double longitude) async {
     try {
       List<Placemark> placemarks =

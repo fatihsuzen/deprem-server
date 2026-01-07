@@ -23,7 +23,8 @@ class MqttService with ChangeNotifier {
       FlutterLocalNotificationsPlugin();
 
   Future<void> initLocalNotifications() async {
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit =
+        AndroidInitializationSettings('@drawable/ic_notification');
     const iOSInit = DarwinInitializationSettings();
     const initSettings =
         InitializationSettings(android: androidInit, iOS: iOSInit);

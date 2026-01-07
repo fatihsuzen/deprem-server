@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 
 class EarthquakeAlarmScreen extends StatefulWidget {
   final double magnitude;
@@ -44,6 +45,8 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: Colors.red.shade900,
       body: SafeArea(
@@ -68,9 +71,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
             const SizedBox(height: 30),
 
             // DEPREM UYARISI
-            const Text(
-              '⚠️ DEPREM UYARISI ⚠️',
-              style: TextStyle(
+            Text(
+              '⚠️ ${(l10n?.get('earthquake_alert') ?? 'DEPREM UYARISI').toUpperCase()} ⚠️',
+              style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
@@ -90,9 +93,10 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
               ),
               child: Column(
                 children: [
-                  const Text(
-                    'BÜYÜKLÜK',
-                    style: TextStyle(
+                  Text(
+                    (l10n?.get('magnitude_display') ?? 'BÜYÜKLÜK')
+                        .toUpperCase(),
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.white70,
                       letterSpacing: 1,
@@ -161,7 +165,7 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                 borderRadius: BorderRadius.circular(15),
                 border: Border.all(color: Colors.orange, width: 2),
               ),
-              child: const Column(
+              child: Column(
                 children: [
                   Icon(
                     Icons.shield_outlined,
@@ -170,8 +174,8 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'SIĞINAK ALIN',
-                    style: TextStyle(
+                    (l10n?.get('take_shelter') ?? 'SIĞINAK ALIN').toUpperCase(),
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -180,7 +184,8 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                   ),
                   SizedBox(height: 10),
                   Text(
-                    'Masa altına girin veya güvenli bir yere geçin',
+                    l10n?.get('take_cover_message') ??
+                        'Masa altına girin veya güvenli bir yere geçin',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.white,
@@ -209,9 +214,9 @@ class _EarthquakeAlarmScreenState extends State<EarthquakeAlarmScreen>
                     borderRadius: BorderRadius.circular(30),
                   ),
                 ),
-                child: const Text(
-                  'TAMAM',
-                  style: TextStyle(
+                child: Text(
+                  (l10n?.get('ok') ?? 'TAMAM').toUpperCase(),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 2,

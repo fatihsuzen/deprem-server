@@ -12,6 +12,7 @@ class UserPreferencesService {
   static const String _keyVibration = 'vibration_enabled';
   static const String _keyBackgroundNotifications =
       'background_notifications_enabled';
+  static const String _keyNotificationsEnabled = 'notifications_enabled';
 
   // Varsayılan değerler
   static const double defaultMinMagnitude = 2.5;
@@ -20,7 +21,8 @@ class UserPreferencesService {
   static const bool defaultShareLocation = true; // Varsayılan olarak açık
   static const bool defaultNotificationSound = true;
   static const bool defaultVibration = true;
-  static const bool defaultBackgroundNotifications = true;
+  static const bool defaultBackgroundNotifications = false;
+  static const bool defaultNotificationsEnabled = true;
 
   // Magnitude Ayarları
   Future<void> setMinMagnitude(double value) async {
@@ -130,6 +132,18 @@ class UserPreferencesService {
         defaultBackgroundNotifications;
   }
 
+  // Ana Bildirim Ayarı
+  Future<void> setNotificationsEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyNotificationsEnabled, value);
+  }
+
+  Future<bool> getNotificationsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyNotificationsEnabled) ??
+        defaultNotificationsEnabled;
+  }
+
   // Tüm ayarları al (tek seferde)
   Future<Map<String, dynamic>> getAllSettings() async {
     return {
@@ -143,6 +157,7 @@ class UserPreferencesService {
       'notificationSound': await getNotificationSound(),
       'vibration': await getVibration(),
       'backgroundNotifications': await getBackgroundNotifications(),
+      'notificationsEnabled': await getNotificationsEnabled(),
     };
   }
 
@@ -154,6 +169,8 @@ class UserPreferencesService {
     await setShowEarthquakes(true);
     await setShowFriends(true);
     await setShowShelters(true);
+    await setBackgroundNotifications(defaultBackgroundNotifications);
+    await setNotificationsEnabled(defaultNotificationsEnabled);
   }
 
   // Ayarları dışa aktar (JSON string)

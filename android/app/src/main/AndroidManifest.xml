@@ -1,7 +1,13 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.example.deprem_app">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" package="com.fsapps.earthquake_line">
     <!-- Konum ve arka plan izinleri -->
+    <!-- Fine location: Kullanıcının tam konumunu alarak en yakın depremleri göster -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Coarse location: Kullanıcının yaklaşık konumunu al -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Background location: Uygulama kapalıyken bile deprem erken uyarı sistemi için konum erişimi
+         Kullanıcıya uygulama içinde belirgin açıklama dialog'u gösterilir (lib/widgets/location_permission_dialog.dart)
+         Deprem algılama ve P2P erken uyarı sistemi için kritik önem taşır -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -16,11 +22,19 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     
     <application
-        android:label="Deprem App"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:enableOnBackInvokedCallback="true">
+        <!-- Varsayılan bildirim ikonu -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/ic_launcher_background" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="earthquake_alert_channel" />
@@ -76,7 +90,7 @@
             android:stopWithTask="false" />
 
         <!-- Tam ekran deprem afiş activity -->
-        <activity android:name="com.example.deprem_app.EarthquakeAlertActivity"
+        <activity android:name="com.fsapps.earthquake_line.EarthquakeAlertActivity"
             android:exported="true"
             android:showWhenLocked="true"
             android:turnScreenOn="true"

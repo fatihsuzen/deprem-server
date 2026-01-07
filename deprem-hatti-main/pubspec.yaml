@@ -17,12 +17,15 @@ dependencies:
 dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
+flutter_native_splash:
+  image: assets/Logo.png
+
 flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/AppIcon.png"
   adaptive_icon_background: "#FF3333"
-  adaptive_icon_foreground: "assets/AppIcon.png"
+  adaptive_icon_foreground: "Icons/Logo.png"
 
 flutter:
   uses-material-design: true

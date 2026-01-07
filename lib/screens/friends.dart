@@ -139,7 +139,7 @@ class _FriendsPageState extends State<FriendsPage> {
                     GestureDetector(
                       onTap: () => Navigator.pop(ctx),
                       child: Container(
-                        padding: EdgeInsets.all(8),
+                        padding: EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: Colors.grey[200],
                           shape: BoxShape.circle,
@@ -147,7 +147,7 @@ class _FriendsPageState extends State<FriendsPage> {
                         child: Icon(
                           Icons.close,
                           size: 20,
-                          color: Colors.grey[700],
+                          color: Colors.grey,
                         ),
                       ),
                     ),

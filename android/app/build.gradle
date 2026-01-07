@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace "com.example.deprem_app"
+    namespace "com.fsapps.earthquake_line"
     compileSdk 36
 
     compileOptions {
@@ -24,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.deprem_app"
+        applicationId "com.fsapps.earthquake_line"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion 36
         versionCode flutter.versionCode

@@ -22,13 +22,13 @@ class WhistleService {
     try {
       // Döngü modunu ayarla
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      
+
       // Ses seviyesini maksimuma ayarla
       await _audioPlayer.setVolume(1.0);
-      
+
       // Assets'teki sos.mp3'ü çal
       await _audioPlayer.play(AssetSource('sos.mp3'));
-      
+
       print('[Whistle] SOS sesi başlatıldı');
     } catch (e) {
       print('[Whistle] Ses çalma hatası: $e');

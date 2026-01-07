@@ -7,26 +7,34 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:660435663250:android:248365faf9f3559d4e694b",
+        "mobilesdk_app_id": "1:660435663250:android:b7969947ddf7ad344e694b",
         "android_client_info": {
-          "package_name": "com.example.deprem_app"
+          "package_name": "com.fsapps.earthquake_line"
         }
       },
       "oauth_client": [
         {
-          "client_id": "660435663250-22nt7o4rb47s52mu2735n75qj2qsoo56.apps.googleusercontent.com",
+          "client_id": "660435663250-4n3ufd5ud582cuafvfn58u0cr6ptpov1.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.deprem_app",
-            "certificate_hash": "aacc8a6480eddfff3fc3733697cd4ae652f2c516"
+            "package_name": "com.fsapps.earthquake_line",
+            "certificate_hash": "a8be4f83d77f1a7f840cff981ec9498fc351da43"
           }
         },
         {
-          "client_id": "660435663250-91tsm2kr52d6ldjkhhh04n6scdpgganl.apps.googleusercontent.com",
+          "client_id": "660435663250-i68b6jdf9qnsunbtkton8pnpbupmi9jm.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.example.deprem_app",
-            "certificate_hash": "a8be4f83d77f1a7f840cff981ec9498fc351da43"
+            "package_name": "com.fsapps.earthquake_line",
+            "certificate_hash": "ecc973c52e39be6b2434b5331a19bd3fe918ef20"
+          }
+        },
+        {
+          "client_id": "660435663250-jgdfi7ilhvo0uidpoj0ft5s1v544v3jc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.fsapps.earthquake_line",
+            "certificate_hash": "aacc8a6480eddfff3fc3733697cd4ae652f2c516"
           }
         },
         {
@@ -36,7 +44,7 @@
       ],
       "api_key": [
         {
-          "current_key": "AIzaSyBMKUIdLRBD2a52wsKtWV1nqF_wguLJ7ic"
+          "current_key": "AIzaSyCtqY2MVCtdU2yzvYl3_Cwmc9X78Jkdedk"
         }
       ],
       "services": {

@@ -8,6 +8,8 @@ import 'dart:convert';
 import 'notification_service.dart';
 import 'earthquake_websocket_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'location_service.dart';
+import 'user_preferences_service.dart';
 
 /// P2P Deprem Algılama Servisi
 /// Jiroskop ve ivmeölçer sensörlerini kullanarak deprem benzeri sarsıntıları algılar
@@ -59,6 +61,15 @@ class P2PEarthquakeDetectionService {
   /// Servisi başlat
   Future<void> startMonitoring() async {
     if (_isMonitoring) return;
+
+    // Arka plan bildirimleri kapalıysa servisi başlatma
+    final userPrefs = UserPreferencesService();
+    final backgroundNotifications =
+        await userPrefs.getBackgroundNotifications();
+    if (!backgroundNotifications) {
+      print('⏸️ P2P servisi başlatılmadı: Arka plan bildirimleri kapalı.');
+      return;
+    }
 
     print('🔍 P2P Deprem algılama servisi başlatılıyor...');
 
@@ -429,7 +440,7 @@ class P2PEarthquakeDetectionService {
           print('   - Deprem Olasılığı: ${analysis['earthquakeProbability']}%');
           if (analysis['isEarthquakeDetected'] == true) {
             print('🚨🚨🚨 DEPREM ALGILANDI! 🚨🚨🚨');
-            _showEarthquakeAlert(analysis);
+            await _showEarthquakeAlert(analysis);
           }
         }
         _lastReportTime = DateTime.now();
@@ -442,14 +453,30 @@ class P2PEarthquakeDetectionService {
   }
 
   /// Deprem uyarısı göster
-  void _showEarthquakeAlert(Map<String, dynamic> analysis) {
+  Future<void> _showEarthquakeAlert(Map<String, dynamic> analysis) async {
     // LocalNotification servisi üzerinden tam ekran ve wake-up notification göster
     print('🔔 Kullanıcıya deprem uyarısı gösteriliyor...');
     final double magnitude = (analysis['magnitude'] ?? 0.0).toDouble();
-    final String location = (analysis['region'] ?? 'Bilinmiyor').toString();
+    String location = (analysis['region'] ?? 'Bilinmiyor').toString();
     final double distance = (analysis['distance'] ?? 0.0).toDouble();
-    // Tam ekran deprem uyarısı ve wake-up notification
-    NotificationService().showWakeUpNotification(magnitude, location, distance);
+    // Eğer location koordinat formatındaysa şehir/il ismine çevir
+    if (RegExp(r'^-?\d+\.\d+,-?\d+\.\d+$').hasMatch(location)) {
+      final parts = location.split(',');
+      if (parts.length == 2) {
+        final lat = double.tryParse(parts[0]);
+        final lon = double.tryParse(parts[1]);
+        if (lat != null && lon != null) {
+          try {
+            location =
+                await LocationService().getAddressFromCoordinates(lat, lon);
+          } catch (e) {
+            print('Şehir ismi alınamadı, koordinat gösterilecek: $e');
+          }
+        }
+      }
+    }
+    NotificationService()
+        .showWakeUpNotification(magnitude, location, distance, isP2P: true);
     NotificationService().showAlertScreen(magnitude, location, distance, 'P2P');
   }
 
@@ -462,8 +489,16 @@ class P2PEarthquakeDetectionService {
 
   /// Sensör dinlemeyi durdur
   void _stopSensorListening() {
-    _accelerometerSubscription?.cancel();
-    _gyroscopeSubscription?.cancel();
+    try {
+      _accelerometerSubscription?.cancel();
+    } catch (e) {
+      print('Accelerometer subscription cancel error: $e');
+    }
+    try {
+      _gyroscopeSubscription?.cancel();
+    } catch (e) {
+      print('Gyroscope subscription cancel error: $e');
+    }
     _accelerometerSubscription = null;
     _gyroscopeSubscription = null;
   }

@@ -2,10 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../widgets/nav_svg_icon.dart';
 import 'map_screen.dart';
-import 'friends.dart';
-import 'chat.dart';
-import 'history.dart';
-import 'settings.dart';
 
 class RootScreen extends StatefulWidget {
   @override
@@ -16,11 +12,16 @@ class _RootScreenState extends State<RootScreen> {
   int _selectedIndex = 2; // default to map
 
   final List<Widget> _pages = [
-    FriendsPage(),
-    ChatPage(),
+    // FriendsPage(),
+    // ChatPage(),
     MapScreen(),
-    HistoryPage(),
-    SettingsPage(),
+    // HistoryPage(),
+    // SettingsPage(),
+    Container(child: Center(child: Text('Arkadaşlar'))),
+    Container(child: Center(child: Text('Sohbet Odaları'))),
+    MapScreen(),
+    Container(child: Center(child: Text('Geçmiş Depremler'))),
+    Container(child: Center(child: Text('Ayarlar'))),
   ];
 
   final List<String> _titles = [
@@ -49,7 +50,8 @@ class _RootScreenState extends State<RootScreen> {
           padding: const EdgeInsets.only(left: 12.0, top: 8.0),
           child: Text(
             _titles[_selectedIndex],
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                color: Colors.white, fontSize: 20, fontWeight: FontWeight.w600),
           ),
         ),
         actions: _selectedIndex == 2
@@ -59,9 +61,11 @@ class _RootScreenState extends State<RootScreen> {
                   child: Center(
                     child: GestureDetector(
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Harita yenilendi (örnek)')));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text('Harita yenilendi (örnek)')));
                       },
-                      child: SvgPicture.asset('assets/Icons/Refresh.svg', color: Colors.white, width: 22, height: 22),
+                      child: SvgPicture.asset('assets/Icons/Refresh.svg',
+                          color: Colors.white, width: 22, height: 22),
                     ),
                   ),
                 )
@@ -80,23 +84,48 @@ class _RootScreenState extends State<RootScreen> {
         unselectedItemColor: Colors.grey,
         items: [
           BottomNavigationBarItem(
-            icon: NavSvgIcon(assetPath: 'assets/Icons/Friends.svg', selected: _selectedIndex == 0, width: 26, height: 26, semanticsLabel: 'Bağlantılar'),
+            icon: NavSvgIcon(
+                assetPath: 'assets/Icons/Friends.svg',
+                selected: _selectedIndex == 0,
+                width: 26,
+                height: 26,
+                semanticsLabel: 'Bağlantılar'),
             label: 'Bağlantılar',
           ),
           BottomNavigationBarItem(
-            icon: NavSvgIcon(assetPath: 'assets/Icons/Chat.svg', selected: _selectedIndex == 1, width: 26, height: 26, semanticsLabel: 'Sohbet'),
+            icon: NavSvgIcon(
+                assetPath: 'assets/Icons/Chat.svg',
+                selected: _selectedIndex == 1,
+                width: 26,
+                height: 26,
+                semanticsLabel: 'Sohbet'),
             label: 'Sohbet',
           ),
           BottomNavigationBarItem(
-            icon: NavSvgIcon(assetPath: 'assets/Icons/Map.svg', selected: _selectedIndex == 2, width: 30, height: 30, semanticsLabel: 'Harita'),
+            icon: NavSvgIcon(
+                assetPath: 'assets/Icons/Map.svg',
+                selected: _selectedIndex == 2,
+                width: 30,
+                height: 30,
+                semanticsLabel: 'Harita'),
             label: 'Harita',
           ),
           BottomNavigationBarItem(
-            icon: NavSvgIcon(assetPath: 'assets/Icons/History.svg', selected: _selectedIndex == 3, width: 26, height: 26, semanticsLabel: 'Geçmiş'),
+            icon: NavSvgIcon(
+                assetPath: 'assets/Icons/History.svg',
+                selected: _selectedIndex == 3,
+                width: 26,
+                height: 26,
+                semanticsLabel: 'Geçmiş'),
             label: 'Geçmiş',
           ),
           BottomNavigationBarItem(
-            icon: NavSvgIcon(assetPath: 'assets/Icons/Settings.svg', selected: _selectedIndex == 4, width: 26, height: 26, semanticsLabel: 'Ayarlar'),
+            icon: NavSvgIcon(
+                assetPath: 'assets/Icons/Settings.svg',
+                selected: _selectedIndex == 4,
+                width: 26,
+                height: 26,
+                semanticsLabel: 'Ayarlar'),
             label: 'Ayarlar',
           ),
         ],

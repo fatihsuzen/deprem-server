@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Optimized launch splash screen - solid color only for faster rendering -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Uygulama ana rengi: #FF3A3D -->
-    <item android:drawable="@color/splash_background" />
+    <item>
+        <bitmap android:gravity="fill" android:src="@drawable/background"/>
+    </item>
 </layer-list>

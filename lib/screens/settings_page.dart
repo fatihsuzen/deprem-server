@@ -5,6 +5,8 @@ import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../widgets/background_service_controller.dart';
 import '../services/whistle_service.dart';
+import '../l10n/app_localizations.dart';
+import 'debug_screen.dart';
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -12,6 +14,17 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  void _enforceLocationDependencies() async {
+    if (!_locationServicesEnabled || !_backgroundRefreshEnabled) {
+      if (_shareLocationWithFriends) {
+        setState(() {
+          _shareLocationWithFriends = false;
+        });
+        await _prefsService.setShareLocation(false);
+      }
+    }
+  }
+
   final UserPreferencesService _prefsService = UserPreferencesService();
   final LocationUpdateService _locationUpdateService = LocationUpdateService();
   final WhistleService _whistleService = WhistleService();
@@ -27,6 +40,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _shareLocationWithFriends = true;
   bool _isLoading = true;
   bool _isWhistlePlaying = false;
+  String _currentLocale = 'tr';
 
   @override
   void initState() {
@@ -44,18 +58,48 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadSettings() async {
-    final settings = await _prefsService.getAllSettings();
+    // Load locale and custom settings from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final savedLocale = prefs.getString('app_locale') ?? 'tr';
+    final locationServicesEnabled =
+        prefs.getBool('location_services_enabled') ?? true;
+    final backgroundRefreshEnabled =
+        prefs.getBool('background_refresh_enabled') ?? true;
+
+    // Ayarları UserPreferencesService üzerinden yükle
+    final allSettings = await _prefsService.getAllSettings();
+    final notificationsEnabled = await _prefsService.getNotificationsEnabled();
+    final notificationSound = await _prefsService.getNotificationSound();
+    final vibration = await _prefsService.getVibration();
+
+    if (!mounted) return;
     setState(() {
-      _minimumMagnitude = settings['minMagnitude'];
-      _maximumMagnitude = settings['maxMagnitude'];
-      _notificationRadius = settings['notificationRadius'];
-      _shareLocationWithFriends = settings['shareLocation'];
+      _minimumMagnitude = allSettings['minMagnitude'];
+      _maximumMagnitude = allSettings['maxMagnitude'];
+      _notificationRadius = allSettings['notificationRadius'];
+      _shareLocationWithFriends = allSettings['shareLocation'];
+
+      _notificationsEnabled = notificationsEnabled; // Ana bildirim ayarı
+      _soundEnabled = notificationSound;
+      _vibrationEnabled = vibration;
+
+      _currentLocale = savedLocale;
+      _locationServicesEnabled = locationServicesEnabled;
+      _backgroundRefreshEnabled = backgroundRefreshEnabled;
       _isLoading = false;
     });
 
+    _enforceLocationDependencies();
+
     print('📱 Local ayarlar yüklendi:');
+    print('   Ana Bildirimler: $_notificationsEnabled');
     print('   Yarıçap: $_notificationRadius km');
     print('   Büyüklük: $_minimumMagnitude - $_maximumMagnitude');
+    print('   Bildirim Sesi: $_soundEnabled');
+    print('   Titreşim: $_vibrationEnabled');
+    print('   Dil: $_currentLocale');
+    print('   Konum Servisleri: $_locationServicesEnabled');
+    print('   Arkaplan Yenileme: $_backgroundRefreshEnabled');
 
     // Ayarlar yüklendikten sonra servera senkronize et
     print('🔄 Ayarlar servera gönderiliyor...');
@@ -70,31 +114,43 @@ class _SettingsPageState extends State<SettingsPage> {
         maxMagnitude: _maximumMagnitude,
         shareLocationWithFriends: _shareLocationWithFriends,
       );
-      print('✅ Ayarlar sunucuya senkronize edildi');
+      print('✅ Ayarlar sunucuya senkronize edildi sa');
     } catch (e) {
       print('⚠️  Ayar senkronizasyonu hatası: $e');
     }
   }
 
   void _showMagnitudeDialog() {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     double tempMinMagnitude = _minimumMagnitude;
     double tempMaxMagnitude = _maximumMagnitude;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Deprem Büyüklük Aralığı'),
+          title: Text(l10n.get('earthquake_magnitude_range')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                  'Haritada görmek istediğiniz deprem büyüklük aralığını seçin'),
+              Text(l10n
+                      .get('earthquakes_between_shown')
+                      .replaceAll('{min}', '')
+                      .replaceAll('{max}', '')
+                      .replaceAll('-', '')
+                      .trim()
+                      .isEmpty
+                  ? 'Select the magnitude range for earthquakes'
+                  : l10n
+                      .get('earthquakes_between_shown')
+                      .replaceAll('{min}', tempMinMagnitude.toStringAsFixed(1))
+                      .replaceAll(
+                          '{max}', tempMaxMagnitude.toStringAsFixed(1))),
               SizedBox(height: 20),
               // Minimum Büyüklük
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Minimum:',
+                  Text('${l10n.get('minimum')}:',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   Text('${tempMinMagnitude.toStringAsFixed(1)} Mw',
                       style: TextStyle(
@@ -123,7 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Maksimum:',
+                  Text('${l10n.get('maximum')}:',
                       style: TextStyle(fontWeight: FontWeight.bold)),
                   Text('${tempMaxMagnitude.toStringAsFixed(1)} Mw',
                       style: TextStyle(
@@ -149,7 +205,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               SizedBox(height: 10),
               Text(
-                '${tempMinMagnitude.toStringAsFixed(1)} - ${tempMaxMagnitude.toStringAsFixed(1)} Mw arası depremler gösterilecek',
+                l10n
+                    .get('earthquakes_between_shown')
+                    .replaceAll('{min}', tempMinMagnitude.toStringAsFixed(1))
+                    .replaceAll('{max}', tempMaxMagnitude.toStringAsFixed(1)),
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
@@ -157,7 +216,8 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
+              child: Text(l10n.get('cancel'),
+                  style: TextStyle(color: Colors.grey[600])),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -171,15 +231,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                        'Büyüklük aralığı ${tempMinMagnitude.toStringAsFixed(1)}-${tempMaxMagnitude.toStringAsFixed(1)} olarak ayarlandı'),
+                    content: Text(l10n
+                        .get('magnitude_range_set')
+                        .replaceAll(
+                            '{min}', tempMinMagnitude.toStringAsFixed(1))
+                        .replaceAll(
+                            '{max}', tempMaxMagnitude.toStringAsFixed(1))),
                     backgroundColor: Color(0xFF4CAF50),
                   ),
                 );
               },
               style:
                   ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-              child: Text('Kaydet', style: TextStyle(color: Colors.white)),
+              child:
+                  Text(l10n.get('save'), style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -188,6 +253,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showRatingDialog() {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -195,31 +261,32 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Icon(Icons.star, color: Colors.amber, size: 28),
             SizedBox(width: 8),
-            Text('Bizi Değerlendirin'),
+            Text(l10n.get('rate_us_title')),
           ],
         ),
         content: Text(
-          'Deprem Hattı\'nı beğendiniz mi? App Store\'da değerlendirerek bizi destekleyebilirsiniz!',
+          l10n.get('do_you_like_app'),
           style: TextStyle(fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child:
-                Text('Daha Sonra', style: TextStyle(color: Colors.grey[600])),
+            child: Text(l10n.get('later'),
+                style: TextStyle(color: Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('App Store açılıyor...'),
+                  content: Text(l10n.get('opening_app_store')),
                   backgroundColor: Color(0xFF4CAF50),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-            child: Text('Değerlendir', style: TextStyle(color: Colors.white)),
+            child:
+                Text(l10n.get('rate'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -227,6 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showProDialog() {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -234,7 +302,7 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             Icon(Icons.workspace_premium, color: Colors.amber, size: 28),
             SizedBox(width: 8),
-            Text('Pro Sürüm'),
+            Text(l10n.get('pro_version')),
           ],
         ),
         content: Column(
@@ -242,20 +310,20 @@ class _SettingsPageState extends State<SettingsPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Pro özellikler:',
+              l10n.get('pro_features'),
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12),
-            _buildProFeature('🚫 Reklamsız deneyim'),
-            _buildProFeature('📊 Detaylı deprem analizi'),
-            _buildProFeature('🔔 Öncelikli bildirimler'),
-            _buildProFeature('📍 Gelişmiş konum takibi'),
-            _buildProFeature('📈 Geçmiş veri analizi'),
-            _buildProFeature('🎨 Özel temalar'),
+            _buildProFeature(l10n.get('ad_free')),
+            _buildProFeature(l10n.get('detailed_analysis')),
+            _buildProFeature(l10n.get('priority_notifications')),
+            _buildProFeature(l10n.get('advanced_location')),
+            _buildProFeature(l10n.get('historical_analysis')),
+            _buildProFeature(l10n.get('custom_themes')),
             SizedBox(height: 16),
             Center(
               child: Text(
-                '₺49,99 / Yıl',
+                '₺49,99 ${l10n.get('per_year')}',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -268,20 +336,22 @@ class _SettingsPageState extends State<SettingsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
+            child: Text(l10n.get('cancel'),
+                style: TextStyle(color: Colors.grey[600])),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Satın alma işlemi başlatılıyor...'),
+                  content: Text(l10n.get('starting_purchase')),
                   backgroundColor: Color(0xFF4CAF50),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-            child: Text('Satın Al', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.get('purchase'),
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -289,16 +359,17 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showRadiusDialog() {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     double tempRadius = _notificationRadius;
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Bildirim Yarıçapı'),
+          title: Text(l10n.get('notification_radius')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Kaç km içindeki depremlerden bildirim almak istersiniz?'),
+              Text(l10n.get('how_far_notifications')),
               SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -308,6 +379,24 @@ class _SettingsPageState extends State<SettingsPage> {
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: Color(0xFFFFAA00))),
+                  IconButton(
+                    icon: Icon(Icons.gps_fixed, color: Color(0xFFFF3333)),
+                    tooltip: 'Konumdan al',
+                    onPressed: () async {
+                      // GPS ile konumdan radius hesapla (örnek: 100km)
+                      // Burada gerçek bir hesaplama yapılabilir, örnek olarak 100km atanıyor
+                      double gpsRadius = 100.0;
+                      setDialogState(() {
+                        tempRadius = gpsRadius;
+                      });
+                      await _prefsService.setNotificationRadius(gpsRadius);
+                      setState(() {
+                        _notificationRadius = gpsRadius;
+                      });
+                      print(
+                          '📍 GPS tuşu ile yarıçap güncellendi ve kaydedildi: $gpsRadius');
+                    },
+                  ),
                 ],
               ),
               Slider(
@@ -324,7 +413,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 },
               ),
               Text(
-                '10 km - 1000 km arası',
+                l10n.get('between_km'),
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
@@ -332,7 +421,8 @@ class _SettingsPageState extends State<SettingsPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('İptal', style: TextStyle(color: Colors.grey[600])),
+              child: Text(l10n.get('cancel'),
+                  style: TextStyle(color: Colors.grey[600])),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -344,15 +434,18 @@ class _SettingsPageState extends State<SettingsPage> {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                        'Bildirim yarıçapı ${tempRadius.toInt()} km olarak ayarlandı'),
+                    content: Text(l10n
+                        .get('radius_set')
+                        .replaceAll('{radius}', tempRadius.toInt().toString())),
                     backgroundColor: Color(0xFF4CAF50),
                   ),
                 );
+                print('✅ Yarıçap kaydedildi ve uygulandı: $tempRadius');
               },
               style:
                   ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-              child: Text('Kaydet', style: TextStyle(color: Colors.white)),
+              child:
+                  Text(l10n.get('save'), style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -373,6 +466,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations(Locale(_currentLocale));
+
+    // Debug: Check locale and translation
+    print('🔍 DEBUG: _currentLocale = $_currentLocale');
+    print(
+        '🔍 DEBUG: locale.languageCode = ${Locale(_currentLocale).languageCode}');
+    print(
+        '🔍 DEBUG: share_location_with_friends = ${l10n.get('share_location_with_friends')}');
+
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(color: Color(0xFFFF3333)),
@@ -386,27 +488,31 @@ class _SettingsPageState extends State<SettingsPage> {
         const BackgroundServiceController(),
 
         // Bildirimler Bölümü
-        _buildSectionHeader('Bildirimler'),
+        _buildSectionHeader(l10n.get('notifications')),
         _buildSettingTile(
           icon: Icons.notifications_active,
-          title: 'Bildirimlere İzin Ver',
-          subtitle: 'Deprem bildirimleri al',
+          title: l10n.get('allow_notifications'),
+          subtitle: l10n.get('receive_earthquake_notifications'),
           trailing: CupertinoSwitch(
             value: _notificationsEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
+              await _prefsService.setNotificationsEnabled(value);
               setState(() {
                 _notificationsEnabled = value;
               });
+              print('🔔 Ana bildirim ayarı kaydedildi: $value');
             },
           ),
         ),
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.speed,
-          title: 'Minimum Büyüklük',
-          subtitle:
-              '${_minimumMagnitude.toStringAsFixed(1)}-${_maximumMagnitude.toStringAsFixed(1)} Mw arası',
+          title: l10n.get('minimum_magnitude'),
+          subtitle: l10n
+              .get('between_mw')
+              .replaceAll('{min}', _minimumMagnitude.toStringAsFixed(1))
+              .replaceAll('{max}', _maximumMagnitude.toStringAsFixed(1)),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: _showMagnitudeDialog,
           enabled: _notificationsEnabled,
@@ -414,8 +520,10 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.place,
-          title: 'Bildirim Yarıçapı',
-          subtitle: '${_notificationRadius.toInt()} km içindeki depremler',
+          title: l10n.get('notification_radius'),
+          subtitle: l10n
+              .get('earthquakes_within_km')
+              .replaceAll('{radius}', _notificationRadius.toInt().toString()),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: _showRadiusDialog,
           enabled: _notificationsEnabled,
@@ -423,16 +531,17 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.volume_up,
-          title: 'Bildirim Sesi',
-          subtitle: 'Sesli uyarı',
+          title: l10n.get('notification_sound'),
+          subtitle: l10n.get('sound_alert'),
           trailing: CupertinoSwitch(
             value: _soundEnabled,
             activeColor: Color(0xFFFF3333),
             onChanged: _notificationsEnabled
-                ? (value) {
+                ? (value) async {
                     setState(() {
                       _soundEnabled = value;
                     });
+                    await _prefsService.setNotificationSound(value);
                   }
                 : null,
           ),
@@ -441,16 +550,17 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.vibration,
-          title: 'Titreşim',
-          subtitle: 'Cihazı titret',
+          title: l10n.get('vibration'),
+          subtitle: l10n.get('device_vibrate'),
           trailing: CupertinoSwitch(
             value: _vibrationEnabled,
             activeColor: Color(0xFFFF3333),
             onChanged: _notificationsEnabled
-                ? (value) {
+                ? (value) async {
                     setState(() {
                       _vibrationEnabled = value;
                     });
+                    await _prefsService.setVibration(value);
                   }
                 : null,
           ),
@@ -460,96 +570,105 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 16),
 
         // Araçlar Bölümü
-        _buildSectionHeader('Araçlar'),
-        _buildWhistleTile(),
+        _buildSectionHeader(l10n.get('tools')),
+        _buildWhistleTile(l10n),
 
         SizedBox(height: 16),
 
         // Diğer Bölümü
-        _buildSectionHeader('Diğer'),
+        _buildSectionHeader(l10n.get('other')),
         _buildSettingTile(
           icon: Icons.share_location,
-          title: 'Konumumu Arkadaşlarla Paylaş',
-          subtitle: '2 saatte bir konum güncelle',
+          title: l10n.get('share_location_with_friends'),
+          subtitle: l10n.get('update_location_every_2_hours'),
           trailing: CupertinoSwitch(
             value: _shareLocationWithFriends,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) async {
-              setState(() {
-                _shareLocationWithFriends = value;
-              });
-              await _prefsService.setShareLocation(value);
+            onChanged: (!_locationServicesEnabled || !_backgroundRefreshEnabled)
+                ? null
+                : (value) async {
+                    setState(() {
+                      _shareLocationWithFriends = value;
+                    });
+                    await _prefsService.setShareLocation(value);
 
-              // Backend'e hemen gönder
-              await _locationUpdateService.sendNotificationSettings(
-                notificationRadius: _notificationRadius,
-                minMagnitude: _minimumMagnitude,
-                maxMagnitude: _maximumMagnitude,
-                shareLocationWithFriends: value,
-              );
+                    // Backend'e hemen gönder
+                    await _locationUpdateService.sendNotificationSettings(
+                      notificationRadius: _notificationRadius,
+                      minMagnitude: _minimumMagnitude,
+                      maxMagnitude: _maximumMagnitude,
+                      shareLocationWithFriends: value,
+                    );
 
-              // Konum paylaşımı açıldıysa hemen bir güncelleme yap
-              if (value) {
-                await _locationUpdateService.sendLocationUpdate();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content: Text('Konumunuz arkadaşlarınızla paylaşılıyor')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Konum paylaşımı kapatıldı')),
-                );
-              }
-            },
+                    // Konum paylaşımı açıldıysa hemen bir güncelleme yap
+                    if (value) {
+                      await _locationUpdateService.sendLocationUpdate();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(l10n.get('your_location_shared'))),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                            content: Text(l10n.get('location_sharing_off'))),
+                      );
+                    }
+                  },
           ),
+          enabled: _locationServicesEnabled && _backgroundRefreshEnabled,
         ),
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.location_on,
-          title: 'Konum Servisleri',
-          subtitle: 'Konumunuza yakın depremleri göster',
+          title: l10n.get('location_services'),
+          subtitle: l10n.get('show_nearby_earthquakes'),
           trailing: CupertinoSwitch(
             value: _locationServicesEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 _locationServicesEnabled = value;
               });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('location_services_enabled', value);
+              _enforceLocationDependencies();
             },
           ),
         ),
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.refresh,
-          title: 'Arka Plan Yenileme',
-          subtitle: 'Uygulama kapalıyken veri güncelle',
+          title: l10n.get('background_refresh'),
+          subtitle: l10n.get('update_data_when_closed'),
           trailing: CupertinoSwitch(
             value: _backgroundRefreshEnabled,
             activeColor: Color(0xFFFF3333),
-            onChanged: (value) {
+            onChanged: (value) async {
               setState(() {
                 _backgroundRefreshEnabled = value;
               });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('background_refresh_enabled', value);
+              _enforceLocationDependencies();
             },
           ),
         ),
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.storage,
-          title: 'Önbelleği Temizle',
-          subtitle: 'Depolanan verileri sil',
+          title: l10n.get('clear_cache'),
+          subtitle: l10n.get('delete_stored_data'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: () {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: Text('Önbelleği Temizle'),
-                content: Text(
-                    'Tüm önbelleğe alınmış veriler silinecek. Devam etmek istiyor musunuz?'),
+                title: Text(l10n.get('clear_cache_title')),
+                content: Text(l10n.get('clear_cache_confirm')),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('İptal',
+                    child: Text(l10n.get('cancel'),
                         style: TextStyle(color: Colors.grey[600])),
                   ),
                   ElevatedButton(
@@ -557,15 +676,15 @@ class _SettingsPageState extends State<SettingsPage> {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Önbellek temizlendi'),
+                          content: Text(l10n.get('cache_cleared')),
                           backgroundColor: Color(0xFF4CAF50),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFFFF3333)),
-                    child:
-                        Text('Temizle', style: TextStyle(color: Colors.white)),
+                    child: Text(l10n.get('clear'),
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -575,20 +694,37 @@ class _SettingsPageState extends State<SettingsPage> {
 
         SizedBox(height: 16),
 
+        // Debug Bölümü
+        _buildSectionHeader('Geliştirici'),
+        _buildSettingTile(
+          icon: Icons.bug_report,
+          title: 'Debug & Test Modu',
+          subtitle: 'Sensör ve servis durumunu görüntüle',
+          trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => DebugScreen()),
+            );
+          },
+        ),
+
+        SizedBox(height: 16),
+
         // Hakkında Bölümü
-        _buildSectionHeader('Hakkında'),
+        _buildSectionHeader(l10n.get('about')),
         _buildSettingTile(
           icon: Icons.star,
-          title: 'Bizi Puanla',
-          subtitle: 'App Store\'da değerlendir',
+          title: l10n.get('rate_us'),
+          subtitle: l10n.get('rate_on_app_store'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: _showRatingDialog,
         ),
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.workspace_premium,
-          title: 'Pro Sürüme Geç',
-          subtitle: 'Tüm özelliklerin kilidini aç',
+          title: l10n.get('go_pro'),
+          subtitle: l10n.get('unlock_all_features'),
           trailing: Container(
             padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -609,25 +745,25 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.info_outline,
-          title: 'Uygulama Hakkında',
-          subtitle: 'Kullanım şartları ve gizlilik',
+          title: l10n.get('about_app'),
+          subtitle: l10n.get('terms_and_privacy'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: () {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: Text('Deprem Hattı'),
+                title: Text(l10n.get('earthquake_line')),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Türkiye\'nin en kapsamlı deprem takip uygulaması'),
+                    Text(l10n.get('comprehensive_app')),
                     SizedBox(height: 12),
-                    Text('© 2025 Deprem Hattı',
+                    Text('© 2025 ${l10n.get('earthquake_line')}',
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600])),
                     SizedBox(height: 8),
-                    Text('Tüm hakları saklıdır.',
+                    Text(l10n.get('all_rights_reserved'),
                         style:
                             TextStyle(fontSize: 12, color: Colors.grey[600])),
                   ],
@@ -637,7 +773,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     onPressed: () => Navigator.pop(ctx),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFFFF3333)),
-                    child: Text('Tamam', style: TextStyle(color: Colors.white)),
+                    child: Text(l10n.get('ok'),
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ],
               ),
@@ -647,13 +784,13 @@ class _SettingsPageState extends State<SettingsPage> {
         _buildDivider(),
         _buildSettingTile(
           icon: Icons.bug_report,
-          title: 'Hata Bildir',
-          subtitle: 'Sorun mu yaşıyorsunuz?',
+          title: l10n.get('report_bug'),
+          subtitle: l10n.get('having_issues'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Hata bildirimi formu açılıyor...'),
+                content: Text(l10n.get('bug_report_opening')),
                 backgroundColor: Color(0xFF4CAF50),
               ),
             );
@@ -663,23 +800,22 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 16),
 
         // Hesap Bölümü
-        _buildSectionHeader('Hesap'),
+        _buildSectionHeader(l10n.get('account')),
         _buildSettingTile(
           icon: Icons.logout,
-          title: 'Çıkış Yap',
-          subtitle: 'Hesabınızdan çıkış yapın',
+          title: l10n.get('logout'),
+          subtitle: l10n.get('logout_from_account'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: () {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: Text('Çıkış Yap'),
-                content: Text(
-                    'Hesabınızdan çıkış yapmak istediğinize emin misiniz?'),
+                title: Text(l10n.get('logout_title')),
+                content: Text(l10n.get('logout_confirm')),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: Text('İptal',
+                    child: Text(l10n.get('cancel'),
                         style: TextStyle(color: Colors.grey[600])),
                   ),
                   ElevatedButton(
@@ -703,14 +839,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Çıkış yapıldı'),
+                          content: Text(l10n.get('logged_out')),
                           backgroundColor: Color(0xFF4CAF50),
                         ),
                       );
                     },
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFFFF3333)),
-                    child: Text('Çıkış Yap',
+                    child: Text(l10n.get('logout'),
                         style: TextStyle(color: Colors.white)),
                   ),
                 ],
@@ -724,7 +860,7 @@ class _SettingsPageState extends State<SettingsPage> {
         // Versiyon Numarası
         Center(
           child: Text(
-            'Versiyon 1.0.0',
+            '${l10n.get('version_text')} 1.0.0',
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[500],
@@ -734,7 +870,7 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 8),
         Center(
           child: Text(
-            'Build 2024110601',
+            '${l10n.get('build_text')} 2024110601',
             style: TextStyle(
               fontSize: 10,
               color: Colors.grey[400],
@@ -761,14 +897,13 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildWhistleTile() {
+  Widget _buildWhistleTile(AppLocalizations l10n) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 0),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: _isWhistlePlaying 
-            ? Border.all(color: Colors.red, width: 2)
-            : null,
+        border:
+            _isWhistlePlaying ? Border.all(color: Colors.red, width: 2) : null,
       ),
       child: Padding(
         padding: EdgeInsets.all(16),
@@ -781,7 +916,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: _isWhistlePlaying 
+                    color: _isWhistlePlaying
                         ? Colors.red.withOpacity(0.1)
                         : Color(0xFFFF3333).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
@@ -798,7 +933,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Düdük Çal',
+                        l10n.get('whistle_play'),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -806,12 +941,13 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ),
                       Text(
-                        _isWhistlePlaying 
-                            ? '🔊 Düdük çalıyor - Yerini belli et!'
-                            : 'Enkaz altındayken yerini belli etmek için kullan',
+                        _isWhistlePlaying
+                            ? l10n.get('whistle_playing_signal')
+                            : l10n.get('whistle_use_debris'),
                         style: TextStyle(
                           fontSize: 13,
-                          color: _isWhistlePlaying ? Colors.red : Colors.grey[600],
+                          color:
+                              _isWhistlePlaying ? Colors.red : Colors.grey[600],
                         ),
                       ),
                     ],
@@ -824,18 +960,20 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isWhistlePlaying ? null : () async {
-                      await _whistleService.startWhistle();
-                      setState(() => _isWhistlePlaying = true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('🔊 Düdük çalmaya başladı!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    },
+                    onPressed: _isWhistlePlaying
+                        ? null
+                        : () async {
+                            await _whistleService.startWhistle();
+                            setState(() => _isWhistlePlaying = true);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.get('whistle_started')),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          },
                     icon: Icon(Icons.play_arrow),
-                    label: Text('Başlat'),
+                    label: Text(l10n.get('start')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
@@ -847,18 +985,20 @@ class _SettingsPageState extends State<SettingsPage> {
                 SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: !_isWhistlePlaying ? null : () async {
-                      await _whistleService.stopWhistle();
-                      setState(() => _isWhistlePlaying = false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('🔇 Düdük durduruldu'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    },
+                    onPressed: !_isWhistlePlaying
+                        ? null
+                        : () async {
+                            await _whistleService.stopWhistle();
+                            setState(() => _isWhistlePlaying = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.get('whistle_stopped')),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          },
                     icon: Icon(Icons.stop),
-                    label: Text('Durdur'),
+                    label: Text(l10n.get('stop')),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
@@ -884,7 +1024,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Düdük sesi çalıyor! Kurtarma ekiplerinin sizi bulmasına yardımcı olun.',
+                        l10n.get('whistle_help_rescue'),
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.red[700],

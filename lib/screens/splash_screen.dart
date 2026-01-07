@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+// ...existing code...
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'dart:async';
-import '../screens/earthquake_alert_screen.dart';
+import '../screens/earthquake_info_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,152 +15,38 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  Future<void> _checkEarthquakeParams() async {
-    const MethodChannel paramsChannel =
-        MethodChannel('deprem_app/earthquake_params');
-    try {
-      final earthquakeParams =
-          await paramsChannel.invokeMethod('getEarthquakeParams');
-      if (earthquakeParams != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => EarthquakeAlertScreen(
-              magnitude:
-                  (earthquakeParams['magnitude'] as num?)?.toDouble() ?? 0.0,
-              location: earthquakeParams['location'] as String? ?? '',
-              distance:
-                  (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
-              timestamp: DateTime.now(),
-              source: 'P2P',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      // Hata olursa logla
-      debugPrint('Earthquake param check error: $e');
-    }
-  }
-
-  Future<void> _checkEarthquakeParamsAndNavigate() async {
-    const MethodChannel paramsChannel =
-        MethodChannel('deprem_app/earthquake_params');
-    try {
-      final earthquakeParams =
-          await paramsChannel.invokeMethod('getEarthquakeParams');
-      if (earthquakeParams != null && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => EarthquakeAlertScreen(
-              magnitude:
-                  (earthquakeParams['magnitude'] as num?)?.toDouble() ?? 0.0,
-              location: earthquakeParams['location'] as String? ?? '',
-              distance:
-                  (earthquakeParams['distance'] as num?)?.toDouble() ?? 0.0,
-              timestamp: DateTime.now(),
-              source: 'P2P',
-            ),
-          ),
-        );
-        return; // Deprem ekranına yönlendirildi, diğer akışları başlatma
-      }
-    } catch (e) {
-      debugPrint('Earthquake param check error: $e');
-    }
-    // Deprem parametresi yoksa login/home akışına devam et
-    _checkLoginStatus();
-  }
-
   @override
   void initState() {
     super.initState();
-    // Uygulama yüklenene kadar splash screen göster (1.5 saniye - optimize edildi)
-    Timer(const Duration(milliseconds: 1500), () {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      _checkEarthquakeParamsAndNavigate();
-    });
-  }
-
-  Future<void> _checkLoginStatus() async {
-    // Uygulama açıldığında kısa bir gecikmeyle deprem parametresi kontrolü
-    Future.delayed(
-        const Duration(milliseconds: 500), () => _checkEarthquakeParams());
-    if (!mounted) return;
-
-    try {
+    FlutterNativeSplash.remove();
+    Timer(const Duration(seconds: 2), () async {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');
-      final userName = prefs.getString('user_name');
-      final userEmail = prefs.getString('user_email');
-
-      if (mounted) {
-        // Kullanıcı bilgileri varsa home'a, yoksa login'e git
-        if (userId != null && userId.isNotEmpty) {
-          print('✅ Kullanıcı giriş yapmış: $userName ($userEmail)');
-          Navigator.of(context).pushReplacementNamed('/home');
-        } else {
-          print('ℹ️ Kullanıcı giriş yapmamış, login ekranına yönlendiriliyor');
-          Navigator.of(context).pushReplacementNamed('/login');
-        }
-      }
-    } catch (e) {
-      print('❌ Login kontrolü hatası: $e');
-      if (mounted) {
+      if (userId == null || userId.isEmpty) {
+        // Kullanıcı giriş yapmamışsa login ekranına yönlendir
         Navigator.of(context).pushReplacementNamed('/login');
+      } else {
+        // Giriş yapılmışsa ana ekrana yönlendir
+        Navigator.of(context).pushReplacementNamed('/home');
       }
-    }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final isTurkish = locale.languageCode == 'tr';
+    String splashImage = isTurkish
+        ? 'assets/images/Splash_Screen-tr.png'
+        : 'assets/images/Splash_Screen-eng.png';
     return Scaffold(
-      backgroundColor: const Color(0xFFFF3A3D), // Uygulama kırmızısı
-      body: Stack(
-        children: [
-          // Arka planda büyük, soluk logo - ekran dışına taşan, sağa kaydırılmış
-          Positioned(
-            left: 150,
-            child: Center(
-              child: Opacity(
-                opacity: 0.05,
-                child: SvgPicture.asset(
-                  'assets/Icons/Logo.svg',
-                  width: MediaQuery.of(context).size.width * 2.5,
-                  height: MediaQuery.of(context).size.width * 2.5,
-                  colorFilter:
-                      const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                ),
-              ),
-            ),
-          ),
-          // Ön planda merkez içerik
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Ana logo
-                SvgPicture.asset(
-                  'assets/Icons/Logo.svg',
-                  width: 180,
-                  height: 180,
-                  colorFilter:
-                      const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                ),
-                const SizedBox(height: 30),
-                // Deprem Hattı yazısı
-                const Text(
-                  'Deprem Hattı',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      backgroundColor: const Color(0xFFFF3A3D),
+      body: Center(
+        child: Image.asset(
+          splashImage,
+          width: 300,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

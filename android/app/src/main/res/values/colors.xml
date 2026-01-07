@@ -2,4 +2,6 @@
 <resources>
     <!-- Uygulama ana rengi -->
     <color name="splash_background">#FF3A3D</color>
+    <color name="ic_launcher_background">#FF3A3D</color>
+    <color name="splash_bg">#FF3A3D</color>
 </resources>

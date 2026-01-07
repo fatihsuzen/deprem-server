@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/chat_service.dart';
 import '../services/auth_service.dart';
+import '../l10n/app_localizations.dart';
 
 class ChatScreen extends StatefulWidget {
   final String roomId;
@@ -305,6 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessagesList() {
     final messages =
         _chatService.messages.reversed.toList(); // Mesajları ters çevir
+    final l10n = AppLocalizations.of(context);
 
     if (messages.isEmpty) {
       return Center(
@@ -318,7 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Henüz mesaj yok',
+              l10n?.get('no_messages_yet') ?? 'Henüz mesaj yok',
               style: TextStyle(
                 fontSize: 16,
                 color:
@@ -327,7 +329,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'İlk mesajı siz gönderin! 👋',
+              l10n?.get('send_first_message') ?? 'İlk mesajı siz gönderin! 👋',
               style: TextStyle(
                 fontSize: 14,
                 color:
@@ -497,6 +499,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showActiveUsers() {
+    final l10n = AppLocalizations.of(context);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -517,7 +521,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Aktif Kullanıcılar (${_activeUsers.length})',
+                    '${l10n?.get('active_users') ?? 'Aktif Kullanıcılar'} (${_activeUsers.length})',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -529,7 +533,7 @@ class _ChatScreenState extends State<ChatScreen> {
               const SizedBox(height: 16),
               if (_activeUsers.isEmpty)
                 Text(
-                  'Henüz aktif kullanıcı yok',
+                  l10n?.get('no_active_users') ?? 'Henüz aktif kullanıcı yok',
                   style: TextStyle(
                     color: Theme.of(context)
                         .colorScheme
