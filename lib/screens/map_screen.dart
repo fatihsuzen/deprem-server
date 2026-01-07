@@ -62,6 +62,7 @@ class _MapScreenState extends State<MapScreen>
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
   bool _showFaultLines = true;
+  bool _isLeftPanelExpanded = true; // Sol panel açık/kapalı durumu
   int _lastLoggedMarkerCount = -1; // Debug için marker sayısı takibi
   List<Map<String, dynamic>> _friends = [];
   List<Map<String, dynamic>> _quakes =
@@ -1709,69 +1710,117 @@ class _MapScreenState extends State<MapScreen>
               ),
             ),
           ),
-        // Checkbox listesi (sol üst köşe)
+        // Checkbox listesi (sol üst köşe) - Açılıp kapanabilir
         Positioned(
           top: 12,
           left: 12,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black26,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+          child: Row(
+            children: [
+              // Panel içeriği
+              AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                width: _isLeftPanelExpanded ? 180 : 0,
+                child: _isLeftPanelExpanded
+                    ? Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(8),
+                            bottomLeft: Radius.circular(8),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildCheckboxItem(
+                              icon: Icons.warning,
+                              label: l10n.get('earthquakes'),
+                              isChecked: _showEarthquakes,
+                              color: Colors.red,
+                              onChanged: (value) {
+                                setState(() => _showEarthquakes = value ?? false);
+                                _saveToggleState('earthquakes', value ?? false);
+                              },
+                            ),
+                            _buildCheckboxItem(
+                              icon: Icons.people,
+                              label: l10n.get('friends'),
+                              isChecked: _showFriends,
+                              color: Colors.purple,
+                              onChanged: (value) {
+                                setState(() => _showFriends = value ?? false);
+                                _saveToggleState('friends', value ?? false);
+                              },
+                            ),
+                            _buildCheckboxItem(
+                              icon: Icons.group,
+                              label: l10n.get('assembly_areas'),
+                              isChecked: _showAssemblyAreas,
+                              color: Colors.green,
+                              onChanged: (value) {
+                                setState(() => _showAssemblyAreas = value ?? false);
+                                _saveToggleState('assembly', value ?? false);
+                              },
+                            ),
+                            _buildCheckboxItem(
+                              icon: Icons.format_line_spacing,
+                              label: l10n.get('fault_lines'),
+                              isChecked: _showFaultLines,
+                              color: Colors.red,
+                              onChanged: (value) {
+                                setState(() => _showFaultLines = value ?? false);
+                                _saveToggleState('faultLines', value ?? false);
+                              },
+                            ),
+                          ],
+                        ),
+                      )
+                    : SizedBox.shrink(),
+              ),
+              // Toggle butonu
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildCheckboxItem(
-                  icon: Icons.warning,
-                  label: l10n.get('earthquakes'),
-                  isChecked: _showEarthquakes,
-                  color: Colors.red,
-                  onChanged: (value) {
-                    setState(() => _showEarthquakes = value ?? false);
-                    _saveToggleState('earthquakes', value ?? false);
+                child: IconButton(
+                  icon: Icon(
+                    _isLeftPanelExpanded
+                        ? Icons.chevron_left
+                        : Icons.chevron_right,
+                    color: Color(0xFFFF3333),
+                  ),
+                  padding: EdgeInsets.all(8),
+                  constraints: BoxConstraints(),
+                  onPressed: () {
+                    setState(() {
+                      _isLeftPanelExpanded = !_isLeftPanelExpanded;
+                    });
                   },
                 ),
-                _buildCheckboxItem(
-                  icon: Icons.people,
-                  label: l10n.get('friends'),
-                  isChecked: _showFriends,
-                  color: Colors.purple,
-                  onChanged: (value) {
-                    setState(() => _showFriends = value ?? false);
-                    _saveToggleState('friends', value ?? false);
-                  },
-                ),
-                _buildCheckboxItem(
-                  icon: Icons.group,
-                  label: l10n.get('assembly_areas'),
-                  isChecked: _showAssemblyAreas,
-                  color: Colors.green,
-                  onChanged: (value) {
-                    setState(() => _showAssemblyAreas = value ?? false);
-                    _saveToggleState('assembly', value ?? false);
-                  },
-                ),
-                _buildCheckboxItem(
-                  icon: Icons.format_line_spacing,
-                  label: l10n.get('fault_lines'),
-                  isChecked: _showFaultLines,
-                  color: Colors.red,
-                  onChanged: (value) {
-                    setState(() => _showFaultLines = value ?? false);
-                    _saveToggleState('faultLines', value ?? false);
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
         Positioned(
