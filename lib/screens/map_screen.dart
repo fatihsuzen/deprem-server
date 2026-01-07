@@ -155,7 +155,8 @@ class _MapScreenState extends State<MapScreen>
   // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
   bool _earthquakesLoading = false;
   late MapController _mapController;
-  bool _showLatestQuakePopup = true; // Popup görünürlük kontrolü
+  bool _showLatestQuakePopup =
+      true; // Popup görünürlük kontrolü (SharedPreferences'tan yüklenecek)
 
   // Fay hatları - Dünya genelinde önemli aktif faylar (Global coverage)
   final List<Map<String, dynamic>> _faultLines = [
@@ -598,6 +599,8 @@ class _MapScreenState extends State<MapScreen>
       _showFriends = prefs.getBool('mapToggle_friends') ?? true;
       _showAssemblyAreas = prefs.getBool('mapToggle_assembly') ?? true;
       _showFaultLines = prefs.getBool('mapToggle_faultLines') ?? true;
+      _showLatestQuakePopup =
+          prefs.getBool('mapToggle_latestQuakePopup') ?? true;
     });
   }
 
@@ -1749,7 +1752,8 @@ class _MapScreenState extends State<MapScreen>
                               isChecked: _showEarthquakes,
                               color: Colors.red,
                               onChanged: (value) {
-                                setState(() => _showEarthquakes = value ?? false);
+                                setState(
+                                    () => _showEarthquakes = value ?? false);
                                 _saveToggleState('earthquakes', value ?? false);
                               },
                             ),
@@ -1769,7 +1773,8 @@ class _MapScreenState extends State<MapScreen>
                               isChecked: _showAssemblyAreas,
                               color: Colors.green,
                               onChanged: (value) {
-                                setState(() => _showAssemblyAreas = value ?? false);
+                                setState(
+                                    () => _showAssemblyAreas = value ?? false);
                                 _saveToggleState('assembly', value ?? false);
                               },
                             ),
@@ -1779,8 +1784,21 @@ class _MapScreenState extends State<MapScreen>
                               isChecked: _showFaultLines,
                               color: Colors.red,
                               onChanged: (value) {
-                                setState(() => _showFaultLines = value ?? false);
+                                setState(
+                                    () => _showFaultLines = value ?? false);
                                 _saveToggleState('faultLines', value ?? false);
+                              },
+                            ),
+                            _buildCheckboxItem(
+                              icon: Icons.info_outline,
+                              label: l10n.get('latest_earthquake'),
+                              isChecked: _showLatestQuakePopup,
+                              color: Colors.orange,
+                              onChanged: (value) {
+                                setState(() =>
+                                    _showLatestQuakePopup = value ?? false);
+                                _saveToggleState(
+                                    'latestQuakePopup', value ?? false);
                               },
                             ),
                           ],
