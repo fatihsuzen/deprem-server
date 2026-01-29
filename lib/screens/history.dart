@@ -5,6 +5,7 @@ import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import '../l10n/app_localizations.dart';
 import 'dart:math' show sin, cos, sqrt, asin;
+import 'earthquake_info_screen.dart';
 
 class HistoryPage extends StatefulWidget {
   @override
@@ -151,24 +152,26 @@ class _HistoryPageState extends State<HistoryPage> {
       });
 
       final earthquakes = await _earthquakeService.getRecentEarthquakes(
-        limit: 100, // Daha fazla çek, sonra filtrele
+        limit: 100,
         minMagnitude: _minMagnitude,
         period: 'day',
         userLat: _userLat,
         userLon: _userLon,
+        radius: _notificationRadius, // ✅ API'ye radius gönder
       );
 
-      // Magnitude range ve mesafeye göre filtrele
+      // Magnitude range'e göre filtrele (API zaten mesafe filtrelemesi yaptı)
       print('\n📊 History - Filtreleme başlıyor:');
       print('   Toplam deprem: ${earthquakes.length}');
       print('   Kullanıcı konumu: $_userLat, $_userLon');
-      print('   Range: $_notificationRadius km');
+      print('   Range: $_notificationRadius km (API tarafından filtrelendi)');
       print('   Magnitude: $_minMagnitude - $_maxMagnitude');
 
       int magFiltered = 0;
-      int distanceFiltered = 0;
       int passed = 0;
 
+      // API zaten mesafe filtresi uyguladı (radius parametresi ile)
+      // Burada sadece magnitude range kontrolü yapıyoruz
       final filtered = earthquakes.where((eq) {
         final mag = (eq['mag'] is int)
             ? (eq['mag'] as int).toDouble()
@@ -180,39 +183,12 @@ class _HistoryPageState extends State<HistoryPage> {
           return false;
         }
 
-        // Mesafe kontrolü (eğer konum varsa)
-        if (_userLat != null && _userLon != null) {
-          final lat = (eq['lat'] is int)
-              ? (eq['lat'] as int).toDouble()
-              : eq['lat'] as double;
-          final lon = (eq['lon'] is int)
-              ? (eq['lon'] as int).toDouble()
-              : eq['lon'] as double;
-
-          final distance = _calculateDistance(
-            _userLat!,
-            _userLon!,
-            lat,
-            lon,
-          );
-
-          if (distance > _notificationRadius) {
-            distanceFiltered++;
-            if (distanceFiltered <= 3) {
-              print(
-                  '   ❌ Uzak: ${eq['place']} - ${distance.toStringAsFixed(1)} km (>${_notificationRadius} km)');
-            }
-            return false;
-          }
-
-          passed++;
-          if (passed <= 5) {
-            print(
-                '   ✅ Geçti: ${eq['place']} - ${distance.toStringAsFixed(1)} km (M${mag.toStringAsFixed(1)})');
-          }
-          return true;
+        passed++;
+        if (passed <= 5) {
+          final distance = eq['distance'] ?? 0.0;
+          print(
+              '   ✅ Geçti: ${eq['place']} - ${distance.toStringAsFixed(1)} km (M${mag.toStringAsFixed(1)})');
         }
-
         return true;
       }).toList();
 
@@ -302,7 +278,9 @@ class _HistoryPageState extends State<HistoryPage> {
 
       print('\n📈 History - Filtreleme sonucu:');
       print('   Magnitude filtresi: $magFiltered elendi');
-      print('   Mesafe filtresi: $distanceFiltered elendi');
+      print('   Mesafe filtresi: API tarafından uygulandı');
+      print('   Geçen depremler: $passed');
+      print('   Gösterilecek: ${limited.length}');
       print('   Geçenler: $passed');
       print('   Gösterilecek: ${limited.length}\n');
 
@@ -334,6 +312,33 @@ class _HistoryPageState extends State<HistoryPage> {
       return '$hours ${l10n?.get('hours_ago_short') ?? 'hours ago'}';
     } else {
       return l10n?.get('day_ago') ?? '1 day ago';
+    }
+  }
+
+  String _formatTime(dynamic timeValue) {
+    if (timeValue == null) return '';
+    
+    try {
+      final String timeStr = timeValue.toString();
+      
+      // Eğer zaten saat formatındaysa (HH:mm), direkt döndür
+      if (timeStr.contains(':') && !timeStr.contains('T')) {
+        return timeStr;
+      }
+      
+      // ISO formatı (2026-01-28T20:44:27.000Z) ise parse et
+      if (timeStr.contains('T')) {
+        final dateTime = DateTime.parse(timeStr);
+        // Local timezone'a çevir ve sadece saat:dakika göster
+        final localTime = dateTime.toLocal();
+        final hour = localTime.hour.toString().padLeft(2, '0');
+        final minute = localTime.minute.toString().padLeft(2, '0');
+        return '$hour:$minute';
+      }
+      
+      return timeStr;
+    } catch (e) {
+      return timeValue.toString();
     }
   }
 
@@ -371,146 +376,49 @@ class _HistoryPageState extends State<HistoryPage> {
         : earthquake['mag'] as double;
     final depth = (earthquake['depth'] is int)
         ? (earthquake['depth'] as int).toDouble()
-        : earthquake['depth'] as double;
-    final l10n = AppLocalizations.of(context);
-    final intensity = _getIntensity(magnitude, ctx: context);
+        : (earthquake['depth'] as double?) ?? 10.0;
+    final lat = (earthquake['lat'] is int)
+        ? (earthquake['lat'] as int).toDouble()
+        : (earthquake['lat'] as double?) ?? 0.0;
+    final lon = (earthquake['lon'] is int)
+        ? (earthquake['lon'] as int).toDouble()
+        : (earthquake['lon'] as double?) ?? 0.0;
 
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    // Mesafe hesapla
+    double distance = 0.0;
+    if (_userLat != null && _userLon != null) {
+      distance = _calculateDistance(_userLat!, _userLon!, lat, lon);
+    }
+
+    // Zaman parse et
+    DateTime timestamp;
+    try {
+      if (earthquake['timestamp'] is String) {
+        timestamp = DateTime.parse(earthquake['timestamp']);
+      } else if (earthquake['time'] is String) {
+        timestamp = DateTime.parse(earthquake['time']);
+      } else {
+        timestamp = DateTime.now();
+      }
+    } catch (e) {
+      timestamp = DateTime.now();
+    }
+
+    // EarthquakeInfoScreen'i aç (popup yerine tam ekran)
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EarthquakeInfoScreen(
+          magnitude: magnitude,
+          location: earthquake['place'] ?? 'Unknown',
+          distance: distance,
+          timestamp: timestamp,
+          source: earthquake['source'] ?? 'Unknown',
+          epicenterLat: lat,
+          epicenterLon: lon,
+          depth: depth,
+        ),
       ),
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(24.0),
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.of(ctx).size.height * 0.50,
-            maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n?.get('earthquake_details') ?? 'Earthquake Details',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 24),
-
-              // Büyüklük
-              Row(
-                children: [
-                  Icon(
-                    Icons.warning_rounded,
-                    color: _getMagnitudeColor(magnitude),
-                    size: 24,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    '${magnitude.toStringAsFixed(1)} Mw',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    intensity,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-
-              // Konum
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.location_on, color: Color(0xFFFF3333), size: 24),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      earthquake['place'] ??
-                          l10n?.get('unknown_location') ??
-                          'Unknown Location',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-
-              // Derinlik
-              Row(
-                children: [
-                  Icon(Icons.layers, color: Color(0xFFFF3333), size: 24),
-                  SizedBox(width: 12),
-                  Text(
-                    '${l10n?.get('depth') ?? 'Depth'}: ${depth.toStringAsFixed(1)} km',
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-
-              // Zaman
-              Row(
-                children: [
-                  Icon(Icons.access_time, color: Color(0xFFFF3333), size: 24),
-                  SizedBox(width: 12),
-                  Text(
-                    _getTimeAgoText(earthquake['minutesAgo'] as int,
-                        ctx: context),
-                    style: TextStyle(fontSize: 16, color: Colors.black87),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-
-              // Kaynak
-              if (earthquake['source'] != null)
-                Row(
-                  children: [
-                    Icon(Icons.source, color: Color(0xFFFF3333), size: 24),
-                    SizedBox(width: 12),
-                    Text(
-                      '${l10n?.get('source') ?? 'Source'}: ${earthquake['source']}',
-                      style: TextStyle(fontSize: 16, color: Colors.black87),
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 24),
-              // Kapat butonu (tam genişlikte, diğer popup'lardaki gibi)
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  label: Text(
-                    l10n?.get('close') ??
-                        (Localizations.localeOf(ctx).languageCode == 'tr'
-                            ? 'Kapat'
-                            : 'Close'),
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF3333),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 
@@ -739,7 +647,7 @@ class _HistoryPageState extends State<HistoryPage> {
                           ),
                           SizedBox(width: 4),
                           Text(
-                            earthquake['time'] ?? '',
+                            _formatTime(earthquake['time']),
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey[600],
