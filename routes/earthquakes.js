@@ -249,16 +249,7 @@ async function fetchAFADData() {
           depth,
           place: eq.location || eq.place || eq.title || 'Unknown',
           region: 'Turkey',
-          date: quakeDate.toLocaleDateString('en-US', { 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric' 
-          }),
-          time: quakeDate.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false
-          }),
+          time: quakeDate.toISOString(),
           timestamp: quakeDate.toISOString(),
           minutesAgo,
           source: 'AFAD'
