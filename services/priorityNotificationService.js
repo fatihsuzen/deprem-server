@@ -4,6 +4,16 @@ const geolib = require('geolib');
 class PriorityNotificationService {
   constructor(notificationService) {
     this.notificationService = notificationService;
+    this.isReady = false; // Server başlangıcında bildirim göndermeyi engelle
+    this.startupTime = Date.now();
+    
+    // 1 dakika sonra bildirimleri aktif et
+    setTimeout(() => {
+      this.isReady = true;
+      console.log('✅ Bildirim sistemi aktif edildi (1 dakika bekleme süresi tamamlandı)');
+    }, 60000); // 60000ms = 1 dakika
+    
+    console.log('⏳ Bildirim sistemi başlatıldı - 1 dakika bekleme modunda');
   }
 
   /**
@@ -39,6 +49,18 @@ class PriorityNotificationService {
    */
   async sendPriorityEarthquakeNotifications(earthquake) {
     try {
+      // Server başlangıcından 1 dakika geçmeden bildirim gönderme
+      if (!this.isReady) {
+        const elapsedSeconds = Math.floor((Date.now() - this.startupTime) / 1000);
+        console.log(`⏸️  Bildirim sistemi henüz hazır değil (${elapsedSeconds}s geçti, 60s bekleniyor)`);
+        console.log(`   Atlanan deprem: M${earthquake.magnitude} - ${earthquake.location}`);
+        return {
+          success: false,
+          message: 'Notification system not ready yet (startup delay)',
+          skipped: true
+        };
+      }
+      
       console.log('🚨 Öncelikli bildirim sistemi başlatıldı');
       console.log(`📍 Deprem: M${earthquake.magnitude} - ${earthquake.location}`);
       console.log(`📍 Koordinatlar: ${earthquake.lat}, ${earthquake.lon}`);
