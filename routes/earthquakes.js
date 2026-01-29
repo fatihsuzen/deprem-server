@@ -222,13 +222,20 @@ async function fetchAFADData() {
         const mag = parseFloat(eq.mag || eq.magnitude);
         const depth = parseFloat(eq.depth || eq.Depth);
         
-        // AFAD tarihi Türkiye saati (UTC+3) ile geliyor, UTC'ye çevirmeliyiz
+        // AFAD tarihi "2026-01-28T00:04:20" formatında Türkiye saati (UTC+3)
+        // JavaScript new Date() bunu lokal timezone olarak parse eder
+        // ve otomatik olarak UTC'ye çevirir, bu yüzden ekstra işlem gerekmez
         const afadDateStr = eq.date || eq.event_date_time || eq.timestamp;
         let quakeDate;
         if (afadDateStr) {
-          const localDate = new Date(afadDateStr);
-          // AFAD saati Türkiye saati, bu yüzden -3 saat yaparak UTC'ye çeviriyoruz
-          quakeDate = new Date(localDate.getTime() - (3 * 60 * 60 * 1000));
+          // AFAD string'i Türkiye saati ama timezone belirtmiyor
+          // "2026-01-28T00:04:20" -> Türkiye'de 00:04:20 (UTC+3)
+          // Doğru UTC değeri için +3 saat ekleyelim sonra ISO olarak parse edelim
+          const turkeyDate = new Date(afadDateStr);
+          // AFAD verisi zaten lokal saat, ama biz UTC olarak işlemek istiyoruz
+          // String'e timezone ekleyelim: "2026-01-28T00:04:20" -> "2026-01-28T00:04:20+03:00"
+          const utcDateStr = afadDateStr + '+03:00';
+          quakeDate = new Date(utcDateStr);
         } else {
           quakeDate = new Date();
         }
