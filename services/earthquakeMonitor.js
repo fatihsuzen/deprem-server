@@ -262,21 +262,37 @@ class EarthquakeMonitor {
       
       if (earthquakes && earthquakes.length > 0) {
         console.log(`✅ AFAD API: ${earthquakes.length} earthquakes received`);
-        return earthquakes.map(eq => ({
-          id: `afad_${eq.eventID || eq.event_id || eq._id}`,
-          source: 'AFAD',
-          eventId: eq.eventID || eq.event_id || eq._id,
-          magnitude: parseFloat(eq.mag || eq.magnitude),
-          depth: parseFloat(eq.depth || eq.Depth),
-          location: {
-            latitude: parseFloat(eq.geojson?.coordinates?.[1] || eq.latitude || eq.lat),
-            longitude: parseFloat(eq.geojson?.coordinates?.[0] || eq.longitude || eq.lon)
-          },
-          place: eq.location || eq.place || eq.title || 'Unknown',
-          timestamp: new Date(eq.date || eq.event_date_time || eq.timestamp),
-          url: `https://deprem.afad.gov.tr/event-detail/${eq.eventID || eq.event_id || eq._id}`,
-          type: eq.type || 'earthquake'
-        }));
+        return earthquakes.map(eq => {
+          // AFAD tarihi Türkiye saati (UTC+3) ile geliyor, UTC'ye çevirmeliyiz
+          const afadDateStr = eq.date || eq.event_date_time || eq.timestamp;
+          let timestamp;
+          
+          if (afadDateStr) {
+            // AFAD tarihi parse et
+            const localDate = new Date(afadDateStr);
+            // AFAD saati Türkiye saati, bu yüzden -3 saat yaparak UTC'ye çeviriyoruz
+            timestamp = new Date(localDate.getTime() - (3 * 60 * 60 * 1000));
+            console.log(`🕐 AFAD zaman dönüşümü: ${afadDateStr} → ${timestamp.toISOString()} (UTC)`);
+          } else {
+            timestamp = new Date();
+          }
+          
+          return {
+            id: `afad_${eq.eventID || eq.event_id || eq._id}`,
+            source: 'AFAD',
+            eventId: eq.eventID || eq.event_id || eq._id,
+            magnitude: parseFloat(eq.mag || eq.magnitude),
+            depth: parseFloat(eq.depth || eq.Depth),
+            location: {
+              latitude: parseFloat(eq.geojson?.coordinates?.[1] || eq.latitude || eq.lat),
+              longitude: parseFloat(eq.geojson?.coordinates?.[0] || eq.longitude || eq.lon)
+            },
+            place: eq.location || eq.place || eq.title || 'Unknown',
+            timestamp,
+            url: `https://deprem.afad.gov.tr/event-detail/${eq.eventID || eq.event_id || eq._id}`,
+            type: eq.type || 'earthquake'
+          };
+        });
       }
 
       return [];
@@ -480,10 +496,16 @@ class EarthquakeMonitor {
 
   getEarthquakeUniqueId(earthquake) {
     // Create unique ID based on location, magnitude, and time
-    const lat = earthquake.location.latitude.toFixed(2);
-    const lon = earthquake.location.longitude.toFixed(2);
-    const mag = earthquake.magnitude.toFixed(1);
-    const time = Math.floor(earthquake.timestamp.getTime() / (1000 * 60 * 10)); // 10-minute blocks
+    // NOT: Farklı kaynaklar (AFAD, Kandilli, USGS) aynı depremi farklı ölçer.
+    // Daha esnek toleranslar kullanıyoruz.
+    
+    // Konum: 0.1 derece hassasiyet (~11 km tolerans)
+    const lat = earthquake.location.latitude.toFixed(1);
+    const lon = earthquake.location.longitude.toFixed(1);
+    // Magnitude: 0.5 tolerans (M5.0 ile M5.4 aynı sayılır)
+    const mag = Math.floor(earthquake.magnitude * 2) / 2; // 0.5'lik bloklar
+    // Zaman: 10 dakikalık bloklar
+    const time = Math.floor(earthquake.timestamp.getTime() / (1000 * 60 * 10));
     
     return `${lat}_${lon}_${mag}_${time}`;
   }

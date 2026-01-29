@@ -221,7 +221,17 @@ async function fetchAFADData() {
         const lon = parseFloat(eq.geojson?.coordinates?.[0] || eq.longitude || eq.lon);
         const mag = parseFloat(eq.mag || eq.magnitude);
         const depth = parseFloat(eq.depth || eq.Depth);
-        const quakeDate = new Date(eq.date || eq.event_date_time || eq.timestamp);
+        
+        // AFAD tarihi Türkiye saati (UTC+3) ile geliyor, UTC'ye çevirmeliyiz
+        const afadDateStr = eq.date || eq.event_date_time || eq.timestamp;
+        let quakeDate;
+        if (afadDateStr) {
+          const localDate = new Date(afadDateStr);
+          // AFAD saati Türkiye saati, bu yüzden -3 saat yaparak UTC'ye çeviriyoruz
+          quakeDate = new Date(localDate.getTime() - (3 * 60 * 60 * 1000));
+        } else {
+          quakeDate = new Date();
+        }
         const minutesAgo = Math.floor((Date.now() - quakeDate.getTime()) / (1000 * 60));
 
         return {

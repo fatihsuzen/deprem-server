@@ -99,6 +99,13 @@ const userSchema = new mongoose.Schema({
     language: { type: String, default: 'tr' },
     shareLocationWithFriends: { type: Boolean, default: true }
   },
+  // Duplicate bildirim önleme için son gönderilen deprem bilgisi
+  lastEarthquakeNotification: {
+    earthquakeId: String, // Deprem unique ID
+    timestamp: Date,      // Bildirim zamanı
+    magnitude: Number,    // Deprem büyüklüğü
+    location: String      // Deprem konumu
+  },
   createdAt: {
     type: Date,
     default: Date.now

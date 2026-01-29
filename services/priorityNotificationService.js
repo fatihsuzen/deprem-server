@@ -42,6 +42,11 @@ class PriorityNotificationService {
       console.log('🚨 Öncelikli bildirim sistemi başlatıldı');
       console.log(`📍 Deprem: M${earthquake.magnitude} - ${earthquake.location}`);
       console.log(`📍 Koordinatlar: ${earthquake.lat}, ${earthquake.lon}`);
+      console.log(`📡 Kaynak: ${earthquake.source || 'Unknown'}`);
+
+      // Deprem için benzersiz ID oluştur (duplicate kontrolü için)
+      const earthquakeId = this.generateEarthquakeId(earthquake);
+      console.log(`🆔 Deprem ID: ${earthquakeId} (0.1° konum + 0.5M tolerans)`);
 
       // Tüm kullanıcıları al
       const users = await User.find({
@@ -114,6 +119,44 @@ class PriorityNotificationService {
             console.log(`⏭️  ${user.displayName}: M${earthquake.magnitude} (${minMagnitude}-${maxMagnitude} dışında)`);
             skippedCount++;
             continue;
+          }
+
+          // 3. DUPLICATE KONTROLÜ: Bu deprem için daha önce bildirim gönderilmiş mi?
+          if (user.lastEarthquakeNotification) {
+            const lastNotif = user.lastEarthquakeNotification;
+            const timeSinceLastNotif = Date.now() - new Date(lastNotif.timestamp).getTime();
+            
+            // A) Aynı deprem ID'si (coarse-grained match)
+            if (lastNotif.earthquakeId === earthquakeId) {
+              console.log(`🔁 ${user.displayName}: Duplicate deprem (ID: ${earthquakeId}) - ATLANDI`);
+              skippedCount++;
+              continue;
+            }
+            
+            // B) 2 dakika içinde benzer deprem (fine-grained match)
+            // Farklı kaynaklar (AFAD, Kandilli, USGS, EMSC) 1-3 dakika içinde aynı depremi bildiriyor
+            // 2 dakika yeterli - asıl sorun aynı anda 4-6 bildirimin gitmesiydi
+            if (timeSinceLastNotif < 2 * 60 * 1000) {
+              const lastLat = parseFloat(lastNotif.location?.split(',')[0] || 0);
+              const lastLon = parseFloat(lastNotif.location?.split(',')[1] || 0);
+              
+              // Magnitude farkı (farklı kaynaklar ±0.5 fark verebilir)
+              const magDiff = Math.abs(lastNotif.magnitude - earthquake.magnitude);
+              
+              // Mesafe hesapla (Haversine yerine basit Euclidean - daha hızlı)
+              const latDiff = Math.abs(lastLat - earthquake.lat);
+              const lonDiff = Math.abs(lastLon - earthquake.lon);
+              const approxDistance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff) * 111; // ~km
+              
+              // Toleranslar:
+              // - 0.3 derece = ~33 km (farklı kaynaklar bu kadar fark verebilir)
+              // - Magnitude: ±0.6 (AFAD 5.0, Kandilli 5.3, USGS 4.8 olabilir)
+              if (magDiff <= 0.6 && approxDistance <= 35) {
+                console.log(`🔁 ${user.displayName}: Benzer deprem (${(timeSinceLastNotif/1000).toFixed(0)}s önce, ΔM=${magDiff.toFixed(1)}, ΔD=${approxDistance.toFixed(1)}km) - ATLANDI`);
+                skippedCount++;
+                continue;
+              }
+            }
           }
 
           // Bildirim gönder
@@ -205,6 +248,16 @@ class PriorityNotificationService {
             
             if (pushSent > 0) {
               console.log(`✅ ${user.displayName}: ${distanceText} (bildirim gönderildi)`);
+              
+              // Son gönderilen deprem bilgisini kaydet (duplicate önleme için)
+              user.lastEarthquakeNotification = {
+                earthquakeId,
+                timestamp: new Date(),
+                magnitude: earthquake.magnitude,
+                location: `${earthquake.lat},${earthquake.lon}`
+              };
+              await user.save();
+              
               sentCount++;
             } else {
               console.log(`❌ ${user.displayName}: Hiçbir tokena push gönderilemedi`);
@@ -258,10 +311,66 @@ class PriorityNotificationService {
   }
 
   /**
+   * Deprem için benzersiz ID oluştur (duplicate kontrol için)
+   * NOT: Farklı kaynaklar (AFAD, Kandilli, USGS) aynı depremi farklı ölçer.
+   * Bu yüzden daha esnek toleranslar kullanıyoruz.
+   */
+  generateEarthquakeId(earthquake) {
+    // Konum: 0.1 derece hassasiyet (~11 km tolerans)
+    const lat = parseFloat(earthquake.lat).toFixed(1);
+    const lon = parseFloat(earthquake.lon).toFixed(1);
+    // Magnitude: 0.5 tolerans (M5.0 ile M5.4 aynı sayılır)
+    const mag = Math.floor(parseFloat(earthquake.magnitude) * 2) / 2; // 0.5'lik bloklar
+    // Zaman: 10 dakikalık bloklar
+    const time = Math.floor(new Date(earthquake.time).getTime() / (1000 * 60 * 10));
+    
+    return `${lat}_${lon}_${mag}_${time}`;
+  }
+
+  /**
    * Gecikme fonksiyonu
    */
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Deprem kaynaklarının güvenilirlik önceliği
+   * Farklı kaynaklar farklı doğruluk seviyeleri sunar
+   */
+  getSourcePriority(source) {
+    const priorities = {
+      'Kandilli': 1,    // Türkiye için en güvenilir
+      'AFAD': 2,        // Resmi kaynak
+      'USGS': 3,        // Global güvenilir
+      'EMSC': 4,        // Avrupa-Akdeniz
+      'P2P': 5          // P2P algılama (en düşük öncelik)
+    };
+    return priorities[source] || 99;
+  }
+
+  /**
+   * İki deprem objesini karşılaştır ve daha güvenilir olanı seç
+   * Farklı kaynaklar aynı depremi farklı ölçer, en doğrusunu seçmeliyiz
+   */
+  selectBetterEarthquakeData(eq1, eq2) {
+    if (!eq1) return eq2;
+    if (!eq2) return eq1;
+
+    // Kaynak önceliğine göre seç
+    const priority1 = this.getSourcePriority(eq1.source);
+    const priority2 = this.getSourcePriority(eq2.source);
+
+    if (priority1 < priority2) {
+      console.log(`🔄 Kaynak seçimi: ${eq1.source} (öncelik:${priority1}) > ${eq2.source} (öncelik:${priority2})`);
+      return eq1;
+    } else if (priority2 < priority1) {
+      console.log(`🔄 Kaynak seçimi: ${eq2.source} (öncelik:${priority2}) > ${eq1.source} (öncelik:${priority1})`);
+      return eq2;
+    }
+
+    // Aynı öncelikte ise, magnitude yüksek olanı seç (genelde daha doğru)
+    return eq1.magnitude >= eq2.magnitude ? eq1 : eq2;
   }
 
   /**
