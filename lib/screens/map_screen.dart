@@ -1,6 +1,8 @@
-﻿import 'package:firebase_messaging/firebase_messaging.dart';
+﻿import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -56,8 +58,9 @@ class _MapScreenState extends State<MapScreen>
   late Animation<double> _fayPulseAnimation;
   final Location _location = Location();
   bool _locationLoading = true;
+  bool _isCacheReady = false; // Tile cache hazır mı?
   LatLng _userLocation =
-      LatLng(0, 0); // Başlangıçta boş, gerçek GPS ile dolacak
+      LatLng(39.0, 35.0); // Türkiye merkezi - gerçek GPS ile güncellenecek
   bool _showEarthquakes = true;
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
@@ -142,6 +145,7 @@ class _MapScreenState extends State<MapScreen>
     _mapController = MapController();
     _flutterMapKey = UniqueKey();
     super.initState();
+    _initializeTileCache(); // Tile cache'i başlat
     _firebaseMessaging.subscribeToTopic('all').then((_) {
       print('✅ Topic "all" abonesi olundu');
     });
@@ -152,8 +156,69 @@ class _MapScreenState extends State<MapScreen>
     _initializeMapData();
   }
 
+  // Tile cache'i başlat
+  Future<void> _initializeTileCache() async {
+    try {
+      await FMTCObjectBoxBackend().initialise();
+      final store = FMTCStore('mapCache');
+      // Varsa kullan, yoksa oluştur
+      if (!await store.manage.ready) {
+        await store.manage.create();
+      }
+      // Cache hazır, harita render edilebilir
+      if (mounted) {
+        setState(() {
+          _isCacheReady = true;
+        });
+        print('✅ Harita cache\'i başlatıldı');
+      }
+    } catch (e) {
+      print('⚠️ Cache başlatma hatası, normal network kullanılacak: $e');
+      if (mounted) {
+        setState(() {
+          _isCacheReady = false; // Hata olsa bile render et
+        });
+      }
+    }
+  }
+
   // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
   bool _earthquakesLoading = false;
+
+  // Cache devre dışı - sadece network tile provider
+  TileProvider getTileProvider() {
+    print('🌐 NetworkTileProvider kullanılıyor (cache devre dışı)');
+    return NetworkTileProvider();
+  }
+
+  // Tile yükleme olaylarını logla
+  TileUpdateTransformer _logTileUpdates() {
+    int totalTiles = 0;
+    int networkTiles = 0;
+    int cachedTiles = 0;
+
+    return TileUpdateTransformer.fromHandlers(
+      handleData: (updateEvent, sink) {
+        totalTiles++;
+
+        // TileUpdateEvent türüne göre ayır
+        final eventString = updateEvent.toString();
+        if (eventString.contains('network') ||
+            eventString.contains('Network')) {
+          networkTiles++;
+        } else {
+          cachedTiles++;
+        }
+
+        if (totalTiles % 20 == 0) {
+          print(
+              '🗺️ TILE: Toplam=$totalTiles | 📥 Network=$networkTiles | ✅ Cache=$cachedTiles');
+        }
+        sink.add(updateEvent);
+      },
+    );
+  }
+
   late MapController _mapController;
   bool _showLatestQuakePopup =
       true; // Popup görünürlük kontrolü (SharedPreferences'tan yüklenecek)
@@ -443,25 +508,18 @@ class _MapScreenState extends State<MapScreen>
   // Assembly areas (toplanma alanları) - örnek data
   final List<Map<String, dynamic>> _assemblyAreas = [
     {
-      "lat": 41.0350,
-      "lon": 28.5800,
-      "name": "Büyükçekmece Sahil Parkı",
+      "lat": 41.0193,
+      "lon": 29.1513,
+      "name": "Şanlı Parkı",
       "capacity": 5000,
       "type": "park",
     },
     {
-      "lat": 41.0280,
-      "lon": 28.5650,
-      "name": "Belediye Meydanı",
+      "lat": 40.9689,
+      "lon": 29.2562,
+      "name": "Abdurrahman Gazi Cami",
       "capacity": 3000,
-      "type": "meydan",
-    },
-    {
-      "lat": 40.9200,
-      "lon": 29.2100,
-      "name": "Silivri Spor Tesisleri",
-      "capacity": 8000,
-      "type": "spor",
+      "type": "park",
     },
   ];
 
@@ -474,11 +532,25 @@ class _MapScreenState extends State<MapScreen>
     // 2. Kayıtlı konum var mı kontrol et (ÖNCE KONUM)
     await _loadOrFetchLocation();
 
+    // Debug: Konum kontrolü
+    print(
+        '🔍 Konum kontrolü: ${_userLocation.latitude}, ${_userLocation.longitude}');
+
     // 3. Konum alındıktan sonra haritayı konuma focus et
     if (mounted && !_locationLoading) {
-      _mapController.move(_userLocation, 7.0);
-      print(
-          '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+      // İlk tile loading'i tetiklemek için küçük bir zoom animasyonu
+      print('🗺️ İlk tile loading tetikleniyor...');
+      _mapController.move(_userLocation, 8.0);
+      await Future.delayed(Duration(milliseconds: 150));
+      if (mounted) {
+        _mapController.move(_userLocation, 8.01); // Minimal zoom değişimi
+        await Future.delayed(Duration(milliseconds: 150));
+        if (mounted) {
+          _mapController.move(_userLocation, 8.0); // Geri dön
+          print(
+              '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+        }
+      }
       // Dinamik fay hatlarını konumdan sonra yükle
       loadFaultLines(_notificationRadius, _userLocation).then((lines) {
         if (mounted) {
@@ -502,16 +574,21 @@ class _MapScreenState extends State<MapScreen>
   // Kayıtlı konum varsa kullan, yoksa fetch et
   Future<void> _loadOrFetchLocation() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedLat = prefs.getDouble('cached_user_lat');
-    final savedLon = prefs.getDouble('cached_user_lon');
+    final savedLat = prefs.getDouble('lastLatitude');
+    final savedLon = prefs.getDouble('lastLongitude');
 
-    if (savedLat != null && savedLon != null) {
+    // Geçerli bir konum kontrolü: null olmamalı VE hem lat hem lon 0 olmamalı
+    final hasValidLocation = savedLat != null &&
+        savedLon != null &&
+        !(savedLat == 0.0 && savedLon == 0.0); // İkisi birden 0 ise geçersiz
+
+    if (hasValidLocation) {
       // Kayıtlı konum kullan
       setState(() {
-        _userLocation = LatLng(savedLat, savedLon);
+        _userLocation = LatLng(savedLat!, savedLon!);
         _locationLoading = false;
         // Konum güncellendiğinde haritayı o konuma taşı
-        _mapController.move(_userLocation, 13.0);
+        _mapController.move(_userLocation, 6.0);
       });
       print('📍 Kayıtlı konum kullanıldı: $savedLat, $savedLon');
       // Konum güncellendiğinde FCM token varsa sunucuya gönder
@@ -519,61 +596,126 @@ class _MapScreenState extends State<MapScreen>
         await _sendLocationAndSettingsToServer();
       }
     } else {
-      // İlk defa, konum çek
-      try {
-        await _getUserLocation();
-        await prefs.setDouble('cached_user_lat', _userLocation.latitude);
-        await prefs.setDouble('cached_user_lon', _userLocation.longitude);
-        print('💾 Konum kaydedildi');
-        // Konum güncellendiğinde FCM token varsa sunucuya gönder
-        if (_userFcmToken != null) {
-          await _sendLocationAndSettingsToServer();
-        }
-        // Konum güncellendiğinde haritayı o konuma taşı
-        if (mounted) {
-          _mapController.move(_userLocation, 13.0);
-        }
-      } catch (e) {
-        print('❌ Konum yükleme hatası: $e');
-      }
+      // Geçerli konum yok, gerçek GPS'ten çek
+      print(
+          '⚠️  Kayıtlı konum geçersiz ($savedLat, $savedLon), GPS\'ten alınıyor...');
+      await _getUserLocation();
+      // _getUserLocation içinde zaten konum kaydediliyor ve harita taşınıyor
     }
   }
 
   Future<void> _getUserLocation() async {
     print('📍 Kullanıcı konumu alınıyor...');
-    bool serviceEnabled = await _location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await _location.requestService();
+
+    try {
+      bool serviceEnabled = await _location.serviceEnabled();
       if (!serviceEnabled) {
+        serviceEnabled = await _location.requestService();
+        if (!serviceEnabled) {
+          setState(() => _locationLoading = false);
+          print('❌ Konum servisi kapalı');
+          return;
+        }
+      }
+
+      // İzin kontrolü (sadece kontrol, isteme yapmıyoruz)
+      // NOT: İzin isteme işlemi PermissionService ile root ekranında yapılmıştır
+      PermissionStatus permissionGranted = await _location.hasPermission();
+      if (permissionGranted != PermissionStatus.granted) {
         setState(() => _locationLoading = false);
-        print('❌ Konum servisi kapalı');
+        print('⚠️  Konum izni yok. 3 saniye sonra tekrar denenecek...');
+        // 3 saniye sonra tekrar dene (izin verilmiş olabilir)
+        Future.delayed(Duration(seconds: 3), () {
+          if (mounted) {
+            print('🔄 Konum izni tekrar kontrol ediliyor...');
+            _retryLocationFetch();
+          }
+        });
         return;
       }
-    }
 
-    // İzin kontrolü (sadece kontrol, isteme yapmıyoruz)
-    // NOT: İzin isteme işlemi PermissionService ile root ekranında yapılmıştır
-    PermissionStatus permissionGranted = await _location.hasPermission();
-    if (permissionGranted != PermissionStatus.granted) {
+      final locationData = await _location.getLocation();
+      if (locationData.latitude != null && locationData.longitude != null) {
+        final newLocation =
+            LatLng(locationData.latitude!, locationData.longitude!);
+
+        print(
+            '📍 YENİ KONUM ALINDI: ${locationData.latitude}, ${locationData.longitude}');
+
+        setState(() {
+          _userLocation = newLocation;
+          _locationLoading = false;
+        });
+
+        // SharedPreferences'a kaydet (History ekranı ile senkronize)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('lastLatitude', locationData.latitude!);
+        await prefs.setDouble('lastLongitude', locationData.longitude!);
+
+        print(
+            '✅ Kullanıcı konumu kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
+
+        if (mounted) {
+          try {
+            _mapController.move(newLocation, 8.0);
+            print(
+                '🗺️ ✅ Harita taşındı: ${newLocation.latitude}, ${newLocation.longitude} (zoom: 10)');
+          } catch (e) {
+            print('❌ Harita taşıma hatası: $e');
+          }
+        }
+      } else {
+        print('⚠️ Konum verisi null, default konum kullanılacak');
+        setState(() => _locationLoading = false);
+      }
+    } catch (e) {
+      print('❌ Konum alınırken hata: $e');
       setState(() => _locationLoading = false);
-      print('❌ Konum izni yok. Root ekranından izin alınması gerekiyor.');
-      return;
     }
+  }
 
-    final locationData = await _location.getLocation();
-    if (locationData.latitude != null && locationData.longitude != null) {
-      setState(() {
-        _userLocation = LatLng(locationData.latitude!, locationData.longitude!);
-        _locationLoading = false;
-      });
-
-      // SharedPreferences'a kaydet (History ekranı ile senkronize)
+  // İzin verildiğinde konum almayı tekrar dene
+  Future<void> _retryLocationFetch() async {
+    try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('lastLatitude', locationData.latitude!);
-      await prefs.setDouble('lastLongitude', locationData.longitude!);
 
-      print(
-          '✅ Kullanıcı konumu alındı ve kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
+      // Önce SharedPreferences'tan kontrol et (location_update_service zaten yazıyor olabilir)
+      final savedLat = prefs.getDouble('lastLatitude');
+      final savedLon = prefs.getDouble('lastLongitude');
+
+      if (savedLat != null &&
+          savedLon != null &&
+          !(savedLat == 0.0 && savedLon == 0.0)) {
+        // Location service zaten konum almış, onu kullan
+        final newLocation = LatLng(savedLat, savedLon);
+        setState(() {
+          _userLocation = newLocation;
+          _locationLoading = false;
+        });
+
+        await Future.delayed(Duration(milliseconds: 100));
+        if (mounted) {
+          _mapController.move(newLocation, 8.0);
+          print(
+              '🗺️ ✅ Kayıtlı konumdan harita taşındı: $savedLat, $savedLon (zoom: 10)');
+        }
+        return;
+      }
+
+      // Kayıtlı konum yoksa, izin kontrolü yap ve GPS'ten al
+      PermissionStatus permissionGranted = await _location.hasPermission();
+      if (permissionGranted == PermissionStatus.granted) {
+        print('✅ İzin verilmiş, konum alınıyor...');
+        await _getUserLocation();
+      } else {
+        print('⚠️ İzin hala yok, 5 saniye sonra tekrar denenecek...');
+        // 5 saniye sonra bir kez daha dene
+        Future.delayed(Duration(seconds: 5), () {
+          if (mounted) _retryLocationFetch();
+        });
+      }
+    } catch (e) {
+      print('❌ Retry konum hatası: $e');
     }
   }
 
@@ -651,7 +793,8 @@ class _MapScreenState extends State<MapScreen>
         period: 'day',
         userLat: _userLocation.latitude,
         userLon: _userLocation.longitude,
-        radius: 5000,
+        radius:
+            _notificationRadius, // ✅ Kullanıcının ayarladığı radius'u kullan
         region: 'Global',
       );
       print('   API\'den ${earthquakes.length} deprem çekildi');
@@ -1258,7 +1401,7 @@ class _MapScreenState extends State<MapScreen>
   }
 
   void _focusUserLocation() {
-    _mapController.move(_userLocation, 10.0);
+    _mapController.move(_userLocation, 8.0);
   }
 
   // Haversine formülü ile iki nokta arasındaki mesafeyi hesapla (km)
@@ -1310,316 +1453,348 @@ class _MapScreenState extends State<MapScreen>
 
     return Stack(
       children: [
-        FlutterMap(
-          key: _flutterMapKey,
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: _userLocation,
-            initialZoom: 3.5, // Daha geniş alan için zoom'u küçült
-            // Sadece kaydırma ve zoom, rotasyon kesinlikle yok!
-            interactionOptions: const InteractionOptions(
-              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
-            ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-              subdomains: ['a', 'b', 'c'],
-              userAgentPackageName: 'dev.deprem_bildirim',
-            ),
-            // Sadece dinamik fay hatları katmanı (statik kod devre dışı)
-            if (_showFaultLines)
-              AnimatedBuilder(
-                animation: _fayPulseAnimation,
-                builder: (context, child) {
-                  return PolylineLayer(
-                    polylines: [
-                      ..._dynamicFaultLines.map((poly) => Polyline<Object>(
-                            points: poly.points,
-                            strokeWidth: 2.0, // Daha ince çizgi
-                            color: Colors.deepOrange.withOpacity(
-                                _fayPulseAnimation.value), // Beyaz renk
-                            borderStrokeWidth: 0.0, // Kenarlık yok
-                            borderColor: Colors.transparent,
-                          )),
-                    ],
-                  );
-                },
+        Container(
+          color: const Color(0xFFE0E0E0), // Açık gri arka plan
+          child: FlutterMap(
+            key: _flutterMapKey,
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _userLocation,
+              initialZoom: 6.0, // Türkiye görünecek zoom seviyesi
+              // Sadece kaydırma ve zoom, rotasyon kesinlikle yok!
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
               ),
-            // AnimatedFayGlowOverlay topları kaldırıldı
-            // Arkadaş marker'ları
-            if (_showFriends)
-              MarkerLayer(
-                markers: _friends.where((friend) {
-                  final location = friend['location'];
-                  final lat = location != null ? location['latitude'] : null;
-                  final lon = location != null ? location['longitude'] : null;
-                  // Tip güvenli kontrol
-                  final latDouble = lat is int
-                      ? lat.toDouble()
-                      : (lat is double
-                          ? lat
-                          : double.tryParse(lat?.toString() ?? ''));
-                  final lonDouble = lon is int
-                      ? lon.toDouble()
-                      : (lon is double
-                          ? lon
-                          : double.tryParse(lon?.toString() ?? ''));
-                  final valid = latDouble != null && lonDouble != null;
-                  if (!valid) {
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'dev.deprem_bildirim',
+                maxZoom: 19,
+                minZoom: 2,
+                keepBuffer: 8, // Çok fazla buffer - geniş alan tile yükle
+                panBuffer: 5,
+                retinaMode: false,
+                maxNativeZoom: 19,
+                // Cache-enabled tile provider
+                tileProvider: getTileProvider(),
+                tileUpdateTransformer: _logTileUpdates(),
+              ),
+              // Sadece dinamik fay hatları katmanı (statik kod devre dışı)
+              if (_showFaultLines)
+                AnimatedBuilder(
+                  animation: _fayPulseAnimation,
+                  builder: (context, child) {
+                    return PolylineLayer(
+                      polylines: [
+                        ..._dynamicFaultLines.map((poly) => Polyline<Object>(
+                              points: poly.points,
+                              strokeWidth: 2.0, // Daha ince çizgi
+                              color: Colors.deepOrange.withOpacity(
+                                  _fayPulseAnimation.value), // Beyaz renk
+                              borderStrokeWidth: 0.0, // Kenarlık yok
+                              borderColor: Colors.transparent,
+                            )),
+                      ],
+                    );
+                  },
+                ),
+              // AnimatedFayGlowOverlay topları kaldırıldı
+              // Arkadaş marker'ları
+              if (_showFriends)
+                MarkerLayer(
+                  markers: _friends.where((friend) {
+                    final location = friend['location'];
+                    final lat = location != null ? location['latitude'] : null;
+                    final lon = location != null ? location['longitude'] : null;
+                    // Tip güvenli kontrol
+                    final latDouble = lat is int
+                        ? lat.toDouble()
+                        : (lat is double
+                            ? lat
+                            : double.tryParse(lat?.toString() ?? ''));
+                    final lonDouble = lon is int
+                        ? lon.toDouble()
+                        : (lon is double
+                            ? lon
+                            : double.tryParse(lon?.toString() ?? ''));
+                    final valid = latDouble != null && lonDouble != null;
+                    if (!valid) {
+                      print(
+                          '❌ Marker tip hatası: ${friend['displayName']} lat=$lat lon=$lon');
+                    }
+                    return valid;
+                  }).map((friend) {
+                    final location = friend['location'];
+                    final lat = location['latitude'];
+                    final lon = location['longitude'];
+                    final latDouble = lat is int
+                        ? lat.toDouble()
+                        : (lat is double
+                            ? lat
+                            : double.tryParse(lat?.toString() ?? ''));
+                    final lonDouble = lon is int
+                        ? lon.toDouble()
+                        : (lon is double
+                            ? lon
+                            : double.tryParse(lon?.toString() ?? ''));
+                    final isOnline = friend['isOnline'] ?? false;
                     print(
-                        '❌ Marker tip hatası: ${friend['displayName']} lat=$lat lon=$lon');
-                  }
-                  return valid;
-                }).map((friend) {
-                  final location = friend['location'];
-                  final lat = location['latitude'];
-                  final lon = location['longitude'];
-                  final latDouble = lat is int
-                      ? lat.toDouble()
-                      : (lat is double
-                          ? lat
-                          : double.tryParse(lat?.toString() ?? ''));
-                  final lonDouble = lon is int
-                      ? lon.toDouble()
-                      : (lon is double
-                          ? lon
-                          : double.tryParse(lon?.toString() ?? ''));
-                  final isOnline = friend['isOnline'] ?? false;
-                  print(
-                      '🟢 Marker ekleniyor: ${friend['displayName']} lat=$latDouble lon=$lonDouble');
-                  return Marker(
-                    point: LatLng(latDouble!, lonDouble!),
-                    width: 45,
-                    height: 45,
-                    alignment: Alignment.center,
-                    child: GestureDetector(
-                      onTap: () => _showFriendInfo(friend),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.purple,
-                          border: Border.all(
-                            color: isOnline ? Colors.green : Colors.grey,
-                            width: 3,
+                        '🟢 Marker ekleniyor: ${friend['displayName']} lat=$latDouble lon=$lonDouble');
+                    return Marker(
+                      point: LatLng(latDouble!, lonDouble!),
+                      width: 45,
+                      height: 45,
+                      alignment: Alignment.center,
+                      child: GestureDetector(
+                        onTap: () => _showFriendInfo(friend),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.purple,
+                            border: Border.all(
+                              color: isOnline ? Colors.green : Colors.grey,
+                              width: 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 4)
+                            ],
                           ),
-                          boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 4)
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            (friend['displayName'] ?? 'U')[0].toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          child: Center(
+                            child: Text(
+                              (friend['displayName'] ?? 'U')[0].toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            // Toplanma alanı marker'ları
-            if (_showAssemblyAreas)
-              MarkerLayer(
-                markers: _assemblyAreas.map((area) {
-                  final lat = (area['lat'] is int)
-                      ? (area['lat'] as int).toDouble()
-                      : area['lat'] as double;
-                  final lon = (area['lon'] is int)
-                      ? (area['lon'] as int).toDouble()
-                      : area['lon'] as double;
-
-                  return Marker(
-                    point: LatLng(lat, lon),
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: GestureDetector(
-                      onTap: () => _showAssemblyAreaInfo(area),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.green,
-                          boxShadow: [
-                            BoxShadow(color: Colors.black26, blurRadius: 4)
-                          ],
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.group,
-                            color: Colors.white,
-                            size: 22,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            // Kullanıcı ve deprem marker'ları (en üstte - popup için)
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: _userLocation,
-                  width: 35,
-                  height: 35,
-                  alignment: Alignment.center,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.blue,
-                      boxShadow: [
-                        BoxShadow(color: Colors.black26, blurRadius: 4)
-                      ],
-                    ),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        'assets/Icons/user-stroke-rounded.svg',
-                        width: 18.0,
-                        height: 18.0,
-                        colorFilter:
-                            ColorFilter.mode(Colors.white, BlendMode.srcIn),
-                      ),
-                    ),
-                  ),
+                    );
+                  }).toList(),
                 ),
-                // Deprem marker'ları (range filtreli)
-                if (_showEarthquakes)
-                  ..._quakes.where((q) {
-                    // Kullanıcının belirlediği range içinde mi kontrol et
-                    final lat = (q['lat'] is int)
-                        ? (q['lat'] as int).toDouble()
-                        : q['lat'] as double;
-                    final lon = (q['lon'] is int)
-                        ? (q['lon'] as int).toDouble()
-                        : q['lon'] as double;
-
-                    // Kullanıcıya uzaklık hesapla (km)
+              // Toplanma alanı marker'ları (10km yarıçap filtresi)
+              if (_showAssemblyAreas)
+                MarkerLayer(
+                  markers: _assemblyAreas.where((area) {
+                    final lat = (area['lat'] is int)
+                        ? (area['lat'] as int).toDouble()
+                        : area['lat'] as double;
+                    final lon = (area['lon'] is int)
+                        ? (area['lon'] as int).toDouble()
+                        : area['lon'] as double;
+                    
+                    // Kullanıcıya uzaklık hesapla
                     final distance = _calculateDistance(
                       _userLocation.latitude,
                       _userLocation.longitude,
                       lat,
                       lon,
                     );
-
-                    // NotificationRadius (km) içinde mi?
-                    return distance <= _notificationRadius;
-                  }).map((q) {
-                    final lat = (q['lat'] is int)
-                        ? (q['lat'] as int).toDouble()
-                        : q['lat'] as double;
-                    final lon = (q['lon'] is int)
-                        ? (q['lon'] as int).toDouble()
-                        : q['lon'] as double;
-                    final mag = double.tryParse(q['mag'].toString()) ?? 0.0;
-                    final color = _colorForMag(mag);
+                    
+                    // 10km yarıçap içinde mi?
+                    return distance <= 10.0;
+                  }).map((area) {
+                    final lat = (area['lat'] is int)
+                        ? (area['lat'] as int).toDouble()
+                        : area['lat'] as double;
+                    final lon = (area['lon'] is int)
+                        ? (area['lon'] as int).toDouble()
+                        : area['lon'] as double;
 
                     return Marker(
                       point: LatLng(lat, lon),
-                      width: 100,
-                      height: 110,
+                      width: 40,
+                      height: 40,
                       alignment: Alignment.center,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          // Ana marker container (icon + wave + time label)
-                          Positioned(
-                            bottom: 0,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Dalga animasyonu + Deprem marker
-                                SizedBox(
-                                  width: 70,
-                                  height: 70,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      // Dalga animasyonu (TÜM DEPREMLER için)
-                                      AnimatedBuilder(
-                                        animation: _waveAnimation,
-                                        builder: (context, child) {
-                                          return Container(
-                                            width: 40 +
-                                                (_waveAnimation.value * 30),
-                                            height: 40 +
-                                                (_waveAnimation.value * 30),
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: color.withOpacity(0.6 -
-                                                    (_waveAnimation.value *
-                                                        0.6)),
-                                                width: 2,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      // Deprem marker icon (SABİT)
-                                      GestureDetector(
-                                        onTap: () => _onTapMarker(q),
-                                        child: Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: color,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                  color: Colors.black26,
-                                                  blurRadius: 4)
-                                            ],
-                                          ),
-                                          child: Center(
-                                            child: SvgPicture.asset(
-                                              'assets/Icons/Logo.svg',
-                                              width: 20,
-                                              height: 20,
-                                              colorFilter: ColorFilter.mode(
-                                                  Colors.white,
-                                                  BlendMode.srcIn),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                // Zaman gösterimi (marker'ın altında)
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.7),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    _formatTimeAgo((q['minutesAgo'] is int)
-                                        ? q['minutesAgo'] as int
-                                        : (q['minutesAgo'] as double).toInt()),
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                      child: GestureDetector(
+                        onTap: () => _showAssemblyAreaInfo(area),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.green,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black26, blurRadius: 4)
+                            ],
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              Icons.group,
+                              color: Colors.white,
+                              size: 22,
                             ),
                           ),
-                        ],
+                        ),
                       ),
                     );
                   }).toList(),
-              ],
-            )
-          ],
+                ),
+              // Kullanıcı ve deprem marker'ları (en üstte - popup için)
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _userLocation,
+                    width: 35,
+                    height: 35,
+                    alignment: Alignment.center,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.blue,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 4)
+                        ],
+                      ),
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/Icons/user-stroke-rounded.svg',
+                          width: 18.0,
+                          height: 18.0,
+                          colorFilter:
+                              ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Deprem marker'ları (range filtreli)
+                  if (_showEarthquakes)
+                    ..._quakes.where((q) {
+                      // Kullanıcının belirlediği range içinde mi kontrol et
+                      final lat = (q['lat'] is int)
+                          ? (q['lat'] as int).toDouble()
+                          : q['lat'] as double;
+                      final lon = (q['lon'] is int)
+                          ? (q['lon'] as int).toDouble()
+                          : q['lon'] as double;
+
+                      // Kullanıcıya uzaklık hesapla (km)
+                      final distance = _calculateDistance(
+                        _userLocation.latitude,
+                        _userLocation.longitude,
+                        lat,
+                        lon,
+                      );
+
+                      // NotificationRadius (km) içinde mi?
+                      return distance <= _notificationRadius;
+                    }).map((q) {
+                      final lat = (q['lat'] is int)
+                          ? (q['lat'] as int).toDouble()
+                          : q['lat'] as double;
+                      final lon = (q['lon'] is int)
+                          ? (q['lon'] as int).toDouble()
+                          : q['lon'] as double;
+                      final mag = double.tryParse(q['mag'].toString()) ?? 0.0;
+                      final color = _colorForMag(mag);
+
+                      return Marker(
+                        point: LatLng(lat, lon),
+                        width: 100,
+                        height: 110,
+                        alignment: Alignment.center,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            // Ana marker container (icon + wave + time label)
+                            Positioned(
+                              bottom: 0,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Dalga animasyonu + Deprem marker
+                                  SizedBox(
+                                    width: 70,
+                                    height: 70,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        // Dalga animasyonu (TÜM DEPREMLER için)
+                                        AnimatedBuilder(
+                                          animation: _waveAnimation,
+                                          builder: (context, child) {
+                                            return Container(
+                                              width: 40 +
+                                                  (_waveAnimation.value * 30),
+                                              height: 40 +
+                                                  (_waveAnimation.value * 30),
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: color.withOpacity(0.6 -
+                                                      (_waveAnimation.value *
+                                                          0.6)),
+                                                  width: 2,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // Deprem marker icon (SABİT)
+                                        GestureDetector(
+                                          onTap: () => _onTapMarker(q),
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: color,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                    color: Colors.black26,
+                                                    blurRadius: 4)
+                                              ],
+                                            ),
+                                            child: Center(
+                                              child: SvgPicture.asset(
+                                                'assets/Icons/Logo.svg',
+                                                width: 20,
+                                                height: 20,
+                                                colorFilter: ColorFilter.mode(
+                                                    Colors.white,
+                                                    BlendMode.srcIn),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Zaman gösterimi (marker'ın altında)
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _formatTimeAgo((q['minutesAgo'] is int)
+                                          ? q['minutesAgo'] as int
+                                          : (q['minutesAgo'] as double)
+                                              .toInt()),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                ],
+              )
+            ],
+          ),
         ),
         // Son deprem popup'ı (haritanın üzerinde, merkeze yakın)
         if (_showLatestQuakePopup && _latestQuake != null)

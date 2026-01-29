@@ -7,7 +7,7 @@ class PriorityNotificationService {
     this.isReady = false; // Server başlangıcında bildirim göndermeyi engelle
     this.startupTime = Date.now();
     
-    // 1 dakika sonra bildirimleri aktif et
+    // 10 saniye sonra bildirimleri aktif et (sunucu başlangıcındaki eski depremler için)
     setTimeout(() => {
       this.isReady = true;
       const readyTime = new Date().toLocaleTimeString('tr-TR');
@@ -18,10 +18,10 @@ class PriorityNotificationService {
       console.log('📢 Deprem bildirimleri artık gönderilecek');
       console.log('🚨 Yeni depremler için kullanıcılara anlık bildirim yapılacak');
       console.log('═══════════════════════════════════════════════════\n');
-    }, 60000); // 60000ms = 1 dakika
+    }, 10000); // 10000ms = 10 saniye
     
     const startTime = new Date().toLocaleTimeString('tr-TR');
-    console.log('\n⏳ Bildirim sistemi başlatıldı - 1 dakika bekleme modunda');
+    console.log('\n⏳ Bildirim sistemi başlatıldı - 10 saniye bekleme modunda');
     console.log(`   Başlangıç: ${startTime}`);
   }
 
@@ -58,10 +58,10 @@ class PriorityNotificationService {
    */
   async sendPriorityEarthquakeNotifications(earthquake) {
     try {
-      // Server başlangıcından 1 dakika geçmeden bildirim gönderme
+      // Server başlangıcından 10 saniye geçmeden bildirim gönderme (eski depremler için)
       if (!this.isReady) {
         const elapsedSeconds = Math.floor((Date.now() - this.startupTime) / 1000);
-        console.log(`⏸️  Bildirim sistemi henüz hazır değil (${elapsedSeconds}s geçti, 60s bekleniyor)`);
+        console.log(`⏸️  Bildirim sistemi henüz hazır değil (${elapsedSeconds}s geçti, 10s bekleniyor)`);
         console.log(`   Atlanan deprem: M${earthquake.magnitude} - ${earthquake.location}`);
         return {
           success: false,

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 // ...existing code...
 import 'screens/splash_screen.dart';
 import 'screens/root.dart';
@@ -239,22 +240,16 @@ void _initializeServicesInBackground() async {
     // OneSignal başlatıldı
     print('✅ OneSignal başlatıldı');
 
-    // Background service'i sadece ayar açıksa başlat
-    final prefsService = UserPreferencesService();
-    final isBackgroundEnabled = await prefsService.getBackgroundNotifications();
+    // Background service GEÇİCİ OLARAK DEVRE DIŞI
+    // Yeterli kullanıcı sayısına ulaşıldığında aktif edilecek
+    print(
+        '⚪️ Background service geçici olarak devre dışı (özellik geliştiriliyor)');
 
-    if (isBackgroundEnabled) {
-      print('🚀 Background service ayarı açık, servis başlatılıyor...');
-      final backgroundServiceStarted =
-          await EarthquakeBackgroundService.startService();
-      if (backgroundServiceStarted) {
-        print('✅ Background service started');
-        print('   NOT: Deprem bildirimleri artık FCM üzerinden gelecek');
-      } else {
-        print('❌ Background service başlatılamadı!');
-      }
-    } else {
-      print('⚪️ Background service ayarı kapalı, servis başlatılmayacak.');
+    // Eğer eski kullanıcılarda çalışan bir servis varsa durdur
+    final isRunning = await FlutterForegroundTask.isRunningService;
+    if (isRunning) {
+      await EarthquakeBackgroundService.stopService();
+      print('🔴 Arka plan servisi durduruldu');
     }
 
     // WebSocket artık sadece harita güncellemeleri için (opsiyonel)
@@ -280,6 +275,25 @@ Future<void> _initializeFCMToken() async {
       print('🔑 FCM Token alındı: ${token.substring(0, 20)}...');
       await prefs.setString('fcm_token', token);
       print('✅ FCM Token SharedPreferences\'a kaydedildi');
+
+      // Token'ı HEMEN sunucuya gönder (konum izni beklemeden)
+      try {
+        final locationUpdateService = LocationUpdateService();
+        final userId = prefs.getString('user_id');
+        if (userId != null) {
+          final success =
+              await locationUpdateService.sendDeviceToken(token, 'android');
+          if (success) {
+            print('✅ FCM Token sunucuya kaydedildi');
+          } else {
+            print('⚠️ FCM Token sunucuya gönderilemedi');
+          }
+        } else {
+          print('⚠️ Kullanıcı oturum açmamış, token daha sonra gönderilecek');
+        }
+      } catch (e) {
+        print('⚠️ Token sunucuya gönderim hatası: $e');
+      }
     } else {
       print('⚠️ FCM Token alınamadı!');
     }
@@ -290,13 +304,21 @@ Future<void> _initializeFCMToken() async {
       await prefs.setString('fcm_token', newToken);
       print('✅ Yeni FCM Token kaydedildi');
 
-      // Yeni token'ı sunucuya da gönder
+      // Yeni token'ı sunucuya da gönder (konum izni beklemeden)
       try {
         final locationUpdateService = LocationUpdateService();
-        await locationUpdateService.sendLocationOnAppStart();
-        print('✅ Yeni token sunucuya gönderildi');
+        final userId = prefs.getString('user_id');
+        if (userId != null) {
+          final success =
+              await locationUpdateService.sendDeviceToken(newToken, 'android');
+          if (success) {
+            print('✅ Yeni token sunucuya gönderildi');
+          } else {
+            print('⚠️ Yeni token sunucuya gönderilemedi');
+          }
+        }
       } catch (e) {
-        print('⚠️ Token sunucuya gönderilemedi: $e');
+        print('⚠️ Yeni token sunucuya gönderim hatası: $e');
       }
     });
 

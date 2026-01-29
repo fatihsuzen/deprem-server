@@ -28,27 +28,22 @@ class _BackgroundServiceControllerState
   }
 
   Future<void> _initBackgroundService() async {
-    await _checkServiceStatus();
-    final prefsService = UserPreferencesService();
-    final enabled = await prefsService.getBackgroundNotifications();
-    if (enabled) {
+    // Özellik geçici olarak devre dışı - servis başlatılmayacak
+    setState(() {
+      _isRunning = false;
+    });
+
+    // Eğer eski kullanıcılarda çalışan bir servis varsa durdur
+    final isRunning = await FlutterForegroundTask.isRunningService;
+    if (isRunning) {
+      await EarthquakeBackgroundService.stopService();
       debugPrint(
-          '🟢 [BG] background_notifications_enabled: TRUE (servis başlatılacak)');
-      final isRunning = await FlutterForegroundTask.isRunningService;
-      if (!isRunning) {
-        await EarthquakeBackgroundService.startService();
-        await _checkServiceStatus();
-      }
-    } else {
-      debugPrint(
-          '🔴 [BG] background_notifications_enabled: FALSE (servis başlatılmayacak)');
-      // Eğer servis çalışıyorsa ve pref false ise durdur
-      final isRunning = await FlutterForegroundTask.isRunningService;
-      if (isRunning) {
-        await EarthquakeBackgroundService.stopService();
-        await _checkServiceStatus();
-      }
+          '🔴 [BG] Arka plan servisi durduruldu (özellik geçici olarak devre dışı)');
     }
+
+    // Prefs'i de false olarak güncelle
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('background_notifications_enabled', false);
   }
 
   Future<void> _loadLocale() async {
@@ -195,79 +190,77 @@ class _BackgroundServiceControllerState
 
   Future<void> _toggleService() async {
     final l10n = AppLocalizations(Locale(_currentLocale));
-    final prefs = await SharedPreferences.getInstance();
 
-    if (_isRunning) {
-      // Servisi durdur
-      await EarthquakeBackgroundService.stopService();
-      await prefs.setBool('background_notifications_enabled', false);
-      if (mounted) {
-        setState(() {
-          _isRunning = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.get('background_service_stopped')),
-            backgroundColor: Colors.orange,
+    // ÖZELLİK GEÇİCİ OLARAK DEVRE DIŞI - Kullanıcıya bilgi göster
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Color(0xFFFF3A3D), size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _currentLocale == 'tr'
+                    ? 'Özellik Geliştiriliyor'
+                    : 'Feature Under Development',
+                style: TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _currentLocale == 'tr'
+                  ? 'Arka plan bildirimleri özelliği şu anda geliştirme aşamasındadır.'
+                  : 'Background notifications feature is currently under development.',
+              style: TextStyle(fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Color(0xFFFF3A3D).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Color(0xFFFF3A3D).withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.people_outline,
+                      color: Color(0xFFFF3A3D), size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentLocale == 'tr'
+                          ? 'Yeterli kullanıcı sayısına ulaşıldığında bu özellik aktif edilecektir.'
+                          : 'This feature will be activated when sufficient user count is reached.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFFF3A3D),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFFF3A3D),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(_currentLocale == 'tr' ? 'Anladım' : 'OK'),
           ),
-        );
-      }
-    } else {
-      // 1. Pil optimizasyonunu kontrol et
-      await _checkBatteryOptimization();
-
-      // 2. Prefs'i güncelle
-      await prefs.setBool('background_notifications_enabled', true);
-      final backgroundEnabled =
-          prefs.getBool('background_notifications_enabled') ?? false;
-      print(
-          '🟢 PREFS background_notifications_enabled (set): $backgroundEnabled');
-      if (!backgroundEnabled) {
-        if (mounted) {
-          setState(() {
-            _isRunning = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Arka plan bildirimleri ayarlardan kapalı!'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        await _checkServiceStatus();
-        return;
-      }
-
-      // 3. Servisi başlat
-      final started = await EarthquakeBackgroundService.startService();
-      if (mounted) {
-        setState(() {
-          _isRunning = started;
-        });
-        if (started) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.get('background_service_started')),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          // Prefi tekrar false yap
-          await prefs.setBool('background_notifications_enabled', false);
-          setState(() {
-            _isRunning = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(l10n.get('background_service_failed')),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    }
-
-    await _checkServiceStatus();
+        ],
+      ),
+    );
   }
 
   @override
@@ -278,24 +271,25 @@ class _BackgroundServiceControllerState
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: ListTile(
         leading: Icon(
-          _isRunning ? Icons.notifications_active : Icons.notifications_off,
-          color: _isRunning ? Colors.green : Colors.grey,
+          Icons.notifications_off, // Her zaman kapalı göster
+          color: Colors.grey,
         ),
         title: Text(l10n.get('background_notifications')),
         subtitle: Text(
-          _isRunning
-              ? l10n.get('background_active')
-              : l10n.get('background_inactive'),
+          _currentLocale == 'tr'
+              ? 'Geliştiriliyor - Yakında aktif olacak'
+              : 'Under development - Coming soon',
           style: TextStyle(
             fontSize: 12,
-            color: _isRunning ? Colors.green : Colors.orange,
+            color: Colors.grey,
           ),
         ),
         trailing: Switch(
-          value: _isRunning,
-          onChanged: (value) => _toggleService(),
+          value: false, // Her zaman kapalı
+          onChanged: (value) => _toggleService(), // Dialog göster
           activeColor: const Color(0xFFFF3A3D),
         ),
+        onTap: () => _toggleService(), // ListTile'a da tıklanabilir yap
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
@@ -61,6 +63,30 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString('user_email', 'guest@depremhatti.com');
       await prefs.setString('user_photo_url', '');
       print('✅ Misafir olarak giriş yapıldı: $guestId');
+
+      // Misafir girişi sonrası FCM token'ı gönder
+      try {
+        final fcmToken = prefs.getString('fcm_token');
+        if (fcmToken != null) {
+          final response = await http.post(
+            Uri.parse('http://188.132.202.24:3000/api/users/device-token'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-firebase-uid': guestId,
+            },
+            body: jsonEncode({
+              'token': fcmToken,
+              'platform': 'android',
+            }),
+          );
+          if (response.statusCode == 200) {
+            print('✅ FCM Token misafir girişi sonrası gönderildi');
+          }
+        }
+      } catch (tokenError) {
+        print('⚠️ Token gönderme hatası: $tokenError');
+      }
+
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }

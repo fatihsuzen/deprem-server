@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../widgets/background_service_controller.dart';
@@ -275,14 +276,36 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: TextStyle(color: Colors.grey[600])),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.get('opening_app_store')),
-                  backgroundColor: Color(0xFF4CAF50),
-                ),
-              );
+              final url = Uri.parse(
+                  'https://play.google.com/store/apps/details?id=com.fsapps.earthquake_line');
+              try {
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_currentLocale == 'tr'
+                            ? 'Play Store açılamadı'
+                            : 'Could not open Play Store'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          _currentLocale == 'tr' ? 'Hata: $e' : 'Error: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
             child:
@@ -309,8 +332,37 @@ class _SettingsPageState extends State<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.amber, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentLocale == 'tr'
+                          ? 'Pro sürüm yakında kullanıma sunulacak!'
+                          : 'Pro version coming soon!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.amber[900],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 16),
             Text(
-              l10n.get('pro_features'),
+              _currentLocale == 'tr'
+                  ? 'Planlanmış Özellikler'
+                  : 'Planned Features',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12),
@@ -320,37 +372,13 @@ class _SettingsPageState extends State<SettingsPage> {
             _buildProFeature(l10n.get('advanced_location')),
             _buildProFeature(l10n.get('historical_analysis')),
             _buildProFeature(l10n.get('custom_themes')),
-            SizedBox(height: 16),
-            Center(
-              child: Text(
-                '₺49,99 ${l10n.get('per_year')}',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFFF3333),
-                ),
-              ),
-            ),
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(l10n.get('cancel'),
-                style: TextStyle(color: Colors.grey[600])),
-          ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(l10n.get('starting_purchase')),
-                  backgroundColor: Color(0xFF4CAF50),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
-            child: Text(l10n.get('purchase'),
+            child: Text(_currentLocale == 'tr' ? 'Anladım' : 'OK',
                 style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -752,21 +780,85 @@ class _SettingsPageState extends State<SettingsPage> {
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: Text(l10n.get('earthquake_line')),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                title: Row(
                   children: [
-                    Text(l10n.get('comprehensive_app')),
-                    SizedBox(height: 12),
-                    Text('© 2025 ${l10n.get('earthquake_line')}',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600])),
-                    SizedBox(height: 8),
-                    Text(l10n.get('all_rights_reserved'),
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Icon(Icons.info_outline,
+                        color: Color(0xFFFF3333), size: 28),
+                    SizedBox(width: 8),
+                    Expanded(child: Text(l10n.get('earthquake_line'))),
                   ],
+                ),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _currentLocale == 'tr'
+                            ? 'Dünyanın En Gelişmiş Deprem Takip ve Erken Uyarı Platformu'
+                            : 'World\'s Most Advanced Earthquake Tracking and Early Warning Platform',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFFF3333),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+
+                      // P2P Network Açıklaması
+                      _buildAboutSection(
+                        icon: Icons.network_check,
+                        title: _currentLocale == 'tr'
+                            ? 'P2P Deprem Ağı'
+                            : 'P2P Earthquake Network',
+                        description: _currentLocale == 'tr'
+                            ? 'Kullanıcıların cihaz sensörlerini kullanarak gerçek zamanlı deprem algılama yapan yenilikçi bir peer-to-peer ağı. Binlerce cihazdan gelen veriler analiz edilerek erken uyarı sistemi oluşturulur.'
+                            : 'An innovative peer-to-peer network that detects earthquakes in real-time using device sensors. Data from thousands of devices is analyzed to create an early warning system.',
+                      ),
+
+                      SizedBox(height: 12),
+
+                      // Özellikler
+                      _buildAboutSection(
+                        icon: Icons.featured_play_list,
+                        title: _currentLocale == 'tr'
+                            ? 'Temel Özellikler'
+                            : 'Key Features',
+                        description: _currentLocale == 'tr'
+                            ? '• Gerçek zamanlı deprem bildirimleri\n• USGS, EMSC, AFAD ve Kandilli verilerini anlık takip\n• İnteraktif deprem haritası\n• Arkadaşlarınızla konum paylaşımı\n• Geçmiş deprem kayıtları ve analizler\n• Çoklu dil desteği (TR/EN)'
+                            : '• Real-time earthquake notifications\n• Live tracking of USGS, EMSC, AFAD and Kandilli data\n• Interactive earthquake map\n• Location sharing with friends\n• Historical earthquake records and analysis\n• Multi-language support (TR/EN)',
+                      ),
+
+                      SizedBox(height: 12),
+
+                      // Veri Kaynakları
+                      _buildAboutSection(
+                        icon: Icons.source,
+                        title: _currentLocale == 'tr'
+                            ? 'Veri Kaynakları'
+                            : 'Data Sources',
+                        description: _currentLocale == 'tr'
+                            ? '• USGS (Amerika Birleşik Devletleri Jeoloji Araştırmaları)\n• EMSC (Avrupa-Akdeniz Sismolojik Merkezi)\n• T.C. AFAD (Afet ve Acil Durum Yönetimi)\n• Kandilli Rasathanesi\n• Kullanıcı sensör verileri (P2P)'
+                            : '• USGS (United States Geological Survey)\n• EMSC (European-Mediterranean Seismological Centre)\n• T.R. AFAD (Disaster and Emergency Management)\n• Kandilli Observatory\n• User sensor data (P2P)',
+                      ),
+
+                      SizedBox(height: 16),
+                      Divider(),
+                      SizedBox(height: 8),
+
+                      Text('© 2025 ${l10n.get('earthquake_line')}',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      SizedBox(height: 4),
+                      Text(l10n.get('all_rights_reserved'),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      SizedBox(height: 4),
+                      Text('v1.0.0',
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    ],
+                  ),
                 ),
                 actions: [
                   ElevatedButton(
@@ -1091,5 +1183,48 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Widget _buildDivider() {
     return Divider(height: 1, indent: 72, color: Colors.grey[200]);
+  }
+
+  Widget _buildAboutSection({
+    required IconData icon,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Color(0xFFFF3333), size: 20),
+              SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

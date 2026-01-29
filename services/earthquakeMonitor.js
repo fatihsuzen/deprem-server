@@ -449,20 +449,20 @@ class EarthquakeMonitor {
     return newEarthquakes;
   }
 
+  // Notification service'i dışarıdan set etmek için
+  setPriorityNotificationService(priorityNotificationService) {
+    this.priorityNotificationService = priorityNotificationService;
+  }
+
   async triggerEarthquakeNotification(earthquake) {
     try {
       console.log(`🚨 Yeni deprem algılandı: M${earthquake.magnitude} - ${earthquake.place}`);
       
-      // Priority Notification Service kullan
-      const PriorityNotificationService = require('./priorityNotificationService');
-      const server = require('../server');
-      
-      if (!server.notificationService) {
-        console.log('⚠️ Notification service hazır değil');
+      // Priority Notification Service kontrolü
+      if (!this.priorityNotificationService) {
+        console.log('⚠️ Priority notification service hazır değil');
         return;
       }
-      
-      const priorityService = new PriorityNotificationService(server.notificationService);
       
       // Deprem verisini uygun formata çevir
       const earthquakeData = {
@@ -473,11 +473,12 @@ class EarthquakeMonitor {
         location_str: `${earthquake.location?.latitude || 0},${earthquake.location?.longitude || 0}`,
         region: earthquake.place || 'Unknown',
         depth: earthquake.depth || 10,
-        time: earthquake.timestamp ? new Date(earthquake.timestamp) : new Date()
+        time: earthquake.timestamp ? new Date(earthquake.timestamp) : new Date(),
+        source: earthquake.source || 'Unknown'
       };
       
       // Kullanıcı ayarlarına göre (range + magnitude) bildirim gönder
-      const result = await priorityService.sendPriorityEarthquakeNotifications(earthquakeData);
+      const result = await this.priorityNotificationService.sendPriorityEarthquakeNotifications(earthquakeData);
       
       if (result.success) {
         console.log(`✅ Bildirimler gönderildi: ${result.stats.sent} başarılı, ${result.stats.skipped} atlandı`);

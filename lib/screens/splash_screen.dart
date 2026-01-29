@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 // ...existing code...
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
-import 'package:flutter_native_splash/flutter_native_splash.dart';
+// import 'package:flutter_native_splash/flutter_native_splash.dart'; // DISABLED
 import 'dart:async';
 import '../screens/earthquake_info_screen.dart';
 
@@ -18,7 +18,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    FlutterNativeSplash.remove();
+    // FlutterNativeSplash.remove(); // DISABLED
     Timer(const Duration(seconds: 2), () async {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getString('user_id');

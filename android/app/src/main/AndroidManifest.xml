@@ -11,7 +11,8 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Bildirim izinleri -->
@@ -67,9 +68,16 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <!-- Foreground service used by flutter_foreground_task or similar packages -->
+        <!-- Deprem erken uyarı sistemi için location ve specialUse tipleri kullanılıyor -->
+        <!-- location: Sürekli konum izleme için, specialUse: Deprem algılama için -->
         <service android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:exported="false"
-            android:foregroundServiceType="dataSync" />
+            android:foregroundServiceType="location|specialUse">
+            <!-- Android 14+ için specialUse açıklaması (zorunlu) -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="deprem_erken_uyari_sistemi" />
+        </service>
 
         <!-- Earthquake Report Service (FileObserver) -->
         <service android:name=".EarthquakeReportService"

@@ -653,6 +653,10 @@ const validationService = new ValidationService();
 earthquakesRoutes.setEarthquakeMonitor(earthquakeMonitor);
 console.log('✅ earthquakeMonitor injected into earthquakes routes');
 
+// Set priorityNotificationService in earthquakeMonitor
+earthquakeMonitor.setPriorityNotificationService(priorityNotificationService);
+console.log('✅ priorityNotificationService injected into earthquakeMonitor');
+
 // Socket.io Connection Handler
 io.on('connection', (socket) => {
   console.log(`📱 Client connected: ${socket.id}`);

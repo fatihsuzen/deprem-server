@@ -99,6 +99,35 @@ class AuthService {
         print('⚠️ Server kayıt hatası: $dbError');
       }
 
+      // Giriş yapıldıktan sonra FCM token'ı gönder
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final fcmToken = prefs.getString('fcm_token');
+        if (fcmToken != null) {
+          // LocationUpdateService'i import etmek yerine doğrudan endpoint'e istek yapalım
+          final response = await http.post(
+            Uri.parse('${AuthService.baseUrl}/users/device-token'),
+            headers: {
+              'Content-Type': 'application/json',
+              'x-firebase-uid': user.uid,
+            },
+            body: jsonEncode({
+              'token': fcmToken,
+              'platform': 'android',
+            }),
+          );
+          if (response.statusCode == 200) {
+            print('✅ FCM Token giriş sonrası sunucuya gönderildi');
+          } else {
+            print('⚠️ FCM Token gönderme hatası: ${response.statusCode}');
+          }
+        } else {
+          print('⚠️ FCM Token bulunamadı, daha sonra gönderilecek');
+        }
+      } catch (tokenError) {
+        print('⚠️ FCM Token gönderme hatası: $tokenError');
+      }
+
       return userData;
     } catch (e) {
       print('❌ Google Sign-In hatası: $e');
