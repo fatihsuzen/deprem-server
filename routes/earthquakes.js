@@ -225,7 +225,10 @@ async function fetchAFADData() {
         const afadDateStr = eq.date || eq.event_date_time || eq.timestamp;
         let quakeDate;
         if (afadDateStr) {
-          quakeDate = new Date(afadDateStr + '+03:00');
+          // AFAD bazen "2026-01-29 05:28:53" formatında geliyor (boşluk ile)
+          // ISO format için T'ye çevirmeliyiz
+          const isoStr = afadDateStr.replace(' ', 'T');
+          quakeDate = new Date(isoStr + '+03:00');
         } else {
           quakeDate = new Date();
         }

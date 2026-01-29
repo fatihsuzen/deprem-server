@@ -329,10 +329,10 @@ class _HistoryPageState extends State<HistoryPage> {
       // ISO formatı (2026-01-28T20:44:27.000Z) ise parse et
       if (timeStr.contains('T')) {
         final dateTime = DateTime.parse(timeStr);
-        // Local timezone'a çevir ve sadece saat:dakika göster
-        final localTime = dateTime.toLocal();
-        final hour = localTime.hour.toString().padLeft(2, '0');
-        final minute = localTime.minute.toString().padLeft(2, '0');
+        // Backend UTC gönderiyor, Türkiye'de +3 saat ekle
+        final turkeyTime = dateTime.add(Duration(hours: 3));
+        final hour = turkeyTime.hour.toString().padLeft(2, '0');
+        final minute = turkeyTime.minute.toString().padLeft(2, '0');
         return '$hour:$minute';
       }
       
