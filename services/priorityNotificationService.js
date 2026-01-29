@@ -10,10 +10,19 @@ class PriorityNotificationService {
     // 1 dakika sonra bildirimleri aktif et
     setTimeout(() => {
       this.isReady = true;
-      console.log('✅ Bildirim sistemi aktif edildi (1 dakika bekleme süresi tamamlandı)');
+      const readyTime = new Date().toLocaleTimeString('tr-TR');
+      console.log('\n═══════════════════════════════════════════════════');
+      console.log('✅ BİLDİRİM SİSTEMİ AKTİF EDİLDİ');
+      console.log('═══════════════════════════════════════════════════');
+      console.log(`🕐 Aktif olma zamanı: ${readyTime}`);
+      console.log('📢 Deprem bildirimleri artık gönderilecek');
+      console.log('🚨 Yeni depremler için kullanıcılara anlık bildirim yapılacak');
+      console.log('═══════════════════════════════════════════════════\n');
     }, 60000); // 60000ms = 1 dakika
     
-    console.log('⏳ Bildirim sistemi başlatıldı - 1 dakika bekleme modunda');
+    const startTime = new Date().toLocaleTimeString('tr-TR');
+    console.log('\n⏳ Bildirim sistemi başlatıldı - 1 dakika bekleme modunda');
+    console.log(`   Başlangıç: ${startTime}`);
   }
 
   /**
