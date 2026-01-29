@@ -221,14 +221,15 @@ async function fetchAFADData() {
         const mag = parseFloat(eq.mag || eq.magnitude);
         const depth = parseFloat(eq.depth || eq.Depth);
         
-        // AFAD tarihi Türkiye saati (UTC+3), timezone ekle
+        // AFAD tarihi Türkiye saati (UTC+3), 3 saat çıkar
         const afadDateStr = eq.date || eq.event_date_time || eq.timestamp;
         let quakeDate;
         if (afadDateStr) {
           // AFAD bazen "2026-01-29 05:28:53" formatında geliyor (boşluk ile)
-          // ISO format için T'ye çevirmeliyiz
           const isoStr = afadDateStr.replace(' ', 'T');
-          quakeDate = new Date(isoStr + '+03:00');
+          const turkeyDate = new Date(isoStr);
+          // Türkiye saatinden 3 saat çıkararak UTC'ye çevir
+          quakeDate = new Date(turkeyDate.getTime() - (3 * 60 * 60 * 1000));
         } else {
           quakeDate = new Date();
         }
