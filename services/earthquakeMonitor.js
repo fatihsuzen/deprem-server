@@ -272,7 +272,6 @@ class EarthquakeMonitor {
             const localDate = new Date(afadDateStr);
             // AFAD saati Türkiye saati, bu yüzden -3 saat yaparak UTC'ye çeviriyoruz
             timestamp = new Date(localDate.getTime() - (3 * 60 * 60 * 1000));
-            console.log(`🕐 AFAD zaman dönüşümü: ${afadDateStr} → ${timestamp.toISOString()} (UTC)`);
           } else {
             timestamp = new Date();
           }
