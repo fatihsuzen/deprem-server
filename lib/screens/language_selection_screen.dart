@@ -43,6 +43,63 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     });
   }
 
+  String _getContinueText() {
+    switch (_selectedLanguage) {
+      case 'tr':
+        return 'Devam Et';
+      case 'en':
+        return 'Continue';
+      case 'es':
+        return 'Continuar';
+      case 'hi':
+        return 'जारी रखें';
+      case 'fil':
+        return 'Magpatuloy';
+      case 'my':
+        return 'ဆက်လုပ်မည်';
+      default:
+        return 'Continue';
+    }
+  }
+
+  String _getWelcomeText() {
+    switch (_selectedLanguage) {
+      case 'tr':
+        return 'Hoş Geldiniz!';
+      case 'en':
+        return 'Welcome!';
+      case 'es':
+        return '¡Bienvenido!';
+      case 'hi':
+        return 'स्वागत है!';
+      case 'fil':
+        return 'Maligayang Pagdating!';
+      case 'my':
+        return 'ကြိုဆိုပါတဲ!';
+      default:
+        return 'Welcome!';
+    }
+  }
+
+  String _getSelectLanguageText() {
+    switch (_selectedLanguage) {
+      case 'tr':
+        return 'Lütfen dilinizi seçin';
+      case 'en':
+        return 'Please select your language';
+      case 'es':
+        return 'Por favor selecciona tu idioma';
+      case 'hi':
+        return 'कृपया अपनी भाषा चुनें';
+      case 'fil':
+        return 'Pumili ng inyong wika';
+      case 'my':
+        return 'သင့်ဘာသာစကားकို ရွေးချတ်ပါ';
+      default:
+        return 'Please select your language';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -58,71 +115,120 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
             )
           : null,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              if (!widget.isFromSettings) ...[
-                const SizedBox(height: 60),
-                // Logo veya ikon
-                Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFF3A3D).withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.language,
-                    size: 60,
-                    color: Color(0xFFFF3A3D),
-                  ),
+        child: Column(
+          children: [
+            if (!widget.isFromSettings) ...[
+              const SizedBox(height: 40),
+              // Logo veya ikon
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF3A3D).withOpacity(0.1),
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 32),
-                Text(
-                  'Hoş Geldiniz!\nWelcome!',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
+                child: const Icon(
+                  Icons.language,
+                  size: 50,
+                  color: Color(0xFFFF3A3D),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Lütfen dilinizi seçin\nPlease select your language',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: isDark ? Colors.grey[400] : Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 48),
-              ],
-
-              // Türkçe seçeneği
-              _buildLanguageOption(
-                languageCode: 'tr',
-                languageName: 'Türkçe',
-                flag: '🇹🇷',
-                isDark: isDark,
               ),
-
-              const SizedBox(height: 16),
-
-              // İngilizce seçeneği
-              _buildLanguageOption(
-                languageCode: 'en',
-                languageName: 'English',
-                flag: '🇬🇧',
-                isDark: isDark,
+              const SizedBox(height: 20),
+              Text(
+                _getWelcomeText(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
+              const SizedBox(height: 12),
+              Text(
+                _getSelectLanguageText(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
 
-              const Spacer(),
+            // Scrollable language options
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Column(
+                  children: [
+                    // English - First
+                    _buildLanguageOption(
+                      languageCode: 'en',
+                      languageName: 'English',
+                      flag: '🇬🇧',
+                      isDark: isDark,
+                    ),
 
-              if (!widget.isFromSettings) ...[
-                // Devam Et butonu
-                SizedBox(
+                    const SizedBox(height: 12),
+
+                    // Spanish - Second
+                    _buildLanguageOption(
+                      languageCode: 'es',
+                      languageName: 'Español',
+                      flag: '🇪🇸',
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Turkish - Third
+                    _buildLanguageOption(
+                      languageCode: 'tr',
+                      languageName: 'Türkçe',
+                      flag: '🇹🇷',
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Hindi
+                    _buildLanguageOption(
+                      languageCode: 'hi',
+                      languageName: 'हिन्दी',
+                      flag: '🇮🇳',
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Filipino
+                    _buildLanguageOption(
+                      languageCode: 'fil',
+                      languageName: 'Filipino',
+                      flag: '🇵🇭',
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Myanmar
+                    _buildLanguageOption(
+                      languageCode: 'my',
+                      languageName: 'မြန်မာ',
+                      flag: '🇲🇲',
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
+
+            if (!widget.isFromSettings) ...[
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: SizedBox(
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
@@ -145,7 +251,7 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                       elevation: 0,
                     ),
                     child: Text(
-                      _selectedLanguage == 'tr' ? 'Devam Et' : 'Continue',
+                      _getContinueText(),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -153,10 +259,10 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
-              ],
-            ],
-          ),
+              ),
+            ] else
+              const SizedBox(height: 24),
+          ],
         ),
       ),
     );
@@ -175,13 +281,33 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
         await _saveLanguage(languageCode);
         if (widget.isFromSettings && mounted) {
           // Ayarlardan geliyorsa, uygulamayı yeniden başlatmak için bilgi ver
+          String message;
+          switch (languageCode) {
+            case 'tr':
+              message = 'Dil değiştirildi. Uygulama yeniden başlatılacak.';
+              break;
+            case 'en':
+              message = 'Language changed. App will restart.';
+              break;
+            case 'es':
+              message = 'Idioma cambiado. La aplicación se reiniciará.';
+              break;
+            case 'hi':
+              message = 'भाषा बदल दी गई। ऐप पुनः प्रारंभ होगा।';
+              break;
+            case 'fil':
+              message = 'Nabago ang wika. Mag-restart ang app.';
+              break;
+            case 'my':
+              message = 'ဘာသာစကား ပြောင်းလဲပြီးပါပြီ။ အက်ပ် ပြန်စတင်မည်။';
+              break;
+            default:
+              message = 'Language changed. App will restart.';
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                languageCode == 'tr'
-                    ? 'Dil değiştirildi. Uygulama yeniden başlatılacak.'
-                    : 'Language changed. App will restart.',
-              ),
+              content: Text(message),
               backgroundColor: const Color(0xFFFF3A3D),
             ),
           );

@@ -538,8 +538,9 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
         } else {
           // Hata mesajı göster
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Odaya katilma hatasi. Lutfen tekrar deneyin.'),
+            SnackBar(
+              content:
+                  Text(AppLocalizations.of(context)!.get('join_room_failed')),
               backgroundColor: Colors.red,
             ),
           );
@@ -551,7 +552,7 @@ class _ChatRoomsScreenState extends State<ChatRoomsScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $e'),
+            content: Text('${AppLocalizations.of(context)!.get('error')}: $e'),
             backgroundColor: Colors.red,
           ),
         );

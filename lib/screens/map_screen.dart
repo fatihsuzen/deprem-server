@@ -13,8 +13,11 @@ import '../services/friends_service_backend.dart';
 import '../services/earthquake_service.dart';
 import '../services/user_preferences_service.dart';
 import '../l10n/app_localizations.dart';
+import '../l10n/locale_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' as http_io;
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/services.dart';
 // ...existing code...
 
@@ -49,7 +52,8 @@ class _MapScreenState extends State<MapScreen>
           _dynamicFaultLines = lines;
         });
         print(
-            '🔄 Harita hareket etti, fay hatları güncellendi: ${lines.length} polyline');
+          '🔄 Harita hareket etti, fay hatları güncellendi: ${lines.length} polyline',
+        );
       }
     });
   }
@@ -59,8 +63,10 @@ class _MapScreenState extends State<MapScreen>
   final Location _location = Location();
   bool _locationLoading = true;
   bool _isCacheReady = false; // Tile cache hazır mı?
-  LatLng _userLocation =
-      LatLng(39.0, 35.0); // Türkiye merkezi - gerçek GPS ile güncellenecek
+  LatLng _userLocation = LatLng(
+    39.0,
+    35.0,
+  ); // Türkiye merkezi - gerçek GPS ile güncellenecek
   bool _showEarthquakes = true;
   bool _showFriends = true;
   bool _showAssemblyAreas = true;
@@ -71,7 +77,7 @@ class _MapScreenState extends State<MapScreen>
   List<Map<String, dynamic>> _quakes =
       []; // Sadece serverdan gelen deprem verisi
   Map<String, dynamic>? _latestQuake; // Son deprem bilgisi
-  String _currentLocale = 'tr'; // Dil ayarı
+  String _currentLocale = LocaleProvider.cached; // Dil ayarı
   late AnimationController _waveController;
   late Animation<double> _waveAnimation;
   final UserPreferencesService _prefsService = UserPreferencesService();
@@ -82,7 +88,6 @@ class _MapScreenState extends State<MapScreen>
   double _notificationRadius = UserPreferencesService.defaultNotificationRadius;
   @override
   // ...existing code...
-
   String? _userFcmToken;
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
@@ -99,27 +104,25 @@ class _MapScreenState extends State<MapScreen>
         "location": {
           "latitude": _userLocation.latitude,
           "longitude": _userLocation.longitude,
-          "address": "${_userLocation.latitude}, ${_userLocation.longitude}"
+          "address": "${_userLocation.latitude}, ${_userLocation.longitude}",
         },
         "settings": {
           "notificationRadius": _notificationRadius,
           "minMagnitude": _minMagnitude,
-          "maxMagnitude": _maxMagnitude
-        }
+          "maxMagnitude": _maxMagnitude,
+        },
       };
       final response = await http.post(
         Uri.parse(url),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-firebase-uid': userId,
-        },
+        headers: {'Content-Type': 'application/json', 'x-firebase-uid': userId},
         body: jsonEncode(body),
       );
       if (response.statusCode == 200) {
         print('✅ Konum, ayarlar ve FCM token sunucuya kaydedildi');
       } else {
         print(
-            '❌ Sunucuya kaydedilemedi: ${response.statusCode} - ${response.body}');
+          '❌ Sunucuya kaydedilemedi: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       print('❌ Sunucuya gönderim hatası: $e');
@@ -134,14 +137,16 @@ class _MapScreenState extends State<MapScreen>
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
     _fayPulseAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-        CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut));
+      CurvedAnimation(parent: _fayPulseController, curve: Curves.easeInOut),
+    );
     _waveController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat();
-    _waveAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _waveController, curve: Curves.easeOut),
-    );
+    _waveAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _waveController, curve: Curves.easeOut));
     _mapController = MapController();
     _flutterMapKey = UniqueKey();
     super.initState();
@@ -159,40 +164,66 @@ class _MapScreenState extends State<MapScreen>
   // Tile cache'i başlat
   Future<void> _initializeTileCache() async {
     try {
-      await FMTCObjectBoxBackend().initialise();
-      final store = FMTCStore('mapCache');
-      // Varsa kullan, yoksa oluştur
-      if (!await store.manage.ready) {
-        await store.manage.create();
-      }
-      // Cache hazır, harita render edilebilir
+      // Backend zaten main.dart'ta başlatıldı.
+      // Storeun var olduğundan emin ol (create() idempotent - yoksa oluşturur)
+      await FMTCStore('mapCache').manage.create();
+
+      // FMTCTileProvider'ı bir kez oluştur ve sakla
+      // cacheFirst: önce cache'e bak, yoksa network'ten çek ve cache'e yaz
+      // NOT: Network zaman aşımlarında cache'den gösterilmeye devam eder
+      _fmtcTileProvider = FMTCTileProvider(
+        stores: {'mapCache': BrowseStoreStrategy.readUpdateCreate},
+        loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+        httpClient: _httpClient, // HTTP/1.1 client kullan (30s timeout)
+      );
+
       if (mounted) {
         setState(() {
           _isCacheReady = true;
         });
-        print('✅ Harita cache\'i başlatıldı');
+        print(
+            '✅ FMTC tile provider hazır (HTTP/1.1, 30s timeout, cache-first)');
       }
     } catch (e) {
-      print('⚠️ Cache başlatma hatası, normal network kullanılacak: $e');
+      print(
+        '⚠️ Cache tile provider oluşturma hatası, network kullanılacak: $e',
+      );
       if (mounted) {
         setState(() {
-          _isCacheReady = false; // Hata olsa bile render et
+          _isCacheReady = false;
         });
       }
     }
   }
 
-  // Tile cache nesnesi kaldırıldı, doğrudan instance ile kullanılacak
+  // HTTP/1.1 client (HTTP/2 sorunlarını önlemek için)
+  late final http_io.IOClient _httpClient = http_io.IOClient(
+    HttpClient()
+      ..connectionTimeout = const Duration(seconds: 30) // Timeout artırıldı
+      ..idleTimeout = const Duration(seconds: 30),
+  );
+
+  // Tile provider'lar - bir kez oluşturulur, her build'de aynı nesne döner
+  FMTCTileProvider? _fmtcTileProvider;
+  late final TileProvider _networkTileProvider = NetworkTileProvider(
+    httpClient: _httpClient,
+  );
   bool _earthquakesLoading = false;
 
-  // Cache devre dışı - sadece network tile provider
+  // Tile update transformer - bir kez oluşturulur
+  late final TileUpdateTransformer _tileUpdateTransformer =
+      _buildTileUpdateTransformer();
+
+  // Cache hazırsa FMTC provider, değilse NetworkTileProvider döndür
   TileProvider getTileProvider() {
-    print('🌐 NetworkTileProvider kullanılıyor (cache devre dışı)');
-    return NetworkTileProvider();
+    if (_fmtcTileProvider != null) {
+      return _fmtcTileProvider!;
+    }
+    return _networkTileProvider;
   }
 
-  // Tile yükleme olaylarını logla
-  TileUpdateTransformer _logTileUpdates() {
+  // Tile yükleme olaylarını logla - tek seferlik oluşturulur
+  TileUpdateTransformer _buildTileUpdateTransformer() {
     int totalTiles = 0;
     int networkTiles = 0;
     int cachedTiles = 0;
@@ -212,7 +243,8 @@ class _MapScreenState extends State<MapScreen>
 
         if (totalTiles % 20 == 0) {
           print(
-              '🗺️ TILE: Toplam=$totalTiles | 📥 Network=$networkTiles | ✅ Cache=$cachedTiles');
+            '🗺️ TILE: Toplam=$totalTiles | 📥 Network=$networkTiles | ✅ Cache=$cachedTiles',
+          );
         }
         sink.add(updateEvent);
       },
@@ -245,7 +277,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(40.60, 36.35),
         LatLng(40.40, 37.95),
         LatLng(39.70, 41.05),
-      ]
+      ],
     },
     // TÜRKİYE - DOĞU ANADOLU FAY HATTI (DAFH)
     {
@@ -258,7 +290,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(37.55, 36.70),
         LatLng(36.85, 36.25),
         LatLng(36.50, 36.20),
-      ]
+      ],
     },
     // TÜRKİYE - EGE GRABENLERİ
     {
@@ -267,8 +299,8 @@ class _MapScreenState extends State<MapScreen>
       'points': [
         LatLng(38.72, 28.52),
         LatLng(38.66, 28.72),
-        LatLng(38.48, 29.12)
-      ]
+        LatLng(38.48, 29.12),
+      ],
     },
     {
       'name': 'Menderes',
@@ -276,8 +308,8 @@ class _MapScreenState extends State<MapScreen>
       'points': [
         LatLng(37.85, 27.85),
         LatLng(37.83, 28.35),
-        LatLng(37.77, 29.08)
-      ]
+        LatLng(37.77, 29.08),
+      ],
     },
 
     // AMERİKA - SAN ANDREAS FAULT
@@ -293,7 +325,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(37.0, -121.8),
         LatLng(37.7, -122.5),
         LatLng(38.4, -122.8),
-      ]
+      ],
     },
     {
       'name': 'Cascadia',
@@ -305,7 +337,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(46.0, -125.5),
         LatLng(48.0, -125.0),
         LatLng(49.0, -127.0),
-      ]
+      ],
     },
 
     // JAPONYA - RING OF FIRE
@@ -319,7 +351,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(37.0, 144.0),
         LatLng(36.0, 144.0),
         LatLng(35.0, 141.5),
-      ]
+      ],
     },
     {
       'name': 'Nankai Trough',
@@ -330,7 +362,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(32.0, 138.0),
         LatLng(31.5, 139.5),
         LatLng(31.0, 141.0),
-      ]
+      ],
     },
 
     // ENDONEZYA - SUNDA MEGATHRUST
@@ -346,7 +378,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(1.0, 94.5),
         LatLng(3.0, 93.5),
         LatLng(5.0, 92.5),
-      ]
+      ],
     },
     {
       'name': 'Sumatra',
@@ -358,7 +390,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(-1.0, 100.0),
         LatLng(-3.0, 101.5),
         LatLng(-5.0, 103.0),
-      ]
+      ],
     },
 
     // ŞİLİ - NAZCA PLATE
@@ -372,7 +404,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(-33.0, -71.5),
         LatLng(-38.0, -73.0),
         LatLng(-43.0, -74.0),
-      ]
+      ],
     },
 
     // MEKSİKA
@@ -385,7 +417,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(18.0, -103.0),
         LatLng(19.0, -105.0),
         LatLng(20.0, -107.0),
-      ]
+      ],
     },
 
     // YENİ ZELANDA
@@ -397,7 +429,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(-44.5, 168.0),
         LatLng(-43.0, 170.0),
         LatLng(-42.0, 172.0),
-      ]
+      ],
     },
     {
       'name': 'Hikurangi',
@@ -407,7 +439,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(-40.5, 175.5),
         LatLng(-39.0, 177.0),
         LatLng(-37.5, 178.5),
-      ]
+      ],
     },
 
     // HİNDİSTAN - HİMALAYA
@@ -421,7 +453,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(29.5, 86.0),
         LatLng(28.5, 88.0),
         LatLng(27.5, 90.0),
-      ]
+      ],
     },
 
     // İRAN - ZAGROS
@@ -435,7 +467,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(35.5, 51.0),
         LatLng(34.0, 53.0),
         LatLng(32.0, 55.0),
-      ]
+      ],
     },
 
     // İTALYA
@@ -448,7 +480,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(42.5, 13.5),
         LatLng(41.5, 14.5),
         LatLng(40.5, 15.5),
-      ]
+      ],
     },
 
     // YUNANİSTAN
@@ -461,7 +493,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(35.0, 25.0),
         LatLng(35.5, 27.0),
         LatLng(36.5, 28.5),
-      ]
+      ],
     },
 
     // FİLİPİNLER
@@ -475,7 +507,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(12.0, 123.0),
         LatLng(14.0, 122.0),
         LatLng(16.0, 121.0),
-      ]
+      ],
     },
 
     // PAPUA YENİ GİNE
@@ -488,7 +520,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(-7.0, 148.5),
         LatLng(-8.0, 150.0),
         LatLng(-9.0, 151.0),
-      ]
+      ],
     },
 
     // ALASKA
@@ -501,7 +533,7 @@ class _MapScreenState extends State<MapScreen>
         LatLng(53.0, -170.0),
         LatLng(52.0, -175.0),
         LatLng(51.5, 180.0),
-      ]
+      ],
     },
   ];
 
@@ -534,7 +566,8 @@ class _MapScreenState extends State<MapScreen>
 
     // Debug: Konum kontrolü
     print(
-        '🔍 Konum kontrolü: ${_userLocation.latitude}, ${_userLocation.longitude}');
+      '🔍 Konum kontrolü: ${_userLocation.latitude}, ${_userLocation.longitude}',
+    );
 
     // 3. Konum alındıktan sonra haritayı konuma focus et
     if (mounted && !_locationLoading) {
@@ -548,7 +581,8 @@ class _MapScreenState extends State<MapScreen>
         if (mounted) {
           _mapController.move(_userLocation, 8.0); // Geri dön
           print(
-              '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}');
+            '🗺️  Harita odaklandı: ${_userLocation.latitude}, ${_userLocation.longitude}',
+          );
         }
       }
       // Dinamik fay hatlarını konumdan sonra yükle
@@ -598,7 +632,8 @@ class _MapScreenState extends State<MapScreen>
     } else {
       // Geçerli konum yok, gerçek GPS'ten çek
       print(
-          '⚠️  Kayıtlı konum geçersiz ($savedLat, $savedLon), GPS\'ten alınıyor...');
+        '⚠️  Kayıtlı konum geçersiz ($savedLat, $savedLon), GPS\'ten alınıyor...',
+      );
       await _getUserLocation();
       // _getUserLocation içinde zaten konum kaydediliyor ve harita taşınıyor
     }
@@ -636,11 +671,14 @@ class _MapScreenState extends State<MapScreen>
 
       final locationData = await _location.getLocation();
       if (locationData.latitude != null && locationData.longitude != null) {
-        final newLocation =
-            LatLng(locationData.latitude!, locationData.longitude!);
+        final newLocation = LatLng(
+          locationData.latitude!,
+          locationData.longitude!,
+        );
 
         print(
-            '📍 YENİ KONUM ALINDI: ${locationData.latitude}, ${locationData.longitude}');
+          '📍 YENİ KONUM ALINDI: ${locationData.latitude}, ${locationData.longitude}',
+        );
 
         setState(() {
           _userLocation = newLocation;
@@ -653,13 +691,15 @@ class _MapScreenState extends State<MapScreen>
         await prefs.setDouble('lastLongitude', locationData.longitude!);
 
         print(
-            '✅ Kullanıcı konumu kaydedildi: ${locationData.latitude}, ${locationData.longitude}');
+          '✅ Kullanıcı konumu kaydedildi: ${locationData.latitude}, ${locationData.longitude}',
+        );
 
         if (mounted) {
           try {
             _mapController.move(newLocation, 8.0);
             print(
-                '🗺️ ✅ Harita taşındı: ${newLocation.latitude}, ${newLocation.longitude} (zoom: 10)');
+              '🗺️ ✅ Harita taşındı: ${newLocation.latitude}, ${newLocation.longitude} (zoom: 10)',
+            );
           } catch (e) {
             print('❌ Harita taşıma hatası: $e');
           }
@@ -697,7 +737,8 @@ class _MapScreenState extends State<MapScreen>
         if (mounted) {
           _mapController.move(newLocation, 8.0);
           print(
-              '🗺️ ✅ Kayıtlı konumdan harita taşındı: $savedLat, $savedLon (zoom: 10)');
+            '🗺️ ✅ Kayıtlı konumdan harita taşındı: $savedLat, $savedLon (zoom: 10)',
+          );
         }
         return;
       }
@@ -765,7 +806,8 @@ class _MapScreenState extends State<MapScreen>
     });
 
     print(
-        '⚙️  Ayarlar yüklendi - Radius: $_notificationRadius km, Magnitude: $_minMagnitude-$_maxMagnitude');
+      '⚙️  Ayarlar yüklendi - Radius: $_notificationRadius km, Magnitude: $_minMagnitude-$_maxMagnitude',
+    );
 
     // KONUM HAZIR, şimdi depremleri yükle
     await _loadEarthquakes();
@@ -782,7 +824,8 @@ class _MapScreenState extends State<MapScreen>
     try {
       print('\n🗺️ Map - Deprem verisi yükleniyor...');
       print(
-          '   Kullanıcı konumu: ${_userLocation.latitude}, ${_userLocation.longitude}');
+        '   Kullanıcı konumu: ${_userLocation.latitude}, ${_userLocation.longitude}',
+      );
       print('   Range: $_notificationRadius km');
       print('   Magnitude: $_minMagnitude - $_maxMagnitude');
 
@@ -827,7 +870,8 @@ class _MapScreenState extends State<MapScreen>
               ? _latestQuake!['minutesAgo'] as int
               : (_latestQuake!['minutesAgo'] as double).toInt();
           print(
-              '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce');
+            '   📍 En yeni deprem: ${_latestQuake!['place']} - $latestMinutes dk önce',
+          );
         }
       });
       print('✅ Map - ${_quakes.length} deprem yüklendi');
@@ -860,7 +904,8 @@ class _MapScreenState extends State<MapScreen>
             location['latitude'] != null &&
             location['longitude'] != null) {
           print(
-              '  📍 ${friend['displayName']}: ${location['latitude']}, ${location['longitude']}');
+            '  📍 ${friend['displayName']}: ${location['latitude']}, ${location['longitude']}',
+          );
           withLocation++;
         } else {
           print('  ⚠️  ${friend['displayName']}: Konum bilgisi yok');
@@ -869,7 +914,8 @@ class _MapScreenState extends State<MapScreen>
       }
 
       print(
-          '📊 Konum istatistikleri: $withLocation konumlu, $withoutLocation konumsuz');
+        '📊 Konum istatistikleri: $withLocation konumlu, $withoutLocation konumsuz',
+      );
       print('🗺️  Arkadaş toggle durumu: $_showFriends');
 
       if (mounted) {
@@ -877,7 +923,8 @@ class _MapScreenState extends State<MapScreen>
           _friends = friends;
         });
         print(
-            '✅ Arkadaş listesi state güncellendi, marker sayısı: ${_friends.where((f) => f['location'] != null && f['location']['latitude'] != null).length}');
+          '✅ Arkadaş listesi state güncellendi, marker sayısı: ${_friends.where((f) => f['location'] != null && f['location']['latitude'] != null).length}',
+        );
       }
     } catch (e) {
       print('❌ Arkadaş listesi yükleme hatası: $e');
@@ -895,6 +942,7 @@ class _MapScreenState extends State<MapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _fayPulseController.dispose();
     _waveController.dispose();
+    _httpClient.close(); // HTTP client'ı kapat
     super.dispose();
   }
 
@@ -906,15 +954,37 @@ class _MapScreenState extends State<MapScreen>
   }
 
   String _formatTimeAgo(int minutes) {
-    final isEnglish = _currentLocale == 'en';
-    if (minutes < 1) return isEnglish ? '< 1m' : '< 1dk';
-    if (minutes < 60) return isEnglish ? '${minutes}m' : '${minutes}dk';
-
-    int hours = minutes ~/ 60;
-    if (hours < 24) return isEnglish ? '${hours}h' : '${hours}s';
-
-    int days = hours ~/ 24;
-    return isEnglish ? '${days}d' : '${days}g';
+    final int hours = minutes ~/ 60;
+    final int days = hours ~/ 24;
+    switch (_currentLocale) {
+      case 'en':
+      case 'fil':
+        if (minutes < 1) return '< 1m';
+        if (minutes < 60) return '${minutes}m';
+        if (hours < 24) return '${hours}h';
+        return '${days}d';
+      case 'es':
+        if (minutes < 1) return '< 1m';
+        if (minutes < 60) return '${minutes}m';
+        if (hours < 24) return '${hours}h';
+        return '${days}d';
+      case 'hi':
+        if (minutes < 1) return '< 1मि';
+        if (minutes < 60) return '${minutes}मि';
+        if (hours < 24) return '${hours}घं';
+        return '${days}दि';
+      case 'my':
+        if (minutes < 1) return '< 1မ';
+        if (minutes < 60) return '${minutes}မ';
+        if (hours < 24) return '${hours}နာ';
+        return '${days}ရ';
+      case 'tr':
+      default:
+        if (minutes < 1) return '< 1dk';
+        if (minutes < 60) return '${minutes}dk';
+        if (hours < 24) return '${hours}s';
+        return '${days}g';
+    }
   }
 
   Color _colorForMag(double m) {
@@ -956,13 +1026,17 @@ class _MapScreenState extends State<MapScreen>
               Text(
                 friend['displayName'] ??
                     (l10n?.get('unknown_user') ?? 'Bilinmeyen'),
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isOnline
                       ? Colors.green.withOpacity(0.1)
@@ -1044,8 +1118,11 @@ class _MapScreenState extends State<MapScreen>
                       color: Colors.green,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child:
-                        const Icon(Icons.group, color: Colors.white, size: 28),
+                    child: const Icon(
+                      Icons.group,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1060,7 +1137,9 @@ class _MapScreenState extends State<MapScreen>
                         Text(
                           area['name'] ?? 'Bilinmeyen Alan',
                           style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -1068,11 +1147,17 @@ class _MapScreenState extends State<MapScreen>
                 ],
               ),
               const SizedBox(height: 24),
-              _buildInfoRow(Icons.people, l10n?.get('capacity') ?? 'Kapasite',
-                  '${area['capacity']} ${l10n?.get('persons') ?? 'kişi'}'),
+              _buildInfoRow(
+                Icons.people,
+                l10n?.get('capacity') ?? 'Kapasite',
+                '${area['capacity']} ${l10n?.get('persons') ?? 'kişi'}',
+              ),
               const SizedBox(height: 12),
-              _buildInfoRow(Icons.category, l10n?.get('type') ?? 'Tür',
-                  area['type']?.toString().toUpperCase() ?? 'GENEL'),
+              _buildInfoRow(
+                Icons.category,
+                l10n?.get('type') ?? 'Tür',
+                area['type']?.toString().toUpperCase() ?? 'GENEL',
+              ),
               const SizedBox(height: 40),
               SizedBox(
                 width: double.infinity,
@@ -1138,11 +1223,7 @@ class _MapScreenState extends State<MapScreen>
               ),
             ),
             const SizedBox(width: 6),
-            Icon(
-              icon,
-              color: color,
-              size: 16,
-            ),
+            Icon(icon, color: color, size: 16),
             const SizedBox(width: 4),
             Text(
               label,
@@ -1166,7 +1247,8 @@ class _MapScreenState extends State<MapScreen>
 
     // Debug: Tüm deprem verisini logla
     print(
-        '🔍 Deprem verisi: timestamp=${q['timestamp']}, date=${q['date']}, time=${q['time']}');
+      '🔍 Deprem verisi: timestamp=${q['timestamp']}, date=${q['date']}, time=${q['time']}',
+    );
 
     // Tarih formatını düzelt
     String formattedDate = l10n?.get('no_date_info') ?? 'Tarih bilgisi yok';
@@ -1180,7 +1262,8 @@ class _MapScreenState extends State<MapScreen>
           dt = DateTime.parse(q['timestamp']).toLocal();
         } else {
           throw Exception(
-              l10n?.get('invalid_timestamp') ?? 'Geçersiz timestamp tipi');
+            l10n?.get('invalid_timestamp') ?? 'Geçersiz timestamp tipi',
+          );
         }
 
         print('✅ Parse edilen tarih: ${dt.toString()}');
@@ -1197,7 +1280,7 @@ class _MapScreenState extends State<MapScreen>
           l10n?.get('month_september') ?? 'Eylül',
           l10n?.get('month_october') ?? 'Ekim',
           l10n?.get('month_november') ?? 'Kasım',
-          l10n?.get('month_december') ?? 'Aralık'
+          l10n?.get('month_december') ?? 'Aralık',
         ];
         final days = [
           l10n?.get('day_monday') ?? 'Pazartesi',
@@ -1206,14 +1289,15 @@ class _MapScreenState extends State<MapScreen>
           l10n?.get('day_thursday') ?? 'Perşembe',
           l10n?.get('day_friday') ?? 'Cuma',
           l10n?.get('day_saturday') ?? 'Cumartesi',
-          l10n?.get('day_sunday') ?? 'Pazar'
+          l10n?.get('day_sunday') ?? 'Pazar',
         ];
         formattedDate =
             '${dt.day} ${months[dt.month - 1]} ${days[dt.weekday - 1]} ${dt.year}';
         print('📅 Formatlanmış tarih: $formattedDate');
       } catch (e) {
         print(
-            '❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}');
+          '❌ Tarih parse hatası: $e, timestamp: ${q['timestamp']}, type: ${q['timestamp'].runtimeType}',
+        );
         formattedDate =
             q['date'] ?? (l10n?.get('no_date_info') ?? 'Tarih bilgisi yok');
       }
@@ -1261,10 +1345,7 @@ class _MapScreenState extends State<MapScreen>
                 // Başlık
                 Text(
                   l10n?.get('earthquake_info') ?? 'Earthquake Information',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 SizedBox(height: 24),
 
@@ -1288,10 +1369,7 @@ class _MapScreenState extends State<MapScreen>
                     SizedBox(width: 8),
                     Text(
                       magDescription,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -1301,19 +1379,12 @@ class _MapScreenState extends State<MapScreen>
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      color: Color(0xFFFF3333),
-                      size: 24,
-                    ),
+                    Icon(Icons.location_on, color: Color(0xFFFF3333), size: 24),
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         place,
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.black87,
-                        ),
+                        style: TextStyle(fontSize: 16, color: Colors.black87),
                       ),
                     ),
                   ],
@@ -1331,10 +1402,7 @@ class _MapScreenState extends State<MapScreen>
                     SizedBox(width: 12),
                     Text(
                       formattedDate,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.black87),
                     ),
                   ],
                 ),
@@ -1343,18 +1411,11 @@ class _MapScreenState extends State<MapScreen>
                 // Saat
                 Row(
                   children: [
-                    Icon(
-                      Icons.access_time,
-                      color: Color(0xFFFF3333),
-                      size: 24,
-                    ),
+                    Icon(Icons.access_time, color: Color(0xFFFF3333), size: 24),
                     SizedBox(width: 12),
                     Text(
                       time,
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
+                      style: TextStyle(fontSize: 16, color: Colors.black87),
                     ),
                   ],
                 ),
@@ -1392,12 +1453,16 @@ class _MapScreenState extends State<MapScreen>
 
   void _zoomIn() {
     _mapController.move(
-        _mapController.camera.center, _mapController.camera.zoom + 1);
+      _mapController.camera.center,
+      _mapController.camera.zoom + 1,
+    );
   }
 
   void _zoomOut() {
     _mapController.move(
-        _mapController.camera.center, _mapController.camera.zoom - 1);
+      _mapController.camera.center,
+      _mapController.camera.zoom - 1,
+    );
   }
 
   void _focusUserLocation() {
@@ -1406,7 +1471,11 @@ class _MapScreenState extends State<MapScreen>
 
   // Haversine formülü ile iki nokta arasındaki mesafeyi hesapla (km)
   double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const double earthRadius = 6371; // km
     final double dLat = _toRadians(lat2 - lat1);
     final double dLon = _toRadians(lon2 - lon1);
@@ -1441,13 +1510,18 @@ class _MapScreenState extends State<MapScreen>
       final lon =
           (q['lon'] is int) ? (q['lon'] as int).toDouble() : q['lon'] as double;
       final distance = _calculateDistance(
-          _userLocation.latitude, _userLocation.longitude, lat, lon);
+        _userLocation.latitude,
+        _userLocation.longitude,
+        lat,
+        lon,
+      );
       return distance <= _notificationRadius;
     }).length;
 
     if (earthquakesInRange != _lastLoggedMarkerCount) {
       print(
-          '🗺️ Map Rendering: ${_quakes.length} toplam → $earthquakesInRange range içinde ($_showEarthquakes ? "GÖSTER" : "GİZLE")');
+        '🗺️ Map Rendering: ${_quakes.length} toplam → $earthquakesInRange range içinde ($_showEarthquakes ? "GÖSTER" : "GİZLE")',
+      );
       _lastLoggedMarkerCount = earthquakesInRange;
     }
 
@@ -1480,7 +1554,16 @@ class _MapScreenState extends State<MapScreen>
                 maxNativeZoom: 19,
                 // Cache-enabled tile provider
                 tileProvider: getTileProvider(),
-                tileUpdateTransformer: _logTileUpdates(),
+                tileUpdateTransformer: _tileUpdateTransformer,
+                // Hata durumunda sessizce devam et (cache'den göster)
+                errorTileCallback: (tile, error, stackTrace) {
+                  // Sadece critical hataları logla
+                  if (error.toString().contains('SocketException') == false) {
+                    print(
+                        '⚠️ Tile yükleme hatası: ${tile.coordinates} - $error');
+                  }
+                  // Hata tile'ı gösterme, boş bırak (cache'den gösterilecek)
+                },
               ),
               // Sadece dinamik fay hatları katmanı (statik kod devre dışı)
               if (_showFaultLines)
@@ -1489,14 +1572,17 @@ class _MapScreenState extends State<MapScreen>
                   builder: (context, child) {
                     return PolylineLayer(
                       polylines: [
-                        ..._dynamicFaultLines.map((poly) => Polyline<Object>(
-                              points: poly.points,
-                              strokeWidth: 2.0, // Daha ince çizgi
-                              color: Colors.deepOrange.withOpacity(
-                                  _fayPulseAnimation.value), // Beyaz renk
-                              borderStrokeWidth: 0.0, // Kenarlık yok
-                              borderColor: Colors.transparent,
-                            )),
+                        ..._dynamicFaultLines.map(
+                          (poly) => Polyline<Object>(
+                            points: poly.points,
+                            strokeWidth: 2.0, // Daha ince çizgi
+                            color: Colors.deepOrange.withOpacity(
+                              _fayPulseAnimation.value,
+                            ), // Beyaz renk
+                            borderStrokeWidth: 0.0, // Kenarlık yok
+                            borderColor: Colors.transparent,
+                          ),
+                        ),
                       ],
                     );
                   },
@@ -1523,7 +1609,8 @@ class _MapScreenState extends State<MapScreen>
                     final valid = latDouble != null && lonDouble != null;
                     if (!valid) {
                       print(
-                          '❌ Marker tip hatası: ${friend['displayName']} lat=$lat lon=$lon');
+                        '❌ Marker tip hatası: ${friend['displayName']} lat=$lat lon=$lon',
+                      );
                     }
                     return valid;
                   }).map((friend) {
@@ -1542,7 +1629,8 @@ class _MapScreenState extends State<MapScreen>
                             : double.tryParse(lon?.toString() ?? ''));
                     final isOnline = friend['isOnline'] ?? false;
                     print(
-                        '🟢 Marker ekleniyor: ${friend['displayName']} lat=$latDouble lon=$lonDouble');
+                      '🟢 Marker ekleniyor: ${friend['displayName']} lat=$latDouble lon=$lonDouble',
+                    );
                     return Marker(
                       point: LatLng(latDouble!, lonDouble!),
                       width: 45,
@@ -1559,7 +1647,10 @@ class _MapScreenState extends State<MapScreen>
                               width: 3,
                             ),
                             boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 4)
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                              ),
                             ],
                           ),
                           child: Center(
@@ -1587,7 +1678,7 @@ class _MapScreenState extends State<MapScreen>
                     final lon = (area['lon'] is int)
                         ? (area['lon'] as int).toDouble()
                         : area['lon'] as double;
-                    
+
                     // Kullanıcıya uzaklık hesapla
                     final distance = _calculateDistance(
                       _userLocation.latitude,
@@ -1595,7 +1686,7 @@ class _MapScreenState extends State<MapScreen>
                       lat,
                       lon,
                     );
-                    
+
                     // 10km yarıçap içinde mi?
                     return distance <= 10.0;
                   }).map((area) {
@@ -1618,7 +1709,10 @@ class _MapScreenState extends State<MapScreen>
                             shape: BoxShape.circle,
                             color: Colors.green,
                             boxShadow: [
-                              BoxShadow(color: Colors.black26, blurRadius: 4)
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 4,
+                              ),
                             ],
                           ),
                           child: const Center(
@@ -1646,7 +1740,7 @@ class _MapScreenState extends State<MapScreen>
                         shape: BoxShape.circle,
                         color: Colors.blue,
                         boxShadow: [
-                          BoxShadow(color: Colors.black26, blurRadius: 4)
+                          BoxShadow(color: Colors.black26, blurRadius: 4),
                         ],
                       ),
                       child: Center(
@@ -1654,8 +1748,10 @@ class _MapScreenState extends State<MapScreen>
                           'assets/Icons/user-stroke-rounded.svg',
                           width: 18.0,
                           height: 18.0,
-                          colorFilter:
-                              ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                          colorFilter: ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
                         ),
                       ),
                     ),
@@ -1725,9 +1821,11 @@ class _MapScreenState extends State<MapScreen>
                                               decoration: BoxDecoration(
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
-                                                  color: color.withOpacity(0.6 -
-                                                      (_waveAnimation.value *
-                                                          0.6)),
+                                                  color: color.withOpacity(
+                                                    0.6 -
+                                                        (_waveAnimation.value *
+                                                            0.6),
+                                                  ),
                                                   width: 2,
                                                 ),
                                               ),
@@ -1745,8 +1843,9 @@ class _MapScreenState extends State<MapScreen>
                                               color: color,
                                               boxShadow: [
                                                 BoxShadow(
-                                                    color: Colors.black26,
-                                                    blurRadius: 4)
+                                                  color: Colors.black26,
+                                                  blurRadius: 4,
+                                                ),
                                               ],
                                             ),
                                             child: Center(
@@ -1755,8 +1854,9 @@ class _MapScreenState extends State<MapScreen>
                                                 width: 20,
                                                 height: 20,
                                                 colorFilter: ColorFilter.mode(
-                                                    Colors.white,
-                                                    BlendMode.srcIn),
+                                                  Colors.white,
+                                                  BlendMode.srcIn,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -1767,16 +1867,22 @@ class _MapScreenState extends State<MapScreen>
                                   // Zaman gösterimi (marker'ın altında)
                                   Container(
                                     padding: EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.black.withOpacity(0.7),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(
+                                        8,
+                                      ),
                                     ),
                                     child: Text(
-                                      _formatTimeAgo((q['minutesAgo'] is int)
-                                          ? q['minutesAgo'] as int
-                                          : (q['minutesAgo'] as double)
-                                              .toInt()),
+                                      _formatTimeAgo(
+                                        (q['minutesAgo'] is int)
+                                            ? q['minutesAgo'] as int
+                                            : (q['minutesAgo'] as double)
+                                                .toInt(),
+                                      ),
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
@@ -1792,7 +1898,7 @@ class _MapScreenState extends State<MapScreen>
                       );
                     }).toList(),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -1857,7 +1963,8 @@ class _MapScreenState extends State<MapScreen>
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 color: _colorForMag(
-                                    (_latestQuake!['mag'] as num).toDouble()),
+                                  (_latestQuake!['mag'] as num).toDouble(),
+                                ),
                               ),
                             ),
                             SizedBox(width: 8),
@@ -1918,7 +2025,9 @@ class _MapScreenState extends State<MapScreen>
                           ],
                         ),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1930,7 +2039,8 @@ class _MapScreenState extends State<MapScreen>
                               color: Colors.red,
                               onChanged: (value) {
                                 setState(
-                                    () => _showEarthquakes = value ?? false);
+                                  () => _showEarthquakes = value ?? false,
+                                );
                                 _saveToggleState('earthquakes', value ?? false);
                               },
                             ),
@@ -1951,7 +2061,8 @@ class _MapScreenState extends State<MapScreen>
                               color: Colors.green,
                               onChanged: (value) {
                                 setState(
-                                    () => _showAssemblyAreas = value ?? false);
+                                  () => _showAssemblyAreas = value ?? false,
+                                );
                                 _saveToggleState('assembly', value ?? false);
                               },
                             ),
@@ -1962,7 +2073,8 @@ class _MapScreenState extends State<MapScreen>
                               color: Colors.red,
                               onChanged: (value) {
                                 setState(
-                                    () => _showFaultLines = value ?? false);
+                                  () => _showFaultLines = value ?? false,
+                                );
                                 _saveToggleState('faultLines', value ?? false);
                               },
                             ),
@@ -1972,10 +2084,13 @@ class _MapScreenState extends State<MapScreen>
                               isChecked: _showLatestQuakePopup,
                               color: Colors.orange,
                               onChanged: (value) {
-                                setState(() =>
-                                    _showLatestQuakePopup = value ?? false);
+                                setState(
+                                  () => _showLatestQuakePopup = value ?? false,
+                                );
                                 _saveToggleState(
-                                    'latestQuakePopup', value ?? false);
+                                  'latestQuakePopup',
+                                  value ?? false,
+                                );
                               },
                             ),
                           ],
@@ -2013,7 +2128,9 @@ class _MapScreenState extends State<MapScreen>
                       _isLeftPanelExpanded = !_isLeftPanelExpanded;
                     });
                     await _saveToggleState(
-                        'leftPanelExpanded', _isLeftPanelExpanded);
+                      'leftPanelExpanded',
+                      _isLeftPanelExpanded,
+                    );
                   },
                 ),
               ),
@@ -2057,11 +2174,14 @@ class _MapScreenState extends State<MapScreen>
   }
 
   Future<List<Polyline>> loadFaultLines(
-      double rangeKm, LatLng userLocation) async {
+    double rangeKm,
+    LatLng userLocation,
+  ) async {
     // 700km radius, mor renk ve ince çizgi
     final double limitedRadius = 700.0;
-    final geojson = await rootBundle
-        .loadString('assets/gem_active_faults_harmonized.geojson');
+    final geojson = await rootBundle.loadString(
+      'assets/gem_active_faults_harmonized.geojson',
+    );
     final data = json.decode(geojson);
     List<Polyline> lines = [];
     for (var feature in data['features']) {
@@ -2070,20 +2190,25 @@ class _MapScreenState extends State<MapScreen>
         List<LatLng> points = [];
         for (var c in coords) {
           final lat = c[1], lon = c[0];
-          final dist = Distance()
-              .as(LengthUnit.Kilometer, userLocation, LatLng(lat, lon));
+          final dist = Distance().as(
+            LengthUnit.Kilometer,
+            userLocation,
+            LatLng(lat, lon),
+          );
           if (dist <= limitedRadius) {
             points.add(LatLng(lat, lon));
           }
         }
         if (points.length > 1) {
-          lines.add(Polyline(
-            points: points,
-            strokeWidth: 2.0, // Daha ince çizgi
-            color: Colors.purple, // Mor renk
-            borderStrokeWidth: 1.0,
-            borderColor: Colors.white.withOpacity(0.7),
-          ));
+          lines.add(
+            Polyline(
+              points: points,
+              strokeWidth: 2.0, // Daha ince çizgi
+              color: Colors.purple, // Mor renk
+              borderStrokeWidth: 1.0,
+              borderColor: Colors.white.withOpacity(0.7),
+            ),
+          );
         }
       }
     }
@@ -2101,7 +2226,7 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
   double _selectedMagnitude = 1.0;
   String _searchCity = '';
   bool _showCityList = false;
-  String _currentLocale = 'tr';
+  String _currentLocale = LocaleProvider.cached;
 
   @override
   void initState() {
@@ -2117,7 +2242,8 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
       _currentLocale = locale;
     });
     print(
-        '🌍 ReportSheet _loadLocale: _currentLocale güncellendi = $_currentLocale');
+      '🌍 ReportSheet _loadLocale: _currentLocale güncellendi = $_currentLocale',
+    );
   }
 
   final List<String> _cities = [
@@ -2237,15 +2363,19 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(loc?.get('report_earthquake') ?? 'Deprem Bildir',
-                    style:
-                        TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(
+                  loc?.get('report_earthquake') ?? 'Deprem Bildir',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 20),
-                Text(loc?.get('which_city') ?? 'Hangi İldesin',
-                    style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black)),
+                Text(
+                  loc?.get('which_city') ?? 'Hangi İldesin',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
                 SizedBox(height: 8),
                 _buildCitySearchField(loc),
               ],
@@ -2280,15 +2410,20 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                       if (_selectedCity.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                              content: Text(localLoc?.get('select_city') ??
-                                  'Lütfen bir şehir seçiniz')),
+                            content: Text(
+                              localLoc?.get('select_city') ??
+                                  'Lütfen bir şehir seçiniz',
+                            ),
+                          ),
                         );
                         return;
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                            content: Text(
-                                '$_selectedCity ${localLoc?.get('earthquake_reported')?.replaceAll('{city}', '') ?? 'bölgesinde deprem bildirildi!'}')),
+                          content: Text(
+                            '$_selectedCity ${localLoc?.get('earthquake_reported')?.replaceAll('{city}', '') ?? 'bölgesinde deprem bildirildi!'}',
+                          ),
+                        ),
                       );
                       Navigator.pop(context);
                     },
@@ -2296,13 +2431,17 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                       backgroundColor: Color(0xFFFF3333),
                       padding: EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                    child: Text(loc?.get('report_button') ?? 'Bildir',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600)),
+                    child: Text(
+                      loc?.get('report_button') ?? 'Bildir',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(height: 12),
@@ -2313,10 +2452,13 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30)),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                     ),
-                    child: Text(loc?.get('cancel') ?? 'Vazgeç',
-                        style: TextStyle(color: Colors.black, fontSize: 16)),
+                    child: Text(
+                      loc?.get('cancel') ?? 'Vazgeç',
+                      style: TextStyle(color: Colors.black, fontSize: 16),
+                    ),
                   ),
                 ),
               ],
@@ -2364,10 +2506,13 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                 children: [
                   Icon(Icons.check_circle, color: Color(0xFFFF3333), size: 20),
                   SizedBox(width: 8),
-                  Text('${loc?.get('selected') ?? 'Seçili'}: $_selectedCity',
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFFFF3333))),
+                  Text(
+                    '${loc?.get('selected') ?? 'Seçili'}: $_selectedCity',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFFF3333),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2381,8 +2526,10 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
       padding: EdgeInsets.symmetric(horizontal: 16),
       child: _filteredCities.isEmpty
           ? Center(
-              child: Text(loc?.get('no_results') ?? 'Sonuç bulunamadı',
-                  style: TextStyle(color: Colors.grey)),
+              child: Text(
+                loc?.get('no_results') ?? 'Sonuç bulunamadı',
+                style: TextStyle(color: Colors.grey),
+              ),
             )
           : ListView.builder(
               itemCount: _filteredCities.length,
@@ -2410,8 +2557,10 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(loc?.get('estimated_magnitude') ?? 'Tahmini Büyüklük',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          Text(
+            loc?.get('estimated_magnitude') ?? 'Tahmini Büyüklük',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
           SizedBox(height: 12),
           ..._buildMagnitudeOptions(),
           SizedBox(height: 16),
@@ -2452,13 +2601,17 @@ class _EarthquakeReportSheetState extends State<EarthquakeReportSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('${mag['min']}-${mag['max']} Mw',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color:
-                                isSelected ? Color(0xFFFF3333) : Colors.black)),
-                    Text(mag['desc']!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      '${mag['min']}-${mag['max']} Mw',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Color(0xFFFF3333) : Colors.black,
+                      ),
+                    ),
+                    Text(
+                      mag['desc']!,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),

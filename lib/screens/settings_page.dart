@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart' show TileLayer, LatLngBounds;
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:location/location.dart';
+import 'package:latlong2/latlong.dart';
 import '../services/user_preferences_service.dart';
 import '../services/location_update_service.dart';
 import '../widgets/background_service_controller.dart';
@@ -43,10 +47,19 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _isWhistlePlaying = false;
   String _currentLocale = 'tr';
 
+  // Harita indirme için
+  bool _isDownloadingMap = false;
+  double _downloadProgress = 0.0;
+  int _downloadedTiles = 0;
+  int _totalTiles = 0;
+  int _cachedTileCount = 0; // Önbellekteki karo sayısı
+  bool _isCheckingCache = true; // Cache kontrol ediliyor mu
+
   @override
   void initState() {
     super.initState();
     _loadSettings();
+    _checkCachedTiles();
   }
 
   @override
@@ -107,6 +120,27 @@ class _SettingsPageState extends State<SettingsPage> {
     await _syncSettingsToServer();
   }
 
+  // Önbellekteki karo sayısını kontrol et
+  Future<void> _checkCachedTiles() async {
+    try {
+      final store = FMTCStore('mapCache');
+      final ready = await store.manage.ready;
+      if (ready) {
+        final count = await store.stats.length;
+        if (mounted) {
+          setState(() {
+            _cachedTileCount = count;
+            _isCheckingCache = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isCheckingCache = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isCheckingCache = false);
+    }
+  }
+
   Future<void> _syncSettingsToServer() async {
     try {
       await _locationUpdateService.sendNotificationSettings(
@@ -118,6 +152,182 @@ class _SettingsPageState extends State<SettingsPage> {
       print('✅ Ayarlar sunucuya senkronize edildi sa');
     } catch (e) {
       print('⚠️  Ayar senkronizasyonu hatası: $e');
+    }
+  }
+
+  // Çevrimdışı harita indirme
+  Future<void> _downloadOfflineMap() async {
+    final l10n = AppLocalizations(Locale(_currentLocale));
+    print('🗺️ _downloadOfflineMap() başlatıldı');
+    try {
+      // Konum al
+      final location = Location();
+      final hasPermission = await location.hasPermission();
+      print('📍 Konum izni: $hasPermission');
+
+      if (hasPermission != PermissionStatus.granted) {
+        final requested = await location.requestPermission();
+        if (requested != PermissionStatus.granted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(l10n.get('location_permission_required'))),
+            );
+          }
+          return;
+        }
+      }
+
+      final locationData = await location.getLocation();
+      final userLocation = LatLng(
+        locationData.latitude ?? 39.0,
+        locationData.longitude ?? 35.0,
+      );
+      print('📍 Konum: ${userLocation.latitude}, ${userLocation.longitude}');
+
+      // İndirme dialog'u göster
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l10n.get('offline_map_dialog_title')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.get('offline_map_dialog_description')),
+              SizedBox(height: 16),
+              Text(l10n.get('offline_map_zoom_info'),
+                  style: TextStyle(fontSize: 13)),
+              Text(l10n.get('offline_map_size_info'),
+                  style: TextStyle(fontSize: 13)),
+              Text(l10n.get('offline_map_duration_info'),
+                  style: TextStyle(fontSize: 13)),
+              SizedBox(height: 16),
+              Text(
+                l10n.get('keep_app_open'),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.red[700],
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l10n.get('cancel'),
+                  style: TextStyle(color: Colors.grey[600])),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Color(0xFFFF3333)),
+              child: Text(l10n.get('download'),
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true) return;
+
+      if (!mounted) return;
+      setState(() {
+        _isDownloadingMap = true;
+        _downloadProgress = 0.0;
+        _downloadedTiles = 0;
+        _totalTiles = 0;
+      });
+
+      // Store'un var olduğundan emin ol
+      final store = FMTCStore('mapCache');
+      await store.manage.create();
+      print('✅ FMTC store hazır');
+
+      // İndirme bölgesi (~300 km = ±2.7 derece)
+      final region = RectangleRegion(
+        LatLngBounds(
+          LatLng(userLocation.latitude - 2.7, userLocation.longitude - 2.7),
+          LatLng(userLocation.latitude + 2.7, userLocation.longitude + 2.7),
+        ),
+      );
+
+      final downloadableRegion = region.toDownloadable(
+        minZoom: 6,
+        maxZoom: 14,
+        options: TileLayer(
+          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+          subdomains: const ['a', 'b', 'c'],
+        ),
+      );
+
+      // Toplam karo sayısını hesapla
+      final tileCount = await store.download.countTiles(downloadableRegion);
+      print('🗺️ Toplam karo sayısı: $tileCount');
+
+      if (mounted) {
+        setState(() {
+          _totalTiles = tileCount;
+        });
+      }
+
+      // İndirmeyi başlat
+      print('⬇️ İndirme başlıyor...');
+      final downloadStreams = store.download.startForeground(
+        region: downloadableRegion,
+        parallelThreads: 5,
+        skipExistingTiles: true,
+        skipSeaTiles: true,
+      );
+
+      // Progress takibi
+      await for (final progress in downloadStreams.downloadProgress) {
+        if (!mounted) break;
+
+        setState(() {
+          _downloadedTiles = progress.attemptedTilesCount;
+          _totalTiles = progress.maxTilesCount;
+          _downloadProgress = progress.percentageProgress / 100;
+        });
+
+        if (progress.percentageProgress % 10 < 1) {
+          print(
+              '📊 İndirme: ${progress.percentageProgress.toStringAsFixed(0)}% (${progress.attemptedTilesCount}/${progress.maxTilesCount})');
+        }
+      }
+
+      print('✅ İndirme tamamlandı!');
+      if (mounted) {
+        setState(() {
+          _isDownloadingMap = false;
+        });
+        _checkCachedTiles(); // Cache sayısını güncelle
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${l10n.get('offline_map_downloaded')}! ($_downloadedTiles ${l10n.get('tiles')})'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e, stack) {
+      print('❌ Harita indirme hatası: $e');
+      print('❌ Stack trace: $stack');
+      if (mounted) {
+        setState(() {
+          _isDownloadingMap = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                '${l10n.get('offline_map_download_failed')}: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
 
@@ -496,13 +706,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations(Locale(_currentLocale));
 
-    // Debug: Check locale and translation
-    print('🔍 DEBUG: _currentLocale = $_currentLocale');
-    print(
-        '🔍 DEBUG: locale.languageCode = ${Locale(_currentLocale).languageCode}');
-    print(
-        '🔍 DEBUG: share_location_with_friends = ${l10n.get('share_location_with_friends')}');
-
     if (_isLoading) {
       return Center(
         child: CircularProgressIndicator(color: Color(0xFFFF3333)),
@@ -682,6 +885,46 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         _buildDivider(),
+        // Çevrimdışı Harita İndirme
+        _buildSettingTile(
+          icon: _cachedTileCount > 0 ? Icons.download_done : Icons.download,
+          title: l10n.get('download_offline_map'),
+          subtitle: _isCheckingCache
+              ? l10n.get('offline_map_status_checking')
+              : _isDownloadingMap
+                  ? '${l10n.get('offline_map_downloading')}... ${(_downloadProgress * 100).toStringAsFixed(0)}% ($_downloadedTiles/$_totalTiles)'
+                  : _cachedTileCount > 0
+                      ? '✅ ${l10n.get('offline_map_downloaded')} ($_cachedTileCount ${l10n.get('offline_map_redownload_info')})'
+                      : l10n.get('offline_map_description'),
+          trailing: _isCheckingCache
+              ? SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                  ),
+                )
+              : _isDownloadingMap
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Color(0xFFFF3333)),
+                        value: _downloadProgress,
+                      ),
+                    )
+                  : _cachedTileCount > 0
+                      ? Icon(Icons.download_done, color: Colors.green)
+                      : Icon(Icons.chevron_right, color: Colors.grey[400]),
+          onTap: (_isDownloadingMap || _isCheckingCache)
+              ? null
+              : _downloadOfflineMap,
+          enabled: !_isDownloadingMap && !_isCheckingCache,
+        ),
+        _buildDivider(),
         _buildSettingTile(
           icon: Icons.storage,
           title: l10n.get('clear_cache'),
@@ -723,11 +966,11 @@ class _SettingsPageState extends State<SettingsPage> {
         SizedBox(height: 16),
 
         // Debug Bölümü
-        _buildSectionHeader('Geliştirici'),
+        _buildSectionHeader(l10n.get('developer')),
         _buildSettingTile(
           icon: Icons.bug_report,
-          title: 'Debug & Test Modu',
-          subtitle: 'Sensör ve servis durumunu görüntüle',
+          title: l10n.get('debug_test_mode'),
+          subtitle: l10n.get('view_sensor_service_status'),
           trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
           onTap: () {
             Navigator.push(

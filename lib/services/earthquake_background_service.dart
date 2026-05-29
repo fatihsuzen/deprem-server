@@ -15,6 +15,51 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'notification_service.dart';
 
 class EarthquakeBackgroundService {
+  static Future<Map<String, String>> _getLocalizedNotificationTexts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final languageCode = prefs.getString('language_code') ?? 'tr';
+
+    switch (languageCode) {
+      case 'en':
+        return {
+          'title': 'Earthquake Line Monitoring',
+          'text': 'Monitoring earthquakes',
+          'button': 'Stop',
+        };
+      case 'es':
+        return {
+          'title': 'Línea de Terremoto Monitoreando',
+          'text': 'Monitoreando terremotos',
+          'button': 'Detener',
+        };
+      case 'hi':
+        return {
+          'title': 'भूकंप लाइन निगरानी',
+          'text': 'भूकंप की निगरानी',
+          'button': 'रोकें',
+        };
+      case 'fil':
+        return {
+          'title': 'Pagsubaybay sa Lindol',
+          'text': 'Sinusubaybayan ang lindol',
+          'button': 'Ihinto',
+        };
+      case 'my':
+        return {
+          'title': 'ငလျင် စောင့်ကြည့်မှု',
+          'text': 'ငလျင် စောင့်ကြည့်နေသည်',
+          'button': 'ရပ်မည်',
+        };
+      case 'tr':
+      default:
+        return {
+          'title': 'Deprem Hattı İzlemede',
+          'text': 'Deprem hattı izliyor',
+          'button': 'Durdur',
+        };
+    }
+  }
+
   static void initializeService() {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
@@ -75,11 +120,13 @@ class EarthquakeBackgroundService {
       print('[BG] Arka plan konum izni kontrolünde hata: $e');
     }
 
+    final localizedTexts = await _getLocalizedNotificationTexts();
+
     await FlutterForegroundTask.startService(
-      notificationTitle: 'Deprem Hattı İzlemede',
-      notificationText: 'Deprem hattı izliyor',
+      notificationTitle: localizedTexts['title']!,
+      notificationText: localizedTexts['text']!,
       notificationButtons: [
-        const NotificationButton(id: 'stop', text: 'Durdur'),
+        NotificationButton(id: 'stop', text: localizedTexts['button']!),
       ],
       callback: startCallback,
     );
@@ -242,8 +289,40 @@ class EarthquakeTaskHandler extends TaskHandler {
         print('[BG] ⏸️ Koşullar sağlanmıyor. Sensör dinleme duraklatılıyor...');
         _stopSensorListening();
       }
-      // Her durumda sabit notification göster
-      _updateNotification('Deprem Hattı İzlemede', 'Deprem hattı izliyor');
+      // Her durumda sabit notification göster - lokalize edilmiş metin kullan
+      final prefs = await SharedPreferences.getInstance();
+      final languageCode = prefs.getString('language_code') ?? 'tr';
+
+      String title, text;
+      switch (languageCode) {
+        case 'en':
+          title = 'Earthquake Line Monitoring';
+          text = 'Monitoring earthquakes';
+          break;
+        case 'es':
+          title = 'Línea de Terremoto Monitoreando';
+          text = 'Monitoreando terremotos';
+          break;
+        case 'hi':
+          title = 'भूकंप लाइन निगरानी';
+          text = 'भूकंप की निगरानी';
+          break;
+        case 'fil':
+          title = 'Pagsubaybay sa Lindol';
+          text = 'Sinusubaybayan ang lindol';
+          break;
+        case 'my':
+          title = 'ငလျင် စောင့်ကြည့်မှု';
+          text = 'ငလျင် စောင့်ကြည့်နေသည်';
+          break;
+        case 'tr':
+        default:
+          title = 'Deprem Hattı İzlemede';
+          text = 'Deprem hattı izliyor';
+          break;
+      }
+
+      _updateNotification(title, text);
     } catch (e) {
       print('[BG] ❌ Pil/Ekran kontrolü hatası: $e');
     }

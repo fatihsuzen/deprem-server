@@ -1,9 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LocaleProvider extends ChangeNotifier {
   static const String _localeKey = 'app_locale';
   static const String _languageSelectedKey = 'language_selected';
+
+  /// Synchronous in-memory cache — set once at startup, updated on locale change.
+  /// Use this to avoid the async-init locale flash in screens.
+  static String cached = 'tr';
 
   Locale _locale = const Locale('tr'); // Default Turkish
   bool _isLanguageSelected = false;
@@ -20,6 +26,7 @@ class LocaleProvider extends ChangeNotifier {
     final languageCode = prefs.getString(_localeKey) ?? 'tr';
     _isLanguageSelected = prefs.getBool(_languageSelectedKey) ?? false;
     _locale = Locale(languageCode);
+    cached = languageCode;
     notifyListeners();
   }
 
@@ -27,11 +34,27 @@ class LocaleProvider extends ChangeNotifier {
     if (_locale == locale) return;
 
     _locale = locale;
+    cached = locale.languageCode;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_localeKey, locale.languageCode);
     await prefs.setBool(_languageSelectedKey, true);
     _isLanguageSelected = true;
     notifyListeners();
+
+    // Sunucudaki kullanıcı profilini güncelle (bildirimler doğru dilde gelsin)
+    _syncLanguageToServer(prefs, locale.languageCode);
+  }
+
+  /// Kullanıcının dil tercihini sunucuya iletir (fire-and-forget).
+  static void _syncLanguageToServer(SharedPreferences prefs, String languageCode) {
+    final userId = prefs.getString('user_id');
+    if (userId == null || userId.isEmpty) return;
+    const baseUrl = 'http://188.132.202.24:3000/api';
+    http.post(
+      Uri.parse('$baseUrl/settings/$userId'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'language': languageCode}),
+    ).catchError((_) {}); // Sessizce hata yut — kritik değil
   }
 
   Future<void> markLanguageSelected() async {

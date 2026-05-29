@@ -30,12 +30,11 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         print('❌ Login screen: Kullanıcı null döndü');
-        _showError(
-            'Login failed. Google account selection was cancelled or an error occurred.');
+        _showError(AppLocalizations.of(context)!.get('login_failed'));
       }
     } catch (error) {
       print('❌ Login screen hatası: $error');
-      _showError('Login error: $error');
+      _showError('${AppLocalizations.of(context)!.get('login_error')}: $error');
     } finally {
       if (mounted) {
         setState(() {
@@ -59,7 +58,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       final guestId = 'guest_{DateTime.now().millisecondsSinceEpoch}';
       await prefs.setString('user_id', guestId);
-      await prefs.setString('user_name', 'Guest User');
+      await prefs.setString(
+          'user_name', AppLocalizations.of(context)!.get('guest_user'));
       await prefs.setString('user_email', 'guest@depremhatti.com');
       await prefs.setString('user_photo_url', '');
       print('✅ Misafir olarak giriş yapıldı: $guestId');
@@ -92,7 +92,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (error) {
       print('❌ Misafir giriş hatası: $error');
-      _showError('Misafir girişi başarısız: $error');
+      _showError(
+          '${AppLocalizations.of(context)!.get('guest_login_failed')}: $error');
     } finally {
       if (mounted) {
         setState(() {

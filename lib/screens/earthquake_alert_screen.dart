@@ -195,7 +195,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
         MethodChannel('deprem_app/earthquake_params');
     paramsChannel.invokeMethod('clearEarthquakeParams');
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    Navigator.of(context).pop();
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
   Color _getAlertColor() {
@@ -215,21 +215,20 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
   }
 
   String _getAlertMessage() {
+    final l10n = AppLocalizations(Locale(_currentLocale));
     if (widget.distance < 10) {
-      return _currentLocale == 'tr' ? 'HEMEN SIĞINAK ALIN!' : 'TAKE COVER NOW!';
+      return l10n.get('alert_take_cover_now');
     } else if (widget.distance < 50) {
-      return _currentLocale == 'tr'
-          ? 'GÜVENLİ BİR YERE GEÇİN!'
-          : 'MOVE TO A SAFE PLACE!';
+      return l10n.get('take_cover').toUpperCase();
     } else {
-      return _currentLocale == 'tr' ? 'HAZIRLIKLI OLUN!' : 'BE PREPARED!';
+      return l10n.get('alert_be_prepared');
     }
   }
 
   String _getDistanceText() {
     if (widget.distance < 1) {
       final meters = (widget.distance * 1000).toStringAsFixed(0);
-      return _currentLocale == 'tr' ? '$meters metre' : '$meters meters';
+      return '$meters m';
     }
     return '${widget.distance.toStringAsFixed(1)} km';
   }
@@ -254,16 +253,24 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
 
     // Eğer konumlar null ise loading spinner göster
     if (!_isLocationReady) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: const Center(
-          child: CircularProgressIndicator(color: Colors.redAccent),
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (_, __) => _closeAlert(),
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: const Center(
+            child: CircularProgressIndicator(color: Colors.redAccent),
+          ),
         ),
       );
     }
 
+    final l10n = AppLocalizations(Locale(_currentLocale));
     // Harita ve animasyon overlay ile deprem merkezi markerı üstte olacak şekilde
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => _closeAlert(),
+      child: Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Center(
@@ -375,9 +382,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
               ),
               const SizedBox(height: 32),
               Text(
-                _currentLocale == 'tr'
-                    ? 'Tahmini Deprem: ${widget.magnitude.toStringAsFixed(1)}'
-                    : 'Estimated Earthquake: ${widget.magnitude.toStringAsFixed(1)}',
+                '${l10n.get('estimated_magnitude')}: ${widget.magnitude.toStringAsFixed(1)}',
                 style: const TextStyle(
                   fontSize: 22,
                   color: Colors.red,
@@ -401,9 +406,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
               ),
               const SizedBox(height: 16),
               Text(
-                _currentLocale == 'tr'
-                    ? 'Sarsıntı $_secondsLeft sn sonra ulaşacak'
-                    : 'Shaking expected in $_secondsLeft s',
+                l10n.get('shaking_arriving_in').replaceAll('{n}', '$_secondsLeft'),
                 style: const TextStyle(
                   fontSize: 20,
                   color: Colors.orangeAccent,
@@ -428,7 +431,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 ),
                 onPressed: _closeAlert,
-                child: Text(_currentLocale == 'tr' ? 'Kapat' : 'Close',
+                child: Text(l10n.get('close'),
                     style: const TextStyle(
                         fontSize: 18, fontWeight: FontWeight.bold)),
               ),
@@ -436,6 +439,7 @@ class _EarthquakeAlertScreenState extends State<EarthquakeAlertScreen>
           ),
         ),
       ),
+    ),
     );
   }
 }

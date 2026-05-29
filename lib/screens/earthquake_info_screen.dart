@@ -36,20 +36,17 @@ class EarthquakeInfoScreen extends StatefulWidget {
 class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
   String _formatTime() {
     final diff = DateTime.now().toUtc().difference(widget.timestamp.toUtc());
-    if (diff.isNegative) {
-      return _currentLocale == 'tr' ? 'Az önce' : 'Just now';
-    }
-    if (diff.inSeconds < 60) {
-      return _currentLocale == 'tr' ? 'Az önce' : 'Just now';
+    if (diff.isNegative || diff.inSeconds < 60) {
+      return AppLocalizations(Locale(_currentLocale)).get('just_now');
     } else if (diff.inMinutes < 60) {
       final min = diff.inMinutes;
-      return _currentLocale == 'tr' ? '$min dakika önce' : '$min minutes ago';
+      return '$min ${AppLocalizations(Locale(_currentLocale)).get('minutes_ago')}';
     } else if (diff.inHours < 24) {
       final hours = diff.inHours;
-      return _currentLocale == 'tr' ? '$hours saat önce' : '$hours hours ago';
+      return '$hours ${AppLocalizations(Locale(_currentLocale)).get('hours_ago')}';
     } else {
       final days = diff.inDays;
-      return _currentLocale == 'tr' ? '$days gün önce' : '$days days ago';
+      return '$days ${AppLocalizations(Locale(_currentLocale)).get('days_ago')}';
     }
   }
 
@@ -226,7 +223,10 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (_, __) => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
+      child: Scaffold(
       backgroundColor: _isDarkTheme ? Colors.grey[900] : Colors.grey[100],
       appBar: AppBar(
         title: Text(l10n.get('earthquake_info')),
@@ -235,7 +235,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false),
         ),
       ),
       body: SingleChildScrollView(
@@ -440,7 +440,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
                     _buildInfoRow(
                       icon: Icons.arrow_downward,
                       iconColor: Colors.orange,
-                      label: _currentLocale == 'tr' ? 'Derinlik' : 'Depth',
+                      label: l10n.get('depth'),
                       value: '${widget.depth!.abs().toStringAsFixed(1)} km',
                     ),
                   if (widget.depth != null && widget.depth != 0)
@@ -449,8 +449,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
                   _buildInfoRow(
                     icon: Icons.my_location,
                     iconColor: Colors.green,
-                    label:
-                        _currentLocale == 'tr' ? 'Koordinatlar' : 'Coordinates',
+                    label: l10n.get('coordinates'),
                     value:
                         '${quakeLatLng.latitude.toStringAsFixed(4)}, ${quakeLatLng.longitude.toStringAsFixed(4)}',
                   ),
@@ -513,7 +512,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
                     const MethodChannel paramsChannel =
                         MethodChannel('deprem_app/earthquake_params');
                     paramsChannel.invokeMethod('clearEarthquakeParams');
-                    Navigator.of(context).pop();
+                    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: magnitudeColor,
@@ -539,6 +538,7 @@ class _EarthquakeInfoScreenState extends State<EarthquakeInfoScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

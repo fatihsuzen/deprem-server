@@ -1,7 +1,9 @@
 import 'services/fcm_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n/locale_provider.dart';
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -50,8 +52,9 @@ void main() async {
   ]);
 
   // Native deprem alert activity'den gelen parametreyi kontrol et
-  final MethodChannel paramsChannel =
-      const MethodChannel('deprem_app/earthquake_params');
+  final MethodChannel paramsChannel = const MethodChannel(
+    'deprem_app/earthquake_params',
+  );
   final rawParams = await paramsChannel.invokeMethod('getEarthquakeParams');
   Map<String, dynamic>? earthquakeParams;
   if (rawParams != null) {
@@ -65,16 +68,19 @@ void main() async {
   debugPrint('[DepremApp] main.dart: earthquakeParams = $earthquakeParams');
   if (earthquakeParams == null) {
     debugPrint(
-        '[DepremApp] main.dart: earthquakeParams NULL, ana ekran açılacak!');
+      '[DepremApp] main.dart: earthquakeParams NULL, ana ekran açılacak!',
+    );
   } else {
     debugPrint(
-        '[DepremApp] main.dart: earthquakeParams mevcut, circle ekran açılacak!');
+      '[DepremApp] main.dart: earthquakeParams mevcut, circle ekran açılacak!',
+    );
   }
   // Kullanılmayan değişkenler kaldırıldı
   // MethodChannel handler'ları ekleniyor
   const MethodChannel wakeLockChannel = MethodChannel('deprem_app/wake_lock');
-  const MethodChannel alertActivityChannel =
-      MethodChannel('deprem_app/alert_activity');
+  const MethodChannel alertActivityChannel = MethodChannel(
+    'deprem_app/alert_activity',
+  );
 
   wakeLockChannel.setMethodCallHandler((call) async {
     if (call.method == 'wakeUpScreen') {
@@ -116,7 +122,8 @@ void main() async {
   String? lastEarthquakeId;
   FirebaseMessaging.onMessage.listen((RemoteMessage message) {
     print(
-        '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}');
+      '📲 Yeni bildirim: ${message.notification?.title} - ${message.notification?.body}',
+    );
     if (message.data['type'] == 'earthquake_alert') {
       // Benzersiz deprem id'si oluştur (location+timestamp)
       final location = message.data['location'] ?? '';
@@ -142,7 +149,8 @@ void main() async {
               double.tryParse(message.data['earthquakeLon']?.toString() ?? '');
       final depth = double.tryParse(message.data['depth']?.toString() ?? '');
       print(
-          '📍 FCM Deprem Merkezi: lat=$epicenterLat, lon=$epicenterLon, depth=$depth');
+        '📍 FCM Deprem Merkezi: lat=$epicenterLat, lon=$epicenterLon, depth=$depth',
+      );
 
       String safeLocation = location;
       if (safeLocation.isEmpty ||
@@ -156,7 +164,8 @@ void main() async {
       // Gerçek kaynağı al (AFAD, Kandilli, USGS, EMSC, P2P vb.)
       final source = message.data['source'] ?? (isP2P ? 'P2P' : 'AFAD');
       print(
-          '🔍 FCM Deprem tipi: ${isP2P ? "P2P (sismik dalgalı ekran)" : "Normal (bilgi ekranı)"} - Kaynak: $source');
+        '🔍 FCM Deprem tipi: ${isP2P ? "P2P (sismik dalgalı ekran)" : "Normal (bilgi ekranı)"} - Kaynak: $source',
+      );
 
       if (isP2P) {
         // P2P deprem - Sismik dalgalı animasyon ekranı
@@ -192,6 +201,17 @@ void main() async {
 
   // Background service'i initialize et
   EarthquakeBackgroundService.initializeService();
+
+  // FMTC harita cache'ini başlat (runApp öncesinde, tek seferlik)
+  try {
+    await FMTCObjectBoxBackend().initialise();
+    await FMTCStore('mapCache').manage.create();
+    debugPrint('✅ FMTC harita cache başlatıldı');
+  } on RootAlreadyInitialised {
+    debugPrint('ℹ️ FMTC zaten başlatılmış, atlanıyor');
+  } catch (e) {
+    debugPrint('⚠️ FMTC başlatma hatası (normal network kullanılacak): $e');
+  }
 
   // Splash screen sırasında tam ekran moduna geç
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -243,7 +263,8 @@ void _initializeServicesInBackground() async {
     // Background service GEÇİCİ OLARAK DEVRE DIŞI
     // Yeterli kullanıcı sayısına ulaşıldığında aktif edilecek
     print(
-        '⚪️ Background service geçici olarak devre dışı (özellik geliştiriliyor)');
+      '⚪️ Background service geçici olarak devre dışı (özellik geliştiriliyor)',
+    );
 
     // Eğer eski kullanıcılarda çalışan bir servis varsa durdur
     final isRunning = await FlutterForegroundTask.isRunningService;
@@ -281,8 +302,10 @@ Future<void> _initializeFCMToken() async {
         final locationUpdateService = LocationUpdateService();
         final userId = prefs.getString('user_id');
         if (userId != null) {
-          final success =
-              await locationUpdateService.sendDeviceToken(token, 'android');
+          final success = await locationUpdateService.sendDeviceToken(
+            token,
+            'android',
+          );
           if (success) {
             print('✅ FCM Token sunucuya kaydedildi');
           } else {
@@ -309,8 +332,10 @@ Future<void> _initializeFCMToken() async {
         final locationUpdateService = LocationUpdateService();
         final userId = prefs.getString('user_id');
         if (userId != null) {
-          final success =
-              await locationUpdateService.sendDeviceToken(newToken, 'android');
+          final success = await locationUpdateService.sendDeviceToken(
+            newToken,
+            'android',
+          );
           if (success) {
             print('✅ Yeni token sunucuya gönderildi');
           } else {
@@ -383,8 +408,9 @@ class _DepremAppState extends State<DepremApp> {
     final languageSelected = prefs.getBool('language_selected') ?? false;
     String languageCode = prefs.getString('app_locale') ?? 'tr';
 
-    // Türkçe dışındaki tüm dillerde İngilizce kullan
-    if (languageCode != 'tr') {
+    // Desteklenen diller: tr, en, es, hi, fil, my
+    const supportedCodes = ['tr', 'en', 'es', 'hi', 'fil', 'my'];
+    if (!supportedCodes.contains(languageCode)) {
       languageCode = 'en';
     }
 
@@ -399,12 +425,17 @@ class _DepremAppState extends State<DepremApp> {
       _isFirstLaunch = !languageSelected;
       isLoading = false;
     });
+    LocaleProvider.cached = languageCode;
   }
 
   void _setLocale(Locale locale) {
+    const supportedCodes = ['tr', 'en', 'es', 'hi', 'fil', 'my'];
+    final code = supportedCodes.contains(locale.languageCode)
+        ? locale.languageCode
+        : 'en';
+    LocaleProvider.cached = code;
     setState(() {
-      _locale =
-          locale.languageCode == 'tr' ? const Locale('tr') : const Locale('en');
+      _locale = Locale(code);
     });
   }
 
@@ -423,10 +454,12 @@ class _DepremAppState extends State<DepremApp> {
     // 1. Deprem parametresi varsa, p2p_circle parametresine göre ekranı aç
     if (widget.earthquakeParams != null) {
       final params = widget.earthquakeParams!;
-      final epicenterLat =
-          double.tryParse(params['epicenter_lat']?.toString() ?? '');
-      final epicenterLon =
-          double.tryParse(params['epicenter_lon']?.toString() ?? '');
+      final epicenterLat = double.tryParse(
+        params['epicenter_lat']?.toString() ?? '',
+      );
+      final epicenterLon = double.tryParse(
+        params['epicenter_lon']?.toString() ?? '',
+      );
       final depth = double.tryParse(params['depth']?.toString() ?? '');
       final magnitude =
           double.tryParse(params['magnitude']?.toString() ?? '') ?? 0.0;
@@ -466,8 +499,12 @@ class _DepremAppState extends State<DepremApp> {
         debugShowCheckedModeBanner: false,
         locale: _locale,
         supportedLocales: const [
-          Locale('tr'),
           Locale('en'),
+          Locale('es'),
+          Locale('tr'),
+          Locale('hi'),
+          Locale('fil'),
+          Locale('my'),
         ],
         localizationsDelegates: const [
           AppLocalizations.delegate,
@@ -476,9 +513,7 @@ class _DepremAppState extends State<DepremApp> {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: ThemeData(
-          colorScheme: ColorScheme.light(
-            primary: const Color(0xFFFF3A3D),
-          ),
+          colorScheme: ColorScheme.light(primary: const Color(0xFFFF3A3D)),
           useMaterial3: true,
         ),
         home: LanguageSelectionScreen(
@@ -499,8 +534,12 @@ class _DepremAppState extends State<DepremApp> {
       debugShowCheckedModeBanner: false,
       locale: _locale,
       supportedLocales: const [
-        Locale('tr'),
         Locale('en'),
+        Locale('es'),
+        Locale('tr'),
+        Locale('hi'),
+        Locale('fil'),
+        Locale('my'),
       ],
       localizationsDelegates: const [
         AppLocalizations.delegate,

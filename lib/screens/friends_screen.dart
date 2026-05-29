@@ -76,10 +76,11 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _sendFriendRequest() async {
+    final l10n = AppLocalizations.of(context);
     if (_shareCodeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lütfen arkadaş kodunu girin'),
+        SnackBar(
+          content: Text(l10n.get('please_enter_friend_code')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -98,8 +99,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Arkadaş isteği gönderildi!'),
+          SnackBar(
+            content: Text(l10n.get('friend_request_sent')),
             backgroundColor: Colors.green,
           ),
         );
@@ -108,9 +109,10 @@ class _FriendsScreenState extends State<FriendsScreen>
       }
     } catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $error'),
+            content: Text('${l10n.get('error')}: $error'),
             backgroundColor: Colors.red,
           ),
         );
@@ -131,20 +133,22 @@ class _FriendsScreenState extends State<FriendsScreen>
 
       if (success && mounted) {
         await _loadData(); // Verileri yenile
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(accept
-                ? 'Arkadaş isteği kabul edildi!'
-                : 'Arkadaş isteği reddedildi'),
+                ? l10n.get('friend_request_accepted')
+                : l10n.get('friend_request_rejected')),
             backgroundColor: accept ? Colors.green : Colors.orange,
           ),
         );
       }
     } catch (error) {
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Hata: $error'),
+            content: Text('${l10n.get('error')}: $error'),
             backgroundColor: Colors.red,
           ),
         );
@@ -154,12 +158,13 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          'Arkadaşlarım',
-          style: TextStyle(
+        title: Text(
+          l10n.get('my_friends'),
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
           ),
@@ -174,15 +179,17 @@ class _FriendsScreenState extends State<FriendsScreen>
           tabs: [
             Tab(
               icon: Icon(Icons.people),
-              text: 'Arkadaşlar (${_friendsService.friendCount})',
+              text:
+                  '${l10n.get('friends_tab')} (${_friendsService.friendCount})',
             ),
             Tab(
               icon: Icon(Icons.person_add),
-              text: 'İstekler (${_friendsService.pendingRequestCount})',
+              text:
+                  '${l10n.get('requests_tab')} (${_friendsService.pendingRequestCount})',
             ),
             Tab(
               icon: Icon(Icons.add),
-              text: 'Ekle',
+              text: l10n.get('add_tab'),
             ),
           ],
         ),
@@ -211,6 +218,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
     if (friends.isEmpty) {
       print('⚠️ Arkadaş listesi boş - boş ekran gösteriliyor');
+      final l10n = AppLocalizations.of(context);
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -222,7 +230,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'Henüz arkadaşınız yok',
+              l10n.get('no_friends_yet'),
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey.shade600,
@@ -231,7 +239,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
             const SizedBox(height: 10),
             Text(
-              'Arkadaş eklemek için "Ekle" sekmesini kullanın',
+              l10n.get('use_add_tab_to_add_friends'),
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey.shade500,
@@ -270,12 +278,17 @@ class _FriendsScreenState extends State<FriendsScreen>
                   ),
                 ),
               ),
-              title: Text(
-                friend['name'] ?? 'Bilinmeyen',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
+              title: Builder(
+                builder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return Text(
+                    friend['name'] ?? l10n.get('unknown'),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  );
+                },
               ),
               subtitle: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,12 +304,18 @@ class _FriendsScreenState extends State<FriendsScreen>
                         ),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Text(
-                            location['address'] ?? 'Konum bilinmiyor',
-                            style: TextStyle(
-                              color: Colors.grey.shade700,
-                              fontSize: 13,
-                            ),
+                          child: Builder(
+                            builder: (context) {
+                              final l10n = AppLocalizations.of(context);
+                              return Text(
+                                location['address'] ??
+                                    l10n.get('location_unknown'),
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 13,
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -338,30 +357,34 @@ class _FriendsScreenState extends State<FriendsScreen>
                     _showLocationDialog(friend);
                   }
                 },
-                itemBuilder: (context) => [
-                  if (location != null)
-                    const PopupMenuItem(
-                      value: 'location',
+                itemBuilder: (context) {
+                  final l10n = AppLocalizations.of(context);
+                  return [
+                    if (location != null)
+                      PopupMenuItem(
+                        value: 'location',
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on, size: 18),
+                            SizedBox(width: 8),
+                            Text(l10n.get('show_location')),
+                          ],
+                        ),
+                      ),
+                    PopupMenuItem(
+                      value: 'remove',
                       child: Row(
                         children: [
-                          Icon(Icons.location_on, size: 18),
+                          Icon(Icons.remove_circle,
+                              size: 18, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Konumu Göster'),
+                          Text(l10n.get('remove_friendship'),
+                              style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
-                  const PopupMenuItem(
-                    value: 'remove',
-                    child: Row(
-                      children: [
-                        Icon(Icons.remove_circle, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Arkadaşlıktan Çıkar',
-                            style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
-                  ),
-                ],
+                  ];
+                },
               ),
             ),
           );
@@ -374,6 +397,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     final requests = _friendsService.pendingRequests;
 
     if (requests.isEmpty) {
+      final l10n = AppLocalizations.of(context);
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -385,7 +409,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
             const SizedBox(height: 20),
             Text(
-              'Bekleyen istek yok',
+              l10n.get('no_pending_requests'),
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey.shade600,
@@ -429,24 +453,29 @@ class _FriendsScreenState extends State<FriendsScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            fromUser['name'] ?? 'Bilinmeyen',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                            ),
-                          ),
-                          Text(
-                            fromUser['email'] ?? '',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                      child: Builder(
+                        builder: (context) {
+                          final l10n = AppLocalizations.of(context);
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                fromUser['name'] ?? l10n.get('unknown'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              Text(
+                                fromUser['email'] ?? '',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -473,30 +502,36 @@ class _FriendsScreenState extends State<FriendsScreen>
                 Row(
                   children: [
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () =>
-                            _respondToFriendRequest(request['id'], false),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.grey.shade200,
-                          foregroundColor: Colors.grey.shade700,
-                          elevation: 0,
-                        ),
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Reddet'),
-                      ),
+                      child: Builder(builder: (context) {
+                        final l10n = AppLocalizations.of(context);
+                        return ElevatedButton.icon(
+                          onPressed: () =>
+                              _respondToFriendRequest(request['id'], false),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey.shade200,
+                            foregroundColor: Colors.grey.shade700,
+                            elevation: 0,
+                          ),
+                          icon: const Icon(Icons.close, size: 18),
+                          label: Text(l10n.get('reject')),
+                        );
+                      }),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () =>
-                            _respondToFriendRequest(request['id'], true),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                        ),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Kabul Et'),
-                      ),
+                      child: Builder(builder: (context) {
+                        final l10n = AppLocalizations.of(context);
+                        return ElevatedButton.icon(
+                          onPressed: () =>
+                              _respondToFriendRequest(request['id'], true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: Text(l10n.get('accept')),
+                        );
+                      }),
                     ),
                   ],
                 ),
@@ -530,12 +565,17 @@ class _FriendsScreenState extends State<FriendsScreen>
                     color: Colors.red.shade700,
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'Benim Arkadaş Kodum',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return Text(
+                        l10n.get('my_friend_code'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   Container(
@@ -560,11 +600,12 @@ class _FriendsScreenState extends State<FriendsScreen>
                         const SizedBox(width: 12),
                         GestureDetector(
                           onTap: () {
+                            final l10n = AppLocalizations.of(context);
                             Clipboard.setData(
                                 ClipboardData(text: _myShareCode));
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Kod kopyalandı!'),
+                              SnackBar(
+                                content: Text(l10n.get('code_copied')),
                                 duration: Duration(seconds: 2),
                               ),
                             );
@@ -579,12 +620,17 @@ class _FriendsScreenState extends State<FriendsScreen>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    'Bu kodu arkadaşlarınızla paylaşın',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 13,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return Text(
+                        l10n.get('share_code_with_friends'),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -604,62 +650,83 @@ class _FriendsScreenState extends State<FriendsScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Arkadaş Ekle',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return Text(
+                        l10n.get('add_friend'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _shareCodeController,
-                    decoration: InputDecoration(
-                      labelText: 'Arkadaş Kodu',
-                      hintText: 'Örnek: ABC123',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      prefixIcon: const Icon(Icons.person_add),
-                    ),
-                    textCapitalization: TextCapitalization.characters,
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return TextField(
+                        controller: _shareCodeController,
+                        decoration: InputDecoration(
+                          labelText: l10n.get('friend_code'),
+                          hintText: l10n.get('friend_code_example'),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          prefixIcon: const Icon(Icons.person_add),
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      labelText: 'Mesaj (İsteğe bağlı)',
-                      hintText: 'Merhaba, arkadaş olmak ister misin?',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      prefixIcon: const Icon(Icons.message),
-                    ),
-                    maxLines: 3,
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return TextField(
+                        controller: _messageController,
+                        decoration: InputDecoration(
+                          labelText: l10n.get('message_optional'),
+                          hintText: l10n.get('friend_request_message_hint'),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          prefixIcon: const Icon(Icons.message),
+                        ),
+                        maxLines: 3,
+                      );
+                    },
                   ),
                   const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _isLoading ? null : _sendFriendRequest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    icon: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.send),
-                    label:
-                        Text(_isLoading ? 'Gönderiliyor...' : 'İstek Gönder'),
+                  Builder(
+                    builder: (context) {
+                      final l10n = AppLocalizations.of(context);
+                      return ElevatedButton.icon(
+                        onPressed: _isLoading ? null : _sendFriendRequest,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        icon: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send),
+                        label: Text(_isLoading
+                            ? l10n.get('sending')
+                            : l10n.get('send_request')),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -671,16 +738,17 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _showRemoveFriendDialog(Map<String, dynamic> friend) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Arkadaşlıktan Çıkar'),
-        content: Text(
-            '${friend['name']} adlı kişiyi arkadaş listenizden çıkarmak istediğinize emin misiniz?'),
+        title: Text(l10n.get('remove_from_friends')),
+        content:
+            Text('${friend['name']} - ${l10n.get('remove_from_friends')}?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Vazgeç'),
+            child: Text(l10n.get('cancel')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -689,15 +757,16 @@ class _FriendsScreenState extends State<FriendsScreen>
               await _loadData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Arkadaş listesinden çıkarıldı'),
+                  SnackBar(
+                    content: Text(l10n.get('friend_removed')),
                     backgroundColor: Colors.orange,
                   ),
                 );
               }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Çıkar', style: TextStyle(color: Colors.white)),
+            child:
+                Text(l10n.get('remove'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -705,11 +774,12 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _showLocationDialog(Map<String, dynamic> friend) {
+    final l10n = AppLocalizations.of(context);
     final location = friend['location'];
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('${friend['name']} - Konum'),
+        title: Text('${friend['name']} - ${l10n.get('location')}'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,7 +790,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    location['address'] ?? 'Adres bilinmiyor',
+                    location['address'] ?? l10n.get('unknown'),
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -732,12 +802,12 @@ class _FriendsScreenState extends State<FriendsScreen>
                 const Icon(Icons.access_time, color: Colors.blue),
                 const SizedBox(width: 8),
                 Text(
-                    'Son güncelleme: ${_friendsService.formatLastUpdate(friend['lastSeen'])}'),
+                    '${l10n.get('last_update')}: ${_friendsService.formatLastUpdate(friend['lastSeen'])}'),
               ],
             ),
             const SizedBox(height: 12),
             Text(
-              'Koordinatlar: ${location['latitude']?.toStringAsFixed(4)}, ${location['longitude']?.toStringAsFixed(4)}',
+              '${l10n.get('coordinates')}: ${location['latitude']?.toStringAsFixed(4)}, ${location['longitude']?.toStringAsFixed(4)}',
               style: TextStyle(
                 color: Colors.grey.shade600,
                 fontSize: 12,
@@ -748,19 +818,19 @@ class _FriendsScreenState extends State<FriendsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Kapat'),
+            child: Text(l10n.get('close')),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               // Burada harita açılabilir
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Harita özelliği yakında eklenecek'),
+                SnackBar(
+                  content: Text(l10n.get('map_feature_coming_soon')),
                 ),
               );
             },
-            child: const Text('Haritada Göster'),
+            child: Text(l10n.get('show_on_map')),
           ),
         ],
       ),

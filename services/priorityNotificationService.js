@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const geolib = require('geolib');
+const { getT } = require('./notificationI18n');
 
 class PriorityNotificationService {
   constructor(notificationService) {
@@ -199,14 +200,18 @@ class PriorityNotificationService {
           const regionStr = typeof earthquake.location === 'string'
             ? earthquake.location
             : (earthquake.location?.name || 'Bilinmeyen');
+
+          const lang = user.settings?.language || 'tr';
+          const t = getT(lang);
+
           const notificationData = {
             type: 'earthquake_alert',
             title: isP2P
-              ? `🟢 P2P Deprem Algılandı!`
-              : `🚨 DEPREM UYARISI - ${distanceText} uzaklıkta`,
+              ? t.p2pDetected
+              : t.earthquakeWarning(distanceText),
             body: isP2P
-              ? `P2P algılama ile deprem tespit edildi! Bölge: ${regionStr}\nBüyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw\nMesafe: ${distanceText}`
-              : `Büyüklük: ${parseFloat(earthquake.magnitude).toFixed(1)}mw ${regionStr}\n- Derinlik: ${parseFloat(earthquake.depth).toFixed(1)}km\n- Mesafe: ${distanceText}`,
+              ? t.p2pBody(regionStr, parseFloat(earthquake.magnitude).toFixed(1), distanceText)
+              : t.earthquakeBody(parseFloat(earthquake.magnitude).toFixed(1), regionStr, parseFloat(earthquake.depth).toFixed(1), distanceText),
             magnitude: String(parseFloat(earthquake.magnitude).toFixed(1)),
             location: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,
             location_str: `${parseFloat(earthquake.lat)},${parseFloat(earthquake.lon)}`,

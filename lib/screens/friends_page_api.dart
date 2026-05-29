@@ -40,6 +40,7 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
+    final l10nForInit = AppLocalizations.of(context);
 
     try {
       // Kullanıcı bilgilerini yükle
@@ -48,7 +49,8 @@ class _FriendsPageAPIState extends State<FriendsPageAPI>
       // Profile bilgilerini al
       final profile = await _friendsService.getOrCreateProfile(
         email: _authService.currentUserEmail ?? '',
-        displayName: _authService.currentUserName ?? 'Kullanıcı',
+        displayName:
+            _authService.currentUserName ?? l10nForInit?.get('user') ?? 'User',
         photoURL: _authService.currentUserPhotoUrl,
       );
 

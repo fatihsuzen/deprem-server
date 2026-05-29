@@ -205,8 +205,9 @@ class _ChatScreenState extends State<ChatScreen> {
         _messageController.text = message;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Mesaj gönderilemedi. Tekrar deneyin.'),
+            SnackBar(
+              content: Text(
+                  AppLocalizations.of(context)!.get('message_send_failed')),
               backgroundColor: Colors.red,
             ),
           );
@@ -248,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                   Text(
-                    '${_activeUsers.length} aktif kullanıcı',
+                    '${_activeUsers.length} ${AppLocalizations.of(context)!.get('active_users_count')}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Theme.of(context)
@@ -268,18 +269,20 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             onPressed: _toggleFavorite,
             icon: Icon(_isFavorite ? Icons.star : Icons.star_border),
-            tooltip: _isFavorite ? 'Favorilerden çıkar' : 'Favorilere ekle',
+            tooltip: _isFavorite
+                ? AppLocalizations.of(context)!.get('remove_from_favorites')
+                : AppLocalizations.of(context)!.get('add_to_favorites'),
             color: _isFavorite ? Colors.amber : Colors.white,
           ),
           IconButton(
             onPressed: _showActiveUsers,
             icon: const Icon(Icons.people),
-            tooltip: 'Aktif Kullanıcılar',
+            tooltip: AppLocalizations.of(context)!.get('active_users'),
           ),
           IconButton(
             onPressed: _refreshMessages,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Yenile',
+            tooltip: AppLocalizations.of(context)!.get('refresh'),
           ),
         ],
       ),
@@ -441,6 +444,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageInput() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -458,7 +462,7 @@ class _ChatScreenState extends State<ChatScreen> {
               child: TextField(
                 controller: _messageController,
                 decoration: InputDecoration(
-                  hintText: 'Mesajınızı yazın...',
+                  hintText: l10n?.get('type_message') ?? 'Mesajınızı yazın...',
                   hintStyle: TextStyle(
                     color: Theme.of(context)
                         .colorScheme

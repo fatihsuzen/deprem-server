@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { getT } = require('./notificationI18n');
 // APNs setup (node-apn)
 let apnProvider = null;
 try {
@@ -326,17 +327,8 @@ class NotificationService {
     return 'low';
   }
 
-  generateWarningMessage(magnitude) {
-    if (magnitude >= 7.0) {
-      return 'ÇOK ŞİDDETLİ DEPREM! Hemen güvenli alana geçin!';
-    } else if (magnitude >= 6.0) {
-      return 'ŞİDDETLİ DEPREM! Güvenli alana geçin!';
-    } else if (magnitude >= 5.0) {
-      return 'ORTA ŞİDDETTE DEPREM! Dikkatli olun!';
-    } else if (magnitude >= 4.0) {
-      return 'HAFIF DEPREM tespit edildi.';
-    }
-    return 'Sismik aktivite tespit edildi.';
+  generateWarningMessage(magnitude, lang = 'tr') {
+    return getT(lang).warningByMagnitude(parseFloat(magnitude));
   }
 
   getEmergencyInstructions(magnitude) {
